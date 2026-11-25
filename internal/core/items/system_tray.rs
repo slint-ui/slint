@@ -242,7 +242,10 @@ impl SystemTrayIcon {
 impl Item for SystemTrayIcon {
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
         let data = &*self.data;
+        let context = self_rc.slint_context();
+        let queue = context.change_handler_queue();
         data.change_tracker.init_delayed(
+            queue,
             self_rc.downgrade(),
             |_| true,
             |self_weak, has_icon| {
@@ -282,6 +285,7 @@ impl Item for SystemTrayIcon {
         );
 
         data.visible_tracker.init_delayed(
+            queue,
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return false };
@@ -306,6 +310,7 @@ impl Item for SystemTrayIcon {
         // path reads them at fire time), so these trackers are no-ops until
         // the user mutates the property after the tray is up.
         data.icon_tracker.init_delayed(
+            queue,
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return Image::default() };
@@ -324,6 +329,7 @@ impl Item for SystemTrayIcon {
         );
 
         data.tooltip_tracker.init_delayed(
+            queue,
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return SharedString::default() };
@@ -342,6 +348,7 @@ impl Item for SystemTrayIcon {
         );
 
         data.title_tracker.init_delayed(
+            queue,
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return SharedString::default() };

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore rrect skpath
+// cSpell: ignore COLR rrect skpath
 
 use std::pin::Pin;
 
@@ -32,12 +32,17 @@ struct RenderState {
     transform: i_slint_core::lengths::ItemTransform,
 }
 
+struct SavedState {
+    state: RenderState,
+    canvas_save_count: usize,
+}
+
 pub struct SkiaItemRenderer<'a> {
     pub canvas: &'a skia_safe::Canvas,
     pub scale_factor: ScaleFactor,
     pub window: &'a i_slint_core::api::Window,
     surface: Option<&'a dyn crate::Surface>,
-    state_stack: Vec<RenderState>,
+    state_stack: Vec<SavedState>,
     current_state: RenderState,
     image_cache: &'a ItemCache<Option<skia_safe::Image>>,
     layer_cache: &'a ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
@@ -284,6 +289,16 @@ impl<'a> SkiaItemRenderer<'a> {
         width: PhysicalLength,
         height: PhysicalLength,
     ) -> Option<skia_safe::Paint> {
+        // Skia ignores the shader for color glyphs and takes their opacity,
+        // and the color of their 0xFFFF COLR layers, from the paint.
+        if let Brush::SolidColor(color) = &brush {
+            if color.alpha() == 0 {
+                return None;
+            }
+            let mut paint = crate::solid_paint(color);
+            paint.set_alpha_f(paint.alpha_f() * self.current_state.alpha);
+            return Some(paint);
+        }
         let (mut paint, shader) = Self::brush_to_shader(
             self.default_paint().unwrap_or_default(),
             brush,
@@ -1007,13 +1022,15 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
     }
 
     fn save_state(&mut self) {
-        self.canvas.save();
-        self.state_stack.push(self.current_state);
+        let canvas_save_count = self.canvas.save();
+        self.state_stack.push(SavedState { state: self.current_state, canvas_save_count });
     }
 
     fn restore_state(&mut self) {
-        self.current_state = self.state_stack.pop().unwrap();
-        self.canvas.restore();
+        let saved = self.state_stack.pop().unwrap();
+        debug_assert!(self.canvas.save_count() > saved.canvas_save_count);
+        self.current_state = saved.state;
+        self.canvas.restore_to_count(saved.canvas_save_count);
     }
 
     fn scale_factor(&self) -> ScaleFactor {
@@ -1108,26 +1125,13 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 paint.set_alpha_f(opacity);
                 paint
             };
+            // `restore_state` closes the layer after the children.
             self.canvas.save_layer(&layer.paint(&paint));
-            self.state_stack.push(self.current_state);
             self.current_state.alpha = 1.0;
-
-            let window_adapter = WindowInner::from_pub(self.window).window_adapter();
-
-            i_slint_core::item_rendering::render_item_children(
-                self,
-                item_rc.item_tree(),
-                item_rc.index() as isize,
-                &window_adapter,
-            );
-
-            self.current_state = self.state_stack.pop().unwrap();
-            self.canvas.restore();
-            RenderingResult::ContinueRenderingWithoutChildren
         } else {
             self.apply_opacity(opacity);
-            RenderingResult::ContinueRenderingChildren
         }
+        RenderingResult::ContinueRenderingChildren
     }
 
     fn visit_layer(
@@ -1218,13 +1222,11 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         &mut self,
         color: &i_slint_core::Color,
     ) -> Option<Self::PlatformBrush> {
-        if color.alpha() == 0 {
-            None
-        } else {
-            let mut paint = self.default_paint().unwrap_or_default();
-            paint.set_shader(crate::color_shader(color));
-            Some(paint)
-        }
+        self.brush_to_paint(
+            Brush::SolidColor(*color),
+            PhysicalLength::new(0.),
+            PhysicalLength::new(0.),
+        )
     }
 
     fn platform_text_stroke_brush(
@@ -1269,6 +1271,7 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
+        _baseline: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
         let Some(type_face) = crate::font_cache::FONT_CACHE

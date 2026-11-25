@@ -26,6 +26,8 @@
     color: var(--text);
     font: 13px/1.4 system-ui, sans-serif;
   }
+  #preview-content { display: flow-root; }
+  html:has(canvas.fitted:not([hidden])) { overflow-y: clip; }
   [hidden] { display: none !important; }
   #stage { overflow: hidden; }
   body[data-display-mode="fullscreen"] #stage {
@@ -55,6 +57,7 @@
     z-index: 2;
     display: flex;
     gap: 6px;
+    width: max-content;
     height: 28px;
     box-sizing: border-box;
     padding: 2px;
@@ -150,6 +153,8 @@
 </style>
 </head>
 <body>
+<div id="root">
+<div id="preview-content">
 <div id="status">Waiting for Slint source…</div>
 <section id="crash" hidden role="alert">
   <strong class="error">The preview crashed</strong>
@@ -165,6 +170,8 @@
   </div>
 </div></div>
 <ul id="diagnostics"></ul>
+</div>
+</div>
 <div id="preview-tools" role="toolbar" aria-label="Preview tools" hidden>
   <button id="annotate" type="button" aria-pressed="false" hidden>__ICON_message-square-plus__Annotate</button>
   <div id="preview-theme" role="group" aria-label="Appearance">
@@ -182,6 +189,8 @@
   const CHANNEL = "__CHANNEL__";
   const LEVELS = ["error", "warning", "note"];
 
+  const root = document.getElementById("root");
+  const content = document.getElementById("preview-content");
   const statusEl = document.getElementById("status");
   let canvas = document.getElementById("preview");
   const pristineCanvas = canvas.cloneNode();
@@ -377,7 +386,7 @@
   const nativeMatchMedia = window.matchMedia.bind(window);
   let hostIsDark = nativeMatchMedia(DARK_QUERY).matches;
   const darkQueryLists = [];
-  // A design wider than the view renders at a reduced scale factor, so it stays crisp, rather than the
+  // A design larger than the view renders at a reduced scale factor, so it stays crisp, rather than the
   // browser shrinking the drawn canvas. winit takes the scale factor from devicePixelRatio, watches it
   // through a "(resolution: …dppx)" query, and reads pointer offsets as logical pixels.
   const nativeDevicePixelRatio =
@@ -437,28 +446,41 @@
     for (const list of darkQueryLists) list.dispatchEvent(new Event("change"));
   }
 
+  // The component's preferred size in logical pixels, measured at scale 1.
+  let designSize = null;
   let lastSize = "";
-  new ResizeObserver(() => {
-    // The document's scroll size never drops below the frame's current size, so it can't shrink.
-    const width = Math.ceil(document.body.scrollWidth);
-    const height = Math.ceil(document.body.getBoundingClientRect().height);
+
+  function resizePreview() {
+    // The hidden canvas still takes up space while Slint measures it.
+    if (canvas.style.visibility === "hidden") return;
+    const toolbarBounds = toolbar.getBoundingClientRect();
+    // Reporting the width beside a scrollbar makes the host narrow the iframe.
+    const width = Math.ceil(Math.max(window.innerWidth, toolbarBounds.right + toolbarBounds.left));
+    const toolbarInset = toolbar.hidden ? 0 : parseFloat(getComputedStyle(toolbar).bottom);
+    const toolbarSpace = toolbarBounds.height + 2 * toolbarInset;
+    let preferredHeight = content.getBoundingClientRect().height + toolbarSpace;
+    if (designSize && !canvas.hidden) {
+      const stageBounds = stage.getBoundingClientRect();
+      const widthScale = Math.min(1, Math.max(1, stage.clientWidth) / designSize.width);
+      preferredHeight += designSize.height * widthScale - stageBounds.height;
+      const availableHeight = Math.max(1, window.innerHeight - stageBounds.top - toolbarSpace);
+      const scale = Math.min(widthScale, availableHeight / designSize.height);
+      canvas.style.setProperty("--fit-width", `${designSize.width * scale}px`);
+      canvas.style.setProperty("--fit-height", `${designSize.height * scale}px`);
+      setFitScale(scale);
+    }
+    const height = Math.ceil(preferredHeight);
+    // Codex also measures the root directly. Both paths need the height before viewport fitting.
+    root.style.minHeight = `${height}px`;
     const size = `${width}x${height}`;
     if (size === lastSize) return;
     lastSize = size;
     notify("ui/notifications/size-changed", { width, height });
-  }).observe(document.body);
-
-  // The component's preferred size in logical pixels, measured at scale 1.
-  let designSize = null;
-
-  function fitCanvas() {
-    if (canvas.hidden || !designSize) return;
-    const scale = Math.min(1, stage.clientWidth / designSize.width);
-    canvas.style.setProperty("--fit-width", `${designSize.width * scale}px`);
-    canvas.style.setProperty("--fit-height", `${designSize.height * scale}px`);
-    setFitScale(scale);
   }
-  new ResizeObserver(fitCanvas).observe(stage);
+  const sizeObserver = new ResizeObserver(resizePreview);
+  sizeObserver.observe(content, { box: "border-box" });
+  sizeObserver.observe(toolbar, { box: "border-box" });
+  window.addEventListener("resize", resizePreview);
 
   // Slint sizes the canvas to the component's preferred size only while auto-resizing at scale 1.
   function startMeasuring() {
@@ -474,8 +496,6 @@
     designSize = { width: canvas.offsetWidth, height: canvas.offsetHeight };
     canvas.dataset.slintAutoResizeToPreferred = "false";
     canvas.classList.add("fitted");
-    fitCanvas();
-    canvas.style.visibility = "";
   }
 
   function showStatus(text, className = "") {
@@ -709,6 +729,8 @@
     showStatus(imageFailure ?? "", imageFailure ? "error" : "");
     renderedInput = { source, path, projectRoot, style };
     toolbar.hidden = false;
+    canvas.style.visibility = "";
+    resizePreview();
   }
 
   function resultPreviewId(result) {

@@ -2,6 +2,38 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.19.1] - 2026-11-24
+
+ - AI plugins: Codex shows an interactive preview of your Slint UI inline, which you can open fullscreen.
+   In Codex, Claude Code, and GitHub Copilot in VS Code, the agent compiles and renders your Slint code,
+   so it can fix errors and review a screenshot.
+ - Fixed two-way bindings to model fields whose names contain `_`. (#15031)
+ - `TextInput`, `TextEdit`: A multi-line input no longer selects all its text when focused with Tab.
+ - `ListView`: Fixed an empty view after setting `content-y` past the end of its rows.
+ - `ListView`: Fixed "long callback/instantiation chain detected" while scrolling over rows of different heights,
+   or during a smooth `ensure-row-visible()`. (#15105)
+ - `SystemTrayIcon`: An icon with `visible: false` is no longer shown at startup.
+ - `Spinner`: The indeterminate animation no longer runs backwards. (#9261)
+ - Fixed an unnecessary redraw when setting an image property to the same wgpu texture image again. (#15033)
+ - Software renderer: Fixed a panic with a rounded `Clip` far out of view or taller than 32767 physical pixels.
+ - FemtoVG: Fixed parts of aligned text being drawn one pixel off. (#15000)
+ - Fixed SVG images with `image-fit: cover` showing the wrong area with FemtoVG,
+   and looking blocky with the software renderer.
+ - Qt: Fixed input methods replacing the wrong text around the cursor.
+ - Windows: The `SystemTrayIcon` is added again after Explorer restarts. (#14839)
+ - winit: Fixed a panic and a wrong window size when the display scale changed after `Window::set_size()`
+   with a physical size. (#15092)
+ - macOS: Fixed a crash when creating a `SystemTrayIcon` without a window, such as with the testing backend.
+ - Android: Fixed a panic when turning a mouse wheel.
+ - Rust: Fixed building the Skia renderer with `unstable-wgpu-29` as the only wgpu version.
+ - Rust: The `slint` crate includes the Slint agent skill, for tools that load skills from dependencies.
+ - C++: Fixed some `-Wpedantic` and `-Wextra-semi` warnings in Slint's headers.
+ - C++: Fixed a crash on bare-metal Arm targets, where some enums had a different size in Rust and in C++.
+ - Node.js: Fixed `show()` and `hide()` throwing on components inheriting `SystemTrayIcon`.
+ - Python: Added `Window.take_snapshot()`.
+ - Fixed a compiler panic when a component binds an inferred property of a base component from a file with errors.
+ - LSP: Fixed a crash when the editor quits while the server is still sending a message.
+
 ## [1.19.0] - 2026-11-16
 
 ### General
@@ -3207,3 +3239,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.18.0]: https://github.com/slint-ui/slint/releases/tag/v1.18.0
 [1.18.1]: https://github.com/slint-ui/slint/releases/tag/v1.18.1
 [1.19.0]: https://github.com/slint-ui/slint/releases/tag/v1.19.0
+[1.19.1]: https://github.com/slint-ui/slint/releases/tag/v1.19.1

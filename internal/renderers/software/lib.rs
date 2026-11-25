@@ -2401,7 +2401,7 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
         enum Pixels {
             Static(&'static [u8]),
             #[cfg(feature = "owned-pre-rendered-resources")]
-            Owned(Rc<StaticTextures<OwnedStorage>>),
+            Owned(alloc::sync::Arc<StaticTextures<OwnedStorage>>),
         }
         let mut draw_textures = |pixels: Pixels,
                                  textures: &[StaticTexture],
@@ -2592,8 +2592,6 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
                         RasterCommand::TargetTexture { texture: t, clip: clipped_target.cast() },
                         &self.rounded_clips,
                     );
-                } else {
-                    unimplemented!("The image cannot be rendered")
                 }
             }
         };
@@ -3677,6 +3675,7 @@ impl<T: RasterCommandSink> sharedparley::GlyphRenderer for SoftwareItemRenderer<
         synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
+        _baseline: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
         let slint_context = self.window.context();

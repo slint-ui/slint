@@ -146,6 +146,10 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         Message::PairingHello { .. } | Message::PairingResponse { .. } => {
             tracing::warn!("Ignoring a pairing message addressed to a local preview");
         }
+        Message::Debugger { message, .. } => {
+            debug_assert!(false, "The LSP sent its preview a debugger message: {message:?}");
+            tracing::warn!("Ignoring debugger message {message:?}");
+        }
     }
 }
 

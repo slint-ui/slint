@@ -17,7 +17,7 @@ impl Platform for HeadlessPlatform {
     fn create_window_adapter(
         &self,
     ) -> Result<Rc<dyn WindowAdapter>, i_slint_core::api::PlatformError> {
-        Ok(Rc::new_cyclic(|window| HeadlessWindow {
+        Ok(Rc::<HeadlessWindow>::new_cyclic(|window| HeadlessWindow {
             window: Window::new(window.clone()),
             renderer: VelloCpuRenderer::new_vello_cpu(),
             size: Cell::new(PhysicalSize::default()),

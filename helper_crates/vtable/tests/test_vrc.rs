@@ -314,3 +314,27 @@ fn ptr_eq() {
     assert!(!vtable::VWeak::ptr_eq(&vweak2, &vweak1));
     assert!(!vtable::VWeak::ptr_eq(&vweak2, &vweak1clone));
 }
+
+/// Smaller than a `Layout`, and with a lower alignment.
+struct SmallStruct {
+    x: u32,
+}
+impl Foo for SmallStruct {
+    fn rc_string(&self) -> Rc<String> {
+        Rc::new(self.x.to_string())
+    }
+}
+
+FooVTable_static!(static SMALL_STRUCT_TYPE for SmallStruct);
+
+#[test]
+fn rc_small_type() {
+    let rc = VRc::new(SmallStruct { x: 42 });
+    assert_eq!(*VRc::borrow(&rc).rc_string(), "42");
+    drop(rc);
+
+    let rc = VRc::into_dyn(VRc::new(SmallStruct { x: 43 }));
+    let weak = VRc::downgrade(&rc);
+    drop(rc);
+    assert!(weak.upgrade().is_none());
+}

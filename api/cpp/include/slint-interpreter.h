@@ -1022,6 +1022,16 @@ public:
         return s;
     }
 
+    /// Selects the [edition](slint:Editions) whose language behavior to use, as its major and
+    /// minor version, such as `set_edition(1, 19)`.
+    ///
+    /// This wins over the edition of the project file.
+    /// If the edition is older than 1.18 or newer than this version of Slint, compilation fails.
+    void set_edition(uint32_t major, uint32_t minor)
+    {
+        cbindgen_private::slint_interpreter_component_compiler_set_edition(&inner, major, minor);
+    }
+
     /// Sets the domain used for translations.
     void set_translation_domain(std::string_view domain)
     {
