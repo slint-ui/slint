@@ -3965,6 +3965,15 @@ fn visit_named_references_in_expression_dyn(
         }
         // This is not really a named reference, but the result is the same, it need to be updated
         // FIXME: this should probably be lowered into a PropertyReference
+        Expression::IndexedPropertyReference { repeater, property, .. } => {
+            vis(property);
+            if let Some(repeater) = repeater {
+                let mut reference =
+                    NamedReference::new(&repeater.upgrade().unwrap(), "$model".into());
+                vis(&mut reference);
+                *repeater = Rc::downgrade(&reference.element());
+            }
+        }
         Expression::RepeaterModelReference { element }
         | Expression::RepeaterIndexReference { element } => {
             // FIXME: this is questionable

@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Item {
+    in-out property <int> value;
+    private property <int> secret;
+}
+
+component Group {
+    default slot <[Item]> entries;
+    out property <int> first: entries[0].value;
+    out property <int> hidden: entries[0].secret;
+//                             >               <error{Collection slot 'entries' does not expose a readable property 'secret'}
+    out property <int> missing: entries[0].missing;
+//                              >                <error{Collection slot 'entries' does not expose a readable property 'missing'}
+    public function write() {
+        entries[0].value = 12;
+//      >                   <error{Indexed collection properties are read-only; bind the property on the supplied component instead}
+    }
+    for entry in entries: entry { }
+}
+
+component Unconstrained {
+    default slot <[*]> entries;
+    out property <int> value: entries[0].value;
+//                            >              <error{Collection slot 'entries' does not expose a readable property 'value'}
+    for entry in entries: entry { }
+}
+
+export component Test inherits Window {
+    Group { Item { } }
+    Unconstrained { Item { } }
+}

@@ -22,6 +22,7 @@ struct Contract {
     slot: DeclaredSlot,
     length: NamedReference,
     projections: Vec<Projection>,
+    indexed_members: Vec<IndexedMember>,
 }
 
 impl Contract {
@@ -32,6 +33,11 @@ impl Contract {
 
 struct Projection {
     template: ElementRc,
+}
+
+struct IndexedMember {
+    name: SmolStr,
+    function: NamedReference,
 }
 
 fn is_member(element: &ElementRc, slot: &DeclaredSlot) -> bool {
@@ -103,11 +109,33 @@ pub(super) fn lower_slot_collections(
                 slot: slot.clone(),
                 length,
                 projections,
+                indexed_members: Vec::new(),
             });
         }
     });
     if contracts.is_empty() {
         return;
+    }
+    for contract in &mut contracts {
+        let names = contract
+            .metadata
+            .borrow()
+            .property_declarations
+            .keys()
+            .filter(|name| name.starts_with(slot_collections::INDEXED_MEMBER_PREFIX))
+            .cloned()
+            .collect::<Vec<_>>();
+        for name in names {
+            let function = slot_collections::prepare_indexed_member(
+                &contract.metadata,
+                &NamedReference::new(&contract.metadata, name.clone()),
+                symbols,
+            );
+            contract.indexed_members.push(IndexedMember {
+                name: name.strip_prefix(slot_collections::INDEXED_MEMBER_PREFIX).unwrap().into(),
+                function,
+            });
+        }
     }
     let mut groups = Vec::new();
     let mut seen = HashSet::new();
@@ -162,6 +190,16 @@ pub(super) fn lower_slot_collections(
             }
         });
         visit_all_named_references(component, &mut |reference| {
+            if let Some(contract) =
+                contracts.iter().find(|c| Rc::ptr_eq(&reference.element(), &c.metadata))
+                && reference.name().starts_with(slot_collections::INDEXED_MEMBER_PREFIX)
+            {
+                *reference = contract.metadata.borrow().property_declarations[reference.name()]
+                    .is_alias
+                    .clone()
+                    .unwrap();
+                return;
+            }
             if let Some(contract) = contracts.iter().find(|c| {
                 Rc::ptr_eq(&reference.element(), &c.metadata) && reference.name() == "length"
             }) {
@@ -217,7 +255,7 @@ pub(super) fn lower_slot_collections(
                 );
                 continue;
             }
-            if !contract.projections.is_empty()
+            if (!contract.projections.is_empty() || !contract.indexed_members.is_empty())
                 && let Some(child) = children.iter().find(|child| {
                     child
                         .borrow()
@@ -226,7 +264,11 @@ pub(super) fn lower_slot_collections(
                         .is_some_and(|repeated| repeated.is_listview.is_some())
                 })
             {
-                let operation = "Generating collection views";
+                let operation = if contract.projections.is_empty() {
+                    "Reading collection entries by index"
+                } else {
+                    "Generating collection views"
+                };
                 diag.push_error(
                     format!("{operation} from virtualized 'ListView' children is not supported; use model data for the views instead"),
                     &*child.borrow(),
@@ -286,6 +328,7 @@ pub(super) fn lower_slot_collections(
                     }
                 }
             }
+            connect_indexed_members(contract, &group, &children);
         }
     }
     let mut cleaned = HashSet::new();
@@ -342,6 +385,45 @@ fn set_length(group: &ElementRc, name: &SmolStr, length: Expression) {
         binding.merge_with(&existing);
     }
     group.borrow_mut().set_binding(name.clone(), binding);
+}
+
+fn connect_indexed_members(contract: &Contract, group: &ElementRc, children: &[ElementRc]) {
+    for member in &contract.indexed_members {
+        let Type::Function(signature) = member.function.ty() else { unreachable!() };
+        let index = Expression::FunctionParameterReference { index: 0, ty: Type::Int32 };
+        let mut result = Expression::default_value_for_type(&signature.return_type);
+        for (position, child) in children.iter().enumerate().rev() {
+            let name = child
+                .borrow()
+                .lookup_property(&member.name, PropertyLookupMode::ComponentLocal)
+                .internal_or_resolved_name();
+            let property = NamedReference::new(child, name);
+            if child.borrow().repeated.is_some() {
+                result = Expression::IndexedPropertyReference {
+                    repeater: Some(Rc::downgrade(child)),
+                    property,
+                    index: Box::new(index.clone()),
+                };
+            } else {
+                result = Expression::Condition {
+                    condition: Box::new(Expression::BinaryExpression {
+                        lhs: Box::new(index.clone()),
+                        rhs: Box::new(Expression::NumberLiteral(position as f64, Unit::None)),
+                        op: '=',
+                        source_location: None,
+                    }),
+                    true_expr: Box::new(Expression::IndexedPropertyReference {
+                        repeater: None,
+                        property,
+                        index: Box::new(index.clone()),
+                    }),
+                    false_expr: Box::new(result),
+                    source_location: None,
+                };
+            }
+        }
+        group.borrow_mut().set_binding(member.function.name().clone(), result.into());
+    }
 }
 
 fn project(
