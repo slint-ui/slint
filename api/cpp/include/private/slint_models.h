@@ -1470,7 +1470,7 @@ public:
     {
         if (!inner)
             return {};
-        const auto offset = inner->layout_state.offset;
+        const auto offset = inner->first_row();
         if (i < offset || i - offset >= inner->data.size())
             return {};
         return inner->data[i - offset].ptr;
