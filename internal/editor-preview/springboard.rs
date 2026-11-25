@@ -146,8 +146,8 @@ struct SpringboardTask {
 
 impl Springboard {
     /// Passes the preview's messages to the editor on `to_editor`,
-    /// and its debugger messages and diagnostics on `to_debugger`.
-    /// Its `debug()` output goes to both.
+    /// and its debugger messages on `to_debugger`.
+    /// Its diagnostics and `debug()` output go to both.
     pub fn new(
         local_preview: LocalPreviewConfig,
         to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
@@ -552,9 +552,19 @@ impl SpringboardTask {
                 return;
             }
             ConnectionEvent::Message(PreviewToLspMessage::Diagnostics {
-                uri, diagnostics, ..
+                uri,
+                version,
+                diagnostics,
             }) => {
-                let _ = self.to_debugger.send(DebuggerEvent::Diagnostics { uri, diagnostics });
+                let _ = self.to_debugger.send(DebuggerEvent::Diagnostics {
+                    uri: uri.clone(),
+                    diagnostics: diagnostics.clone(),
+                });
+                let _ = self.to_editor.send(PreviewToLspMessage::Diagnostics {
+                    uri,
+                    version,
+                    diagnostics,
+                });
                 return;
             }
             ConnectionEvent::Message(PreviewToLspMessage::DebugMessage { location, message }) => {
@@ -1733,7 +1743,7 @@ mod tests {
                 for message in refused.chain(allowed.clone()) {
                     viewer.connection.send(message).unwrap();
                 }
-                assert_forwarded(&mut upstream, &allowed[1..]).await;
+                assert_forwarded(&mut upstream, &allowed).await;
                 assert_eq!(
                     receive_debugger(&mut debugger).await,
                     DebuggerEvent::Diagnostics { uri: component().url, diagnostics: Vec::new() }
