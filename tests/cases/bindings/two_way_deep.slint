@@ -14,7 +14,8 @@ component LiTest inherits Rectangle {
     in-out property <bool> test_li: li1.text == "li1" && li3.text == "li4";
 }
 
-// Inlined chains can lose updates when only the innermost property is written.
+// Explicit visibility bindings force the components to be inlined.
+// This exercises the alias analysis when only the innermost property is written.
 component MutableLeaf {
     visible: true;
     in-out property <int> value;
@@ -75,6 +76,14 @@ assert(instance.test);
 assert.equal(instance.observed, 1);
 instance.increment();
 assert.equal(instance.observed, 2);
+```
+
+```python
+instance = TestCase()
+assert instance.test
+assert instance.observed == 1
+instance.increment()
+assert instance.observed == 2
 ```
 
 */
