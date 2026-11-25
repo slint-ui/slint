@@ -9,19 +9,20 @@ use i_slint_common::bitmapfont::{BitmapFont, OwnedStorage};
 use i_slint_common::pre_rendered::{PreRenderedResource, StaticTextures};
 use i_slint_compiler::embedded_resources::EmbeddedResourcesIdx;
 use i_slint_core::graphics::{Image, ImageInner};
+use i_slint_core::shared_pointer::SharedPtr;
 use typed_index_collections::TiVec;
 
 #[derive(Clone)]
 enum Resource {
     Texture(alloc::sync::Arc<StaticTextures<OwnedStorage>>),
-    BitmapFont(Rc<BitmapFont<OwnedStorage>>),
+    BitmapFont(SharedPtr<BitmapFont<OwnedStorage>>),
 }
 
 impl From<PreRenderedResource> for Resource {
     fn from(resource: PreRenderedResource) -> Self {
         match resource {
             PreRenderedResource::Texture(texture) => Self::Texture(alloc::sync::Arc::new(texture)),
-            PreRenderedResource::BitmapFont(font) => Self::BitmapFont(Rc::new(font)),
+            PreRenderedResource::BitmapFont(font) => Self::BitmapFont(SharedPtr::new(font)),
         }
     }
 }
@@ -68,7 +69,7 @@ impl PreRendered {
                     Some(PreRenderedResource::Texture(alloc::sync::Arc::unwrap_or_clone(texture)))
                 }
                 Resource::BitmapFont(font) => {
-                    Some(PreRenderedResource::BitmapFont(Rc::unwrap_or_clone(font)))
+                    Some(PreRenderedResource::BitmapFont(SharedPtr::unwrap_or_clone(font)))
                 }
             })
             .collect()
@@ -79,7 +80,10 @@ impl PreRendered {
         Some(Image::from(ImageInner::OwnedTextures(texture.clone())))
     }
 
-    pub fn bitmap_font(&self, id: EmbeddedResourcesIdx) -> Option<Rc<BitmapFont<OwnedStorage>>> {
+    pub fn bitmap_font(
+        &self,
+        id: EmbeddedResourcesIdx,
+    ) -> Option<SharedPtr<BitmapFont<OwnedStorage>>> {
         let Some(Resource::BitmapFont(font)) = self.0.get(id)? else { return None };
         Some(font.clone())
     }
@@ -120,7 +124,7 @@ mod tests {
                 .find_map(|id| pre_rendered.bitmap_font(EmbeddedResourcesIdx(id)))
                 .unwrap();
 
-            let weak = Rc::downgrade(&font);
+            let weak = SharedPtr::downgrade(&font);
             drop(font);
             assert!(weak.upgrade().is_some());
             drop((definition, result));

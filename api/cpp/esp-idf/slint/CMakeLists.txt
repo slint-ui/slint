@@ -24,6 +24,10 @@ endif()
 
 set(SLINT_FEATURE_FREESTANDING ON)
 set(SLINT_FEATURE_RENDERER_SOFTWARE ON)
+if (SLINT_ESP_EXPERIMENTAL OR "$ENV{SLINT_ESP_EXPERIMENTAL}" STREQUAL "1")
+    # The software renderer API for recording frames is still experimental.
+    set(SLINT_FEATURE_EXPERIMENTAL ON)
+endif()
 set(SLINT_LIBRARY_CARGO_FLAGS "-Zbuild-std=core,alloc")
 set(DEFAULT_SLINT_EMBED_RESOURCES "embed-for-software-renderer" CACHE STRING "")
 set(CMAKE_BUILD_TYPE Release)
@@ -34,8 +38,9 @@ if (SLINT_ESP_LOCAL_EXAMPLE)
     add_subdirectory(../.. slint_build)
 else()
     list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-    # This variable is set when generating nightly snapshot's CMakeLists.txt
-    if (NOT SLINT_NIGHTLY)
+    # SLINT_NIGHTLY is set when generating nightly snapshot's CMakeLists.txt.
+    # The precompiled release lacks the experimental API, so build from source for that.
+    if (NOT SLINT_NIGHTLY AND NOT SLINT_FEATURE_EXPERIMENTAL)
         find_package(Slint)
     endif()
 
