@@ -1,0 +1,127 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+
+// The rows are found with ElementHandle, not with mouse clicks: a press makes the Flickable move
+// an out of bounds content-y back within bounds, which would hide the bug.
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+
+    in-out property <[int]> model;
+    in-out property <length> content-y <=> lv.content-y;
+
+    lv := ListView {
+        for value in root.model: row := Rectangle {
+            height: 20px;
+            accessible-role: text;
+            accessible-label: value;
+        }
+    }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// The rows inside the viewport, with their top edge.
+auto shown = [&]() {
+    std::vector<std::pair<std::string, float>> rows;
+    for (auto &e : slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::row")) {
+        float y = e.absolute_position().y;
+        if (y >= 0. && y < 200.) {
+            rows.emplace_back(std::string(*e.accessible_label()), y);
+        }
+    }
+    std::sort(rows.begin(), rows.end(),
+              [](const auto &a, const auto &b) { return a.second < b.second; });
+    return rows;
+};
+// Rows `from` to `to` (excluded), the first one at the top of the viewport.
+auto rows = [](int from, int to) {
+    std::vector<std::pair<std::string, float>> rows;
+    for (int i = from; i < to; ++i) {
+        rows.emplace_back(std::to_string(i), (i - from) * 20.f);
+    }
+    return rows;
+};
+auto set_rows = [&](int count) {
+    std::vector<int> values;
+    for (int i = 0; i < count; ++i) values.push_back(i);
+    instance.set_model(std::make_shared<slint::VectorModel<int>>(std::move(values)));
+};
+
+// Right after the model is set, before anything clamped content-y.
+set_rows(100);
+instance.set_content_y(-5000.);
+assert(shown() == rows(90, 100));
+assert_eq(instance.get_content_y(), -1800.);
+
+// From the top of a list that is already laid out.
+instance.set_content_y(0.);
+assert(shown() == rows(0, 10));
+instance.set_content_y(-5000.);
+assert(shown() == rows(90, 100));
+assert_eq(instance.get_content_y(), -1800.);
+
+// A model shorter than the viewport starts at the top.
+set_rows(5);
+assert(shown() == rows(0, 5));
+assert_eq(instance.get_content_y(), 0.);
+instance.set_content_y(-50.);
+assert(shown() == rows(0, 5));
+assert_eq(instance.get_content_y(), 0.);
+```
+
+```rust
+use slint::VecModel;
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+
+// The rows inside the viewport, with their top edge.
+let shown = |inst: &TestCase| {
+    let mut rows: Vec<(String, f32)> =
+        slint_testing::ElementHandle::find_by_element_id(inst, "TestCase::row")
+            .map(|e| (e.accessible_label().unwrap().to_string(), e.absolute_position().y))
+            .filter(|(_, y)| *y >= 0. && *y < 200.)
+            .collect();
+    rows.sort_by(|a, b| a.1.total_cmp(&b.1));
+    rows
+};
+// Rows `from` to `to` (excluded), the first one at the top of the viewport.
+let rows = |from: i32, to: i32| {
+    (from..to).map(|i| (i.to_string(), (i - from) as f32 * 20.)).collect::<Vec<_>>()
+};
+let set_rows = |count: i32| {
+    instance.set_model(Rc::new(VecModel::from((0..count).collect::<Vec<i32>>())).into());
+};
+
+// Right after the model is set, before anything clamped content-y.
+set_rows(100);
+instance.set_content_y(-5000.);
+assert_eq!(shown(&instance), rows(90, 100));
+assert_eq!(instance.get_content_y(), -1800.);
+
+// From the top of a list that is already laid out.
+instance.set_content_y(0.);
+assert_eq!(shown(&instance), rows(0, 10));
+instance.set_content_y(-5000.);
+assert_eq!(shown(&instance), rows(90, 100));
+assert_eq!(instance.get_content_y(), -1800.);
+
+// A model shorter than the viewport starts at the top.
+set_rows(5);
+assert_eq!(shown(&instance), rows(0, 5));
+assert_eq!(instance.get_content_y(), 0.);
+instance.set_content_y(-50.);
+assert_eq!(shown(&instance), rows(0, 5));
+assert_eq!(instance.get_content_y(), 0.);
+```
+*/

@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Alias {
+    in-out property <int> backing-value;
+    in-out property <int> value <=> self.backing-value;
+    animate value { duration: 400ms; }
+}
+
+export component TestCase inherits Window {
+    base-animation := Alias { value: 0; }
+    instance-animation := Alias {
+        value: 0;
+        animate value { duration: 400ms; }
+    }
+    out property <int> from-base: base-animation.backing-value;
+    out property <int> from-instance: instance-animation.backing-value;
+    public function write-values() {
+        base-animation.value = 100;
+        instance-animation.value = 100;
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.invoke_write_values();
+slint_testing::mock_elapsed_time(200);
+assert_eq!((instance.get_from_base(), instance.get_from_instance()), (50, 50));
+slint_testing::mock_elapsed_time(200);
+assert_eq!((instance.get_from_base(), instance.get_from_instance()), (100, 100));
+```
+*/

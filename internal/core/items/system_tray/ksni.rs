@@ -146,21 +146,39 @@ impl PlatformTray {
             .map(|(menu, entries_out)| build_ksni_menu(menu, entries_out))
             .unwrap_or_default();
 
-        let handle =
-            spawn_tray(icon.clone(), tooltip.clone(), title.clone(), menu.clone(), &event_tx)?;
-
         let dispatcher = context
             .spawn_local(dispatch_loop(event_rx, self_weak))
             .map_err(Error::EventLoopError)?;
 
-        Ok(Self {
+        let tray = Self {
             icon: core::cell::RefCell::new(icon),
             tooltip: core::cell::RefCell::new(tooltip),
             title: core::cell::RefCell::new(title),
             event_tx,
             menu: core::cell::RefCell::new(menu),
-            handle: core::cell::RefCell::new(Some(handle)),
+            handle: core::cell::RefCell::new(None),
             _dispatcher: dispatcher,
+        };
+        if params.visible {
+            *tray.handle.borrow_mut() = Some(tray.spawn()?);
+        }
+        Ok(tray)
+    }
+
+    fn spawn(&self) -> Result<::ksni::blocking::Handle<KsniTray>, Error> {
+        let tray = KsniTray {
+            icon: self.icon.borrow().clone(),
+            tooltip: self.tooltip.borrow().clone(),
+            title: self.title.borrow().clone(),
+            menu: self.menu.borrow().clone(),
+            event_tx: self.event_tx.clone(),
+        };
+        // Blocks briefly on D-Bus name claim / service setup, then spawns the
+        // service loop on its own background thread.
+        tray.disable_dbus_name(*IN_SANDBOX).spawn().map_err(|e| {
+            Error::PlatformError(crate::platform::PlatformError::Other(std::format!(
+                "Failed to spawn ksni tray: {e}"
+            )))
         })
     }
 
@@ -185,11 +203,7 @@ impl PlatformTray {
         let mut slot = self.handle.borrow_mut();
         match (visible, slot.is_some()) {
             (true, false) => {
-                let menu = self.menu.borrow().clone();
-                let icon = self.icon.borrow().clone();
-                let tooltip = self.tooltip.borrow().clone();
-                let title = self.title.borrow().clone();
-                match spawn_tray(icon, tooltip, title, menu, &self.event_tx) {
+                match self.spawn() {
                     Ok(handle) => *slot = Some(handle),
                     Err(_) => {
                         // Leave the slot empty; the next set_visible(true) retries.
@@ -261,23 +275,6 @@ fn image_to_argb_icon(image: &Image) -> Result<::ksni::Icon, Error> {
         pixel.rotate_right(1) // rgba to argb
     }
     Ok(::ksni::Icon { width, height, data })
-}
-
-fn spawn_tray(
-    icon: ::ksni::Icon,
-    tooltip: std::string::String,
-    title: std::string::String,
-    menu: std::vec::Vec<MenuNode>,
-    event_tx: &async_channel::Sender<Event>,
-) -> Result<::ksni::blocking::Handle<KsniTray>, Error> {
-    let tray = KsniTray { icon, tooltip, title, menu, event_tx: event_tx.clone() };
-    // Blocks briefly on D-Bus name claim / service setup, then spawns the
-    // service loop on its own background thread.
-    tray.disable_dbus_name(*IN_SANDBOX).spawn().map_err(|e| {
-        Error::PlatformError(crate::platform::PlatformError::Other(std::format!(
-            "Failed to spawn ksni tray: {e}"
-        )))
-    })
 }
 
 /// Whether the application runs in a Flatpak or Snap sandbox, where owning the D-Bus name

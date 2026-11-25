@@ -415,7 +415,11 @@ pub enum Expression {
     /// Only present when the `debug_hooks` compiler option is enabled.
     DebugHook {
         expression: Box<Expression>,
-        id: SmolStr,
+        // Not serialized: a reader without `std` has no such field,
+        // and the editors, which enable the debug hooks, don't serialize the LLR.
+        #[cfg(feature = "std")]
+        #[cfg_attr(feature = "serde", serde(skip))]
+        id: crate::object_tree::ElementProperty,
     },
 }
 
@@ -830,7 +834,7 @@ macro_rules! visit_impl {
                 $visitor(expression);
             }
             Expression::DashArray(_) => {}
-            Expression::DebugHook { expression, id: _ } => $visitor(expression),
+            Expression::DebugHook { expression, .. } => $visitor(expression),
         }
     };
 }

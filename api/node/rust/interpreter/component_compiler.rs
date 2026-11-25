@@ -245,7 +245,7 @@ impl JsComponentCompiler {
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     #[napi]
     pub fn build_from_path(&mut self, path: String) -> HashMap<String, JsComponentDefinition> {
-        let r = spin_on::spin_on(self.internal.build_from_path(PathBuf::from(path)));
+        let r = i_slint_compiler::poll_ready(self.internal.build_from_path(PathBuf::from(path)));
         self.structs_and_enums =
             r.structs_and_enums(i_slint_core::InternalToken {}).cloned().collect::<Vec<_>>();
         self.diagnostics = r.diagnostics().collect();
@@ -259,7 +259,9 @@ impl JsComponentCompiler {
         source_code: String,
         path: String,
     ) -> HashMap<String, JsComponentDefinition> {
-        let r = spin_on::spin_on(self.internal.build_from_source(source_code, PathBuf::from(path)));
+        let r = i_slint_compiler::poll_ready(
+            self.internal.build_from_source(source_code, PathBuf::from(path)),
+        );
         self.diagnostics = r.diagnostics().collect();
         self.structs_and_enums =
             r.structs_and_enums(i_slint_core::InternalToken {}).cloned().collect::<Vec<_>>();

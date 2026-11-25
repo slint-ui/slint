@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An SVG cropped by 'image-fit: cover' shows the part selected by its alignment (#14645).
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: white;
+
+    Image {
+        x: 0px;
+        y: 0px;
+        width: 64px;
+        height: 16px;
+        source: @image-url("../../../../logo/slint-logo-small-light.svg");
+        image-fit: cover;
+    }
+
+    Image {
+        x: 0px;
+        y: 20px;
+        width: 64px;
+        height: 16px;
+        source: @image-url("../../../../logo/slint-logo-small-light.svg");
+        image-fit: cover;
+        vertical-alignment: bottom;
+    }
+
+    Image {
+        x: 0px;
+        y: 40px;
+        width: 16px;
+        height: 24px;
+        source: @image-url("../../../../logo/slint-logo-small-light.svg");
+        image-fit: cover;
+    }
+
+    Image {
+        x: 24px;
+        y: 40px;
+        width: 40px;
+        height: 24px;
+        source: @image-url("../../../../logo/slint-logo-small-light.svg");
+        image-fit: cover;
+        horizontal-alignment: right;
+        vertical-alignment: bottom;
+    }
+}

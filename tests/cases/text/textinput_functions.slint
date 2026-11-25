@@ -8,6 +8,7 @@ export component TestCase {
     ti := TextInput {}
 
     in-out property<string> test_text <=> ti.text;
+    in-out property<bool> test_read_only <=> ti.read-only;
 
     callback do_select();
     do_select => {
@@ -80,6 +81,15 @@ instance.invoke_set_selection_offsets(0, 3);
 assert_eq!(instance.get_test_anchor_pos(), 0);
 assert_eq!(instance.get_test_cursor_pos(), 4);
 
+// `read-only` only blocks user input, so the functions still edit the text.
+instance.set_test_read_only(true);
+instance.set_test_text("Hello World".into());
+instance.invoke_do_select();
+instance.invoke_do_cut();
+assert_eq!(instance.get_test_text(), "");
+instance.invoke_do_paste();
+assert_eq!(instance.get_test_text(), "Hello World");
+
 ```
 */
 
@@ -120,6 +130,15 @@ instance.invoke_set_selection_offsets(0, 3);
 assert_eq(instance.get_test_anchor_pos(), 0);
 assert_eq(instance.get_test_cursor_pos(), 4);
 
+// `read-only` only blocks user input, so the functions still edit the text.
+instance.set_test_read_only(true);
+instance.set_test_text("Hello World");
+instance.invoke_do_select();
+instance.invoke_do_cut();
+assert_eq(instance.get_test_text(), "");
+instance.invoke_do_paste();
+assert_eq(instance.get_test_text(), "Hello World");
+
 ```
 */
 
@@ -158,6 +177,15 @@ instance.test_text = "🥳😎";
 instance.set_selection_offsets(0, 3);
 assert.equal(instance.test_anchor_pos, 0);
 assert.equal(instance.test_cursor_pos, 4);
+
+// `read-only` only blocks user input, so the functions still edit the text.
+instance.test_read_only = true;
+instance.test_text = "Hello World";
+instance.do_select();
+instance.do_cut();
+assert.equal(instance.test_text, "");
+instance.do_paste();
+assert.equal(instance.test_text, "Hello World");
 
 ```
 */

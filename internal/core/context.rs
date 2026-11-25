@@ -110,6 +110,12 @@ impl PlatformContext {
         activated
     }
 
+    pub(crate) fn run_change_handlers_once(&self) -> bool {
+        let mut ran = false;
+        self.for_each_context(|ctx| ran |= ctx.0.change_handler_queue.run_once());
+        ran
+    }
+
     pub(crate) fn next_timer_timeout(&self) -> Option<crate::animations::Instant> {
         let mut next = None;
         self.for_each_context(|ctx| {
@@ -179,6 +185,8 @@ pub(crate) struct SlintContextInner {
     /// The timers registered on this context. Shared, so that `Timer` handles can hold a
     /// `Weak` to the list they registered in without knowing which context owns it.
     pub(crate) timers: crate::timers::TimerListRc,
+
+    pub(crate) change_handler_queue: crate::properties::ChangeHandlerQueue,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -257,6 +265,7 @@ impl SlintContext {
             #[cfg(feature = "shared-swash")]
             swash_scale_context: core::cell::RefCell::new(swash::scale::ScaleContext::new()),
             timers,
+            change_handler_queue: Default::default(),
         }));
         // The list's deadlines are measured on this context's clock from now on. Done after
         // construction because it needs a handle to the context that owns it.
@@ -270,6 +279,12 @@ impl SlintContext {
     /// Setting a platform creates the context, and creating a component needs a platform.
     pub fn current() -> Option<Self> {
         GLOBAL_CONTEXT.try_with(|slot| slot.get().cloned()).ok().flatten()
+    }
+
+    /// The queue for the change trackers of this context's components.
+    /// [`Self::run_change_handlers`] runs it.
+    pub fn change_handler_queue(&self) -> &crate::properties::ChangeHandlerQueue {
+        &self.0.change_handler_queue
     }
 
     /// Return a reference to the platform abstraction
@@ -369,7 +384,18 @@ impl SlintContext {
         let now = crate::animations::Instant::now(self);
         crate::animations::update_animations(now);
         self.platform_context().activate_timers(now);
-        crate::properties::ChangeTracker::run_change_handlers();
+        self.run_change_handlers();
+    }
+
+    /// Runs the pending change handlers of every context on this context's platform,
+    /// looping until none is left (up to an internal limit).
+    pub fn run_change_handlers(&self) {
+        for _ in 0..10 {
+            if !self.platform_context().run_change_handlers_once() {
+                return;
+            }
+        }
+        crate::debug_log!("Slint: long changed callback chain detected");
     }
 
     /// How long the event loop driving this context's platform can go to sleep,

@@ -102,8 +102,9 @@ mod tests {
         let source = r#"export component Live inherits Window {
             Text { text: "Version 1"; font-size: 32px; }
         }"#;
-        let result =
-            spin_on::spin_on(compiler.build_from_source(source.into(), Default::default()));
+        let result = i_slint_compiler::poll_ready(
+            compiler.build_from_source(source.into(), Default::default()),
+        );
         assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
         let loaded = {
             let sent = result.clone().into_send();

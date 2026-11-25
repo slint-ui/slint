@@ -6,7 +6,8 @@
 //! Copies of embedded images at their destination size, unrotated, in RAM,
 //! for a [`TargetPixelBuffer`](super::target_pixel_buffer::TargetPixelBuffer) to draw.
 
-use super::draw_functions::{self, PremultipliedRgbaColor};
+use super::draw_functions;
+use super::target_pixel::PremultipliedRgbaColor;
 use super::target_pixel_buffer::{
     DrawTextureArgs, TextureData, TextureDataContainer, TexturePixelFormat,
 };

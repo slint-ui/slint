@@ -821,6 +821,15 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_set_style(
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_interpreter_component_compiler_set_edition(
+    compiler: &mut ComponentCompilerOpaque,
+    major: u32,
+    minor: u32,
+) {
+    compiler.as_component_compiler_mut().set_edition((major, minor))
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_interpreter_component_compiler_set_translation_domain(
     compiler: &mut ComponentCompilerOpaque,
     translation_domain: Slice<u8>,
@@ -956,8 +965,9 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_build_from_source(
         compiler.set_error("The source code must be valid UTF-8", path.into());
         return false;
     };
-    let definition =
-        spin_on::spin_on(compiler.build_from_source(source_code.to_string(), path.into()));
+    let definition = i_slint_compiler::poll_ready(
+        compiler.build_from_source(source_code.to_string(), path.into()),
+    );
     unsafe { write_definition(definition, component_definition_ptr) }
 }
 
@@ -969,7 +979,7 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_build_from_path(
 ) -> bool {
     let compiler = compiler.as_component_compiler_mut();
     let Some(path) = path_to_str(compiler, &path) else { return false };
-    let definition = spin_on::spin_on(compiler.build_from_path(PathBuf::from(path)));
+    let definition = i_slint_compiler::poll_ready(compiler.build_from_path(PathBuf::from(path)));
     unsafe { write_definition(definition, component_definition_ptr) }
 }
 
@@ -979,7 +989,7 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_build_from_native_
     path: Slice<PathValueType>,
     component_definition_ptr: *mut ComponentDefinitionOpaque,
 ) -> bool {
-    let definition = spin_on::spin_on(
+    let definition = i_slint_compiler::poll_ready(
         compiler.as_component_compiler_mut().build_from_path(path_from_units(&path)),
     );
     unsafe { write_definition(definition, component_definition_ptr) }
@@ -1167,7 +1177,7 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let mut compiler = crate::Compiler::default();
         compiler.set_style("fluent".into());
-        let result = spin_on::spin_on(compiler.build_from_source(
+        let result = i_slint_compiler::poll_ready(compiler.build_from_source(
             "export component Test { out property <int> val: 42; }".into(),
             std::path::PathBuf::from("test.slint"),
         ));

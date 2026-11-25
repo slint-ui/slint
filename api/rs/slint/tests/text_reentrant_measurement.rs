@@ -24,14 +24,24 @@ fn render(window: &MinimalSoftwareWindow) {
 
 static GLYPHS: [BitmapGlyphs; 1] = [BitmapGlyphs {
     pixel_size: 4,
-    glyph_data: Slice::from_slice(&[BitmapGlyph {
-        x: 0,
-        y: 0,
-        width: 2,
-        height: 2,
-        x_advance: 3 << 6,
-        data: Slice::from_slice(&[255; 4]),
-    }]),
+    glyph_data: Slice::from_slice(&[
+        BitmapGlyph {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+            x_advance: 3 << 6,
+            data: Slice::from_slice(&[]),
+        },
+        BitmapGlyph {
+            x: 0,
+            y: 0,
+            width: 2,
+            height: 2,
+            x_advance: 3 << 6,
+            data: Slice::from_slice(&[255; 4]),
+        },
+    ]),
 }];
 
 static BITMAP_FONT: BitmapFont = BitmapFont {

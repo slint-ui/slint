@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=100x40
+// BASE_THRESHOLD=3
+//ignore: software
+
+// An inner shadow whose spread is at least half the box covers the whole box, with or without blur.
+export component TestCase inherits Window {
+    width: 100px;
+    height: 40px;
+    background: white;
+    HorizontalLayout {
+        padding: 4px;
+        spacing: 4px;
+        Rectangle {
+            background: skyblue;
+            border-radius: 8px;
+            inner-shadow-color: red;
+            inner-shadow-blur: 10px;
+            inner-shadow-spread: 16px;
+        }
+        Rectangle {
+            background: skyblue;
+            border-radius: 8px;
+            inner-shadow-color: red;
+            inner-shadow-blur: 10px;
+            inner-shadow-spread: 30px;
+        }
+        Rectangle {
+            background: skyblue;
+            inner-shadow-color: red;
+            inner-shadow-spread: 30px;
+        }
+    }
+}

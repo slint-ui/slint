@@ -75,7 +75,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGDmabufRendere
 
         let drawn = self
             .barriers
-            .acquire(index, texture)
+            .acquire(index, texture, false)
             .and_then(|()| {
                 self.renderer.render_to_texture_transformed(
                     texture,
