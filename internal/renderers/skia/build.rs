@@ -17,7 +17,9 @@ fn main() {
        // opengl at runtime.
        skia_wgpu_vulkan: { all(skia_backend_wgpu, any(all(target_family = "unix", not(target_vendor = "apple")), all(any(target_vendor = "apple", target_family = "windows"), feature = "vulkan"))) },
        skia_windowed: { any(skia_backend_wgpu, skia_backend_opengl, skia_backend_softbuffer) },
+       skia_graphite: { all(slint_unstable_skia_graphite, feature = "wgpu-30") },
     }
 
     println!("cargo:rustc-check-cfg=cfg(slint_nightly_test)");
+    println!("cargo:rustc-check-cfg=cfg(slint_unstable_skia_graphite)");
 }

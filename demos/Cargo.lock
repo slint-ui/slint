@@ -964,6 +964,8 @@ version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af491d569909a7e4dee0ad7db7f5341fef5c614d5b8ec8cf765732aba3cff681"
 dependencies = [
+ "serde",
+ "termcolor",
  "unicode-width",
 ]
 
@@ -1551,7 +1553,7 @@ dependencies = [
  "bytemuck",
  "cfg_aliases",
  "fnv",
- "glow",
+ "glow 0.18.0",
  "imgref",
  "itertools",
  "log",
@@ -1951,6 +1953,18 @@ dependencies = [
  "futures-core",
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "glow"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29038e1c483364cc6bb3cf78feee1816002e127c331a1eec55a4d202b9e1adb5"
+dependencies = [
+ "js-sys",
+ "slotmap",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -2473,7 +2487,7 @@ version = "1.20.0"
 dependencies = [
  "const-field-offset",
  "femtovg",
- "glow",
+ "glow 0.18.0",
  "i-slint-common",
  "i-slint-core",
  "i-slint-core-macros",
@@ -2493,7 +2507,7 @@ dependencies = [
  "cfg_aliases",
  "clru",
  "const-field-offset",
- "glow",
+ "glow 0.18.0",
  "glutin",
  "i-slint-common",
  "i-slint-core",
@@ -2995,6 +3009,17 @@ checksum = "0fbe853b403ae61a04233030ae8a79d94975281ed9770a1f9e246732b534b28d"
 dependencies = [
  "bitflags 2.13.2",
  "serde",
+]
+
+[[package]]
+name = "khronos-egl"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6aae1df220ece3c0ada96b8153459b67eebe9ae9212258bb0134ae60416fdf76"
+dependencies = [
+ "libc",
+ "libloading",
+ "pkg-config",
 ]
 
 [[package]]
@@ -4977,9 +5002,9 @@ checksum = "33f4fe9184a62d842c9ef383018f3306d8ba224fd9d836f56d7288308847c256"
 
 [[package]]
 name = "skia-bindings"
-version = "0.157.0"
+version = "0.158.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3930c7f5e8d813364d74c3b17b227f3bb3a84504f93bb1f8c222d8fd5a7d9c6f"
+checksum = "ef0a6f4afb483894229eb0686341c64b0d34a28cc34cbcca9c4b2060c204dfda"
 dependencies = [
  "bindgen",
  "cc",
@@ -4994,13 +5019,24 @@ dependencies = [
 
 [[package]]
 name = "skia-safe"
-version = "0.157.0"
+version = "0.158.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc1c946dbc1a10b6b1ace7e368ea71f96c81448bbf55effcad0a9a3a392358eb"
+checksum = "81051f8c3fb70aeb5c639cf1056257d09a60c159574370edfce221ebf486097b"
 dependencies = [
  "bitflags 2.13.2",
  "skia-bindings",
+ "skia-wgpu",
  "windows",
+]
+
+[[package]]
+name = "skia-wgpu"
+version = "0.158.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf2f6c7d25f9b7166c3d6a748f7fc54c614c31c105775b7b95e894ac7f43c962"
+dependencies = [
+ "skia-bindings",
+ "wgpu",
 ]
 
 [[package]]
@@ -5410,6 +5446,15 @@ dependencies = [
  "once_cell",
  "rustix 1.1.6",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "termcolor"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
+dependencies = [
+ "winapi-util",
 ]
 
 [[package]]
@@ -6260,12 +6305,18 @@ dependencies = [
  "cfg_aliases",
  "document-features",
  "hashbrown 0.17.1",
+ "js-sys",
  "log",
+ "naga",
+ "parking_lot",
  "portable-atomic",
  "profiling",
  "raw-window-handle",
  "smallvec",
  "static_assertions",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
  "wgpu-core",
  "wgpu-hal",
  "wgpu-types",
@@ -6298,6 +6349,7 @@ dependencies = [
  "smallvec",
  "thiserror 2.0.21",
  "wgpu-core-deps-apple",
+ "wgpu-core-deps-emscripten",
  "wgpu-core-deps-windows-linux-android",
  "wgpu-hal",
  "wgpu-naga-bridge",
@@ -6309,6 +6361,15 @@ name = "wgpu-core-deps-apple"
 version = "30.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d3f2f24aee039ffe9ef527300daf6b7428c58edeefdaa1700f4fa0fd754df16"
+dependencies = [
+ "wgpu-hal",
+]
+
+[[package]]
+name = "wgpu-core-deps-emscripten"
+version = "30.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55ccf093bd215ae9dc4f96df293e675513ac1f2569f8293a2911cc34ca3505d1"
 dependencies = [
  "wgpu-hal",
 ]
@@ -6337,13 +6398,18 @@ dependencies = [
  "bytemuck",
  "cfg-if",
  "cfg_aliases",
+ "glow 0.17.0",
+ "glutin_wgl_sys",
  "gpu-allocator",
  "hashbrown 0.17.1",
+ "js-sys",
+ "khronos-egl",
  "libc",
  "libloading",
  "log",
  "naga",
  "naga-types",
+ "ndk-sys 0.6.0+11769913",
  "objc2 0.6.5",
  "objc2-core-foundation",
  "objc2-core-graphics",
@@ -6363,10 +6429,14 @@ dependencies = [
  "smallvec",
  "static_assertions",
  "thiserror 2.0.21",
+ "wasm-bindgen",
+ "wayland-sys",
+ "web-sys",
  "wgpu-naga-bridge",
  "wgpu-types",
  "windows",
  "windows-core",
+ "windows-result",
 ]
 
 [[package]]
@@ -6387,10 +6457,12 @@ checksum = "a9f6ee0bd50f5ab79fb8c25e3f33afb27126f034af4ba5909c7a0967058659e6"
 dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
+ "js-sys",
  "log",
  "naga-types",
  "raw-window-handle",
  "static_assertions",
+ "web-sys",
 ]
 
 [[package]]
