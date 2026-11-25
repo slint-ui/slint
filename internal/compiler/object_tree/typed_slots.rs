@@ -12,7 +12,10 @@ pub(super) fn declaration(
     let is_default =
         node.children_with_tokens().filter_map(|n| n.into_token()).any(|t| t.text() == "default");
     if is_default && !is_collection {
-        diag.push_error("A default slot must have a collection type, such as <[*]>".into(), &node);
+        diag.push_error(
+            "A default slot must have a collection type, such as '<[*]>'".into(),
+            &node,
+        );
     }
     let wants_interface = !is_collection
         || node

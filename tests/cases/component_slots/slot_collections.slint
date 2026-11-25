@@ -234,4 +234,35 @@ assert(instance->get_inherited_shared() == 0);
 instance->invoke_trigger_second();
 assert(instance->get_last_value() == 5);
 ```
+```js
+const instance = new slint.TestCase({});
+assert(instance.test);
+instance.trigger_second();
+assert.equal(instance.last_index, 1);
+assert.equal(instance.last_value, 2);
+instance.factor = 5;
+instance.set_shared(13);
+assert.equal(instance.second_factor, 5);
+assert.equal(instance.first_shared, 13);
+assert.equal(instance.second_shared, 13);
+assert.equal(instance.inherited_shared, 0);
+instance.trigger_second();
+assert.equal(instance.last_value, 5);
+```
+
+```python
+instance = TestCase()
+assert instance.test
+instance.trigger_second()
+assert instance.last_index == 1
+assert instance.last_value == 2
+instance.factor = 5
+instance.set_shared(13)
+assert instance.second_factor == 5
+assert instance.first_shared == 13
+assert instance.second_shared == 13
+assert instance.inherited_shared == 0
+instance.trigger_second()
+assert instance.last_value == 5
+```
 */
