@@ -379,10 +379,6 @@ Use a component type after the colon to create a separate view for each supplied
 The loop variable exposes the supplied component's members allowed by the collection constraint.
 Property visibility and directions apply as for named element references.
 The reference is scoped to the loop and can't be stored in properties or models.
-Outside a loop, read an exposed property with `entries[index].property`.
-Indexed reads return the property's default value when the index is out of bounds.
-They follow the current entry at that index after model edits.
-They don't support assignments, callback or function calls, or storing the entry itself.
 The collection still requires one placement expansion.
 
 ```slint
@@ -410,6 +406,53 @@ For repeated children, each view references the supplied component instance at i
 Views hold weak references to their supplied instances; removing an entry doesn't retarget an existing view to another entry.
 Once the instance is destroyed, writes and calls have no effect.
 Property reads and calls with return values return the type's default value.
+
+### Reading an Entry by Index
+
+Use `entries[index].property` to read an exposed property outside a collection loop.
+For model-backed entries, the read follows the entry currently at that index after edits to the model.
+An out-of-bounds index returns the property's type default.
+Indexed access is read-only and exposes individual properties.
+
+```slint
+import { Button } from "std-widgets.slint";
+
+component ItemGroup {
+    default slot <[Text]> items;
+    in property <int> selected-index;
+    out property <string> selected-title: items[root.selected-index].text;
+
+    VerticalLayout {
+        for item in items: item { }
+    }
+}
+
+export component App inherits Window {
+    in-out property <int> selected-index: 0;
+
+    VerticalLayout {
+        padding: 12px;
+        spacing: 6px;
+
+        group := ItemGroup {
+            selected-index: root.selected-index;
+            Text { text: "One"; }
+            Text { text: "Two"; }
+        }
+
+        Text { text: "Selected: \{group.selected-title}"; }
+        Button {
+            text: "Next Index";
+            clicked => {
+                root.selected-index = root.selected-index == 2 ? 0 : root.selected-index + 1;
+            }
+        }
+    }
+}
+```
+
+Click **Next Index** to cycle through indices 0, 1, and 2.
+At index 2, `selected-title` is an empty string.
 
 ## Current limitations
 
