@@ -250,8 +250,7 @@ pub trait WindowAdapterInternal: core::any::Any {
         None
     }
 
-    /// Calls `visitor` for each direct child window of this window,
-    /// such as a native popup window or a window-modal dialog.
+    /// Calls `visitor` for each direct child window of this window.
     /// The visitor must not close or drop windows.
     fn visit_children(&self, _visitor: &mut dyn FnMut(&Rc<dyn WindowAdapter>)) {}
 
@@ -772,6 +771,9 @@ fn collect_popups_to_close(
             WindowInner::from_pub(window_adapter.window()).find_top_popup_without_autoclose(),
         );
     }
+    // Reaches popups of child windows that aren't popups themselves,
+    // such as a non-modal dialog: main window -> dialog -> popup.
+    // A press in the main window then closes the dialog's popup.
     let Some(internal) = window_adapter.internal(crate::InternalToken) else { return };
     internal.visit_children(&mut |child| {
         // A popup window is on the chain that its parent walks.
