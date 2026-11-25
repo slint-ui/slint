@@ -19,4 +19,4 @@ slint = { path = "../../../api/rs/slint", default-features = false, features = [
 bevy = { version = "0.20" }
 bevy_image = { version = "0.20", features = ["zstd_rust"] }
 wgpu-30 = { package = "wgpu", version = "30", default-features = false, features = ["wgsl"] }
-spin_on = "0.1.1"
+pollster = "1"

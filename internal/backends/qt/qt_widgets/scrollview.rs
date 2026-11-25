@@ -331,7 +331,7 @@ impl Item for NativeScrollView {
         FocusEventResult::FocusIgnored
     }
 
-    fn_render! { this dpr size painter widget initial_state =>
+    fn_render! { this size painter widget initial_state =>
 
         let data = this.data();
         let margins = qttypes::QMargins {
@@ -349,7 +349,6 @@ impl Item for NativeScrollView {
             painter as "QPainterPtr*",
             widget as "QWidget*",
             size as "QSize",
-            dpr as "float",
             margins as "QMargins",
             enabled as "bool",
             has_focus as "bool",
@@ -364,7 +363,7 @@ impl Item for NativeScrollView {
 
             frameOption.lineWidth = 1;
             frameOption.midLineWidth = 0;
-            frameOption.rect = QRect(QPoint(), size / dpr);
+            frameOption.rect = QRect(QPoint(), size);
             frameOption.state |= QStyle::State_Sunken;
             if (enabled) {
                 frameOption.state |= QStyle::State_Enabled;
@@ -378,7 +377,7 @@ impl Item for NativeScrollView {
             // this assume that the frame size is the same on both side, so that the scrollbar width is (right-left)
             QSize corner_size = QSize(margins.right() - margins.left(), margins.bottom() - margins.top());
             if (foac) {
-                frameOption.rect = QRect(QPoint(), (size / dpr) - corner_size);
+                frameOption.rect = QRect(QPoint(), size - corner_size);
                 qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter->get(), widget);
                 frameOption.rect = QRect(frameOption.rect.bottomRight() + QPoint(1, 1), corner_size);
                 if (scrollbar_bar_visible) {
@@ -411,7 +410,6 @@ impl Item for NativeScrollView {
                 rect as "QRectF",
                 active_controls as "int",
                 pressed as "bool",
-                dpr as "float",
                 horizontal as "bool",
                 has_focus as "bool",
                 initial_state as "int"
@@ -424,7 +422,9 @@ impl Item for NativeScrollView {
                 // The mac style ignores painter translations (due to CGContextRef redirection) as well as
                 // option.rect's top-left - hence this hack with an intermediate buffer.
             #if defined(Q_OS_MAC)
-                QImage scrollbar_image(r.size(), QImage::Format_ARGB32_Premultiplied);
+                const qreal dpr = painter_->device()->devicePixelRatioF();
+                QImage scrollbar_image(r.size() * dpr, QImage::Format_ARGB32_Premultiplied);
+                scrollbar_image.setDevicePixelRatio(dpr);
                 scrollbar_image.fill(Qt::transparent);
                 {QPainter p(&scrollbar_image); QPainter *painter_ = &p;
             #else
@@ -435,9 +435,9 @@ impl Item for NativeScrollView {
                 QStyleOptionSlider option;
                 option.state |= QStyle::State(initial_state);
                 option.rect = QRect(QPoint(), r.size());
-                initQSliderOptions(option, pressed, true, active_controls, 0, max / dpr, -value / dpr, false);
+                initQSliderOptions(option, pressed, true, active_controls, 0, max, -value, false);
                 option.subControls = QStyle::SC_All;
-                option.pageStep = page_size / dpr;
+                option.pageStep = page_size;
                 if (has_focus)
                     option.state |= QStyle::State_HasFocus;
 
@@ -461,10 +461,10 @@ impl Item for NativeScrollView {
             draw_scrollbar(
                 false,
                 qttypes::QRectF {
-                    x: ((size.width as f32 / dpr) - if frame_around_contents { scrollbars_width } else { margins.right as _ }) as _,
+                    x: (size.width as f32 - if frame_around_contents { scrollbars_width } else { margins.right as _ }) as _,
                     y: (if frame_around_contents { 0 } else { margins.top }) as _,
                     width: scrollbars_width as _,
-                    height: ((size.height as f32 / dpr) - if frame_around_contents { scrollbars_height } else { (margins.bottom + margins.top) as f32 }) as _,
+                    height: (size.height as f32 - if frame_around_contents { scrollbars_height } else { (margins.bottom + margins.top) as f32 }) as _,
                 },
                 this.vertical_value().get() as i32,
                 this.vertical_page_size().get() as i32,
@@ -479,8 +479,8 @@ impl Item for NativeScrollView {
                 true,
                 qttypes::QRectF {
                     x: (if frame_around_contents { 0 } else { margins.left }) as _,
-                    y: ((size.height as f32 / dpr) - if frame_around_contents { scrollbars_height } else { margins.bottom as _ }) as _,
-                    width: ((size.width as f32 / dpr) - if frame_around_contents { scrollbars_width } else { (margins.left + margins.right) as _ }) as _,
+                    y: (size.height as f32 - if frame_around_contents { scrollbars_height } else { margins.bottom as _ }) as _,
+                    width: (size.width as f32 - if frame_around_contents { scrollbars_width } else { (margins.left + margins.right) as _ }) as _,
                     height: (scrollbars_height) as _,
                 },
                 this.horizontal_value().get() as i32,

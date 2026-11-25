@@ -464,7 +464,7 @@ extern "C" {{
 "#,
         items
             .iter()
-            .map(|item_name| format!("SLINT_DECL_ITEM({item_name});"))
+            .map(|item_name| format!("SLINT_DECL_ITEM({item_name})"))
             .collect::<Vec<_>>()
             .join("\n")
     )
@@ -1381,6 +1381,11 @@ macro_rules! declare_features {
                         $f: std::env::var(format!("CARGO_FEATURE_{}", stringify!($f).to_ascii_uppercase())).is_ok(),
                     )*
                 }
+            }
+
+            #[allow(unused)]
+            pub fn all() -> Self {
+                Self { $($f: true,)* }
             }
         }
     };

@@ -1080,8 +1080,15 @@ thread_local! {
     static INIT_INSTALLED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+const PORT_VAR: &str = "SLINT_MCP_PORT";
+
+/// Returns true if [`init`] starts the MCP server.
+pub fn requested() -> bool {
+    std::env::var_os(PORT_VAR).is_some()
+}
+
 pub fn init() -> Result<(), EventLoopError> {
-    let Ok(port_str) = std::env::var("SLINT_MCP_PORT") else {
+    let Ok(port_str) = std::env::var(PORT_VAR) else {
         return Ok(());
     };
     let port: u16 = match port_str.parse() {

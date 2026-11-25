@@ -24,6 +24,8 @@ mod minimal_software_window;
 #[cfg(feature = "path")]
 mod path;
 mod scene;
+mod simd;
+mod target_pixel;
 
 pub use self::api::*;
 use self::box_shadow::{BoxShadowCommand, process_drop_shadow};
@@ -702,6 +704,12 @@ impl SoftwareRenderer {
                 );
                 self.prev_frame_dirty.set(dirty_region_for_this_frame);
             }
+        }
+
+        if let Some(overlay_rect) =
+            self.rendering_metrics_collector.as_ref().and_then(|m| m.overlay_rect())
+        {
+            renderer.dirty_region.add_rect(overlay_rect);
         }
 
         let alignment = self.dirty_region_alignment.get();
@@ -2205,7 +2213,10 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
         rounded_clips: &[RoundedClip],
     ) {
         if hook_can_draw(rounded_clips, || {
-            args.geometry().round_out().cast().intersection(&clip).unwrap_or_default()
+            args.geometry()
+                .round_out()
+                .intersection(&clip.cast())
+                .map_or_else(Default::default, |r| r.cast())
         }) && self.buffer.draw_rectangle(args, &self.dirty_region.intersection(&clip))
         {
             return;
@@ -2233,6 +2244,8 @@ pub struct RecordedRasterCommands {
     commands: Vec<(RasterCommand, core::ops::Range<usize>)>,
     rounded_clips: Vec<RoundedClip>,
     scale_factor: ScaleFactor,
+    pixels_per_line: usize,
+    num_lines: usize,
 }
 
 #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
@@ -2244,13 +2257,20 @@ const _: () = {
 #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
 impl RecordedRasterCommands {
     /// Rasterizes the frame into `buffer`, like [`SoftwareRenderer::render`] renders it.
+    ///
+    /// The buffer has the `pixels_per_line` and `num_lines` that
+    /// [`SoftwareRenderer::record_frame`] recorded the frame for,
+    /// so it must hold at least `pixels_per_line * num_lines` pixels.
     #[cfg_attr(feature = "tracing", tracing::instrument(name = "render_recorded", skip_all))]
-    pub fn rasterize(
-        &self,
-        buffer: &mut [impl TargetPixel],
-        pixel_stride: usize,
-    ) -> PhysicalRegion {
-        let mut buffer = TargetPixelSlice { data: buffer, pixel_stride };
+    pub fn rasterize(&self, buffer: &mut [impl TargetPixel]) -> PhysicalRegion {
+        assert!(
+            buffer.len() >= self.pixels_per_line * self.num_lines,
+            "buffer of {} pixels is too small for the {} lines of {} pixels that the frame was recorded for",
+            buffer.len(),
+            self.num_lines,
+            self.pixels_per_line,
+        );
+        let mut buffer = TargetPixelSlice { data: buffer, pixel_stride: self.pixels_per_line };
         let mut rasterizer = BufferRasterizer {
             buffer: &mut buffer,
             dirty_range_cache: Vec::new(),
@@ -2546,8 +2566,19 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
             inset(radius.bottom_right),
             inset(radius.bottom_left),
         );
-        (!radius.is_zero())
-            .then(|| RoundedClip { rect: geom.round().cast().inflate(-border, -border), radius })
+        if radius.is_zero() {
+            return None;
+        }
+        // The rect can't change what's drawn past a corner's reach of the clip,
+        // and cutting it there keeps it within `i16`.
+        let largest =
+            radius.top_left.max(radius.top_right).max(radius.bottom_right).max(radius.bottom_left);
+        let reach = largest as f32 + border as f32 + 1.;
+        let rect = self
+            .physical_clip()
+            .and_then(|clip| geom.round().intersection(&clip.cast().inflate(reach, reach)))
+            .map_or_else(PhysicalRect::zero, |rect| rect.cast().inflate(-border, -border));
+        Some(RoundedClip { rect, radius })
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -2713,13 +2744,12 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
                 };
 
                 let orig = image_inner.size().cast::<f32>();
-                let svg_target_size = if tiled.is_some() {
-                    euclid::size2(orig.width * source_to_target_x, orig.height * source_to_target_y)
-                        .round()
-                        .cast()
-                } else {
-                    target_rect.size.cast()
-                };
+                let svg_target_size = euclid::size2(
+                    orig.width * source_to_target_x,
+                    orig.height * source_to_target_y,
+                )
+                .round()
+                .cast();
                 if let Some(buffer) = image_inner.render_to_buffer(Some(svg_target_size)) {
                     let buf_size = buffer.size().cast::<f32>();
 
@@ -3888,6 +3918,7 @@ impl<T: RasterCommandSink> sharedparley::GlyphRenderer for SoftwareItemRenderer<
         synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
+        _baseline: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
         let slint_context = self.window.context();
@@ -3914,10 +3945,6 @@ impl<T: RasterCommandSink> sharedparley::GlyphRenderer for SoftwareItemRenderer<
         let physical_clip = physical_clip.cast::<i32>();
 
         for positioned_glyph in glyphs_it {
-            let Some(id) = std::num::NonZero::new(positioned_glyph.id as u16) else {
-                continue;
-            };
-
             // Absolute, sub-pixel-accurate device position of the pen for this glyph.
             let abs_x = global_offset.x + positioned_glyph.x;
             let abs_y = global_offset.y + positioned_glyph.y + y_offset.get();
@@ -3933,7 +3960,7 @@ impl<T: RasterCommandSink> sharedparley::GlyphRenderer for SoftwareItemRenderer<
             let subpixel_bin = quantized_x.rem_euclid(SUBPIXEL_BINS) as u8;
 
             let Some(glyph) = font.render_vector_glyph(
-                id,
+                positioned_glyph.id as u16,
                 subpixel_bin,
                 brush.stroke,
                 Some(text_rgb),

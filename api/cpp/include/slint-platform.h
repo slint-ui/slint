@@ -442,7 +442,7 @@ public:
                 cbindgen_private::slint_platform_task_run(
                         std::exchange(inner, { nullptr, nullptr }));
             }
-        };
+        }
     };
 
     /// Run a task from the event loop.
@@ -699,7 +699,7 @@ public:
     };
 #    endif
 
-    virtual ~SoftwareRenderer() { cbindgen_private::slint_software_renderer_drop(inner); };
+    virtual ~SoftwareRenderer() { cbindgen_private::slint_software_renderer_drop(inner); }
     SoftwareRenderer(const SoftwareRenderer &) = delete;
     SoftwareRenderer &operator=(const SoftwareRenderer &) = delete;
     /// Constructs a new SoftwareRenderer with the \a buffer_type as strategy for handling the
@@ -812,9 +812,8 @@ public:
     /// The raster commands of a frame that record_frame() recorded.
     ///
     /// It keeps the images and glyphs that the frame uses alive.
-    /// On targets with atomic pointers, any thread may call rasterize() or destroy it.
-    /// Other targets, such as Cortex-M0, count references without atomics,
-    /// so only the thread that recorded the frame may use it.
+    /// Any thread may call rasterize() or destroy it.
+    /// A moved-from object must not be used.
     ///
     /// **Note**: This class is still experimental - its API is subject to changes and not
     /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
@@ -826,6 +825,16 @@ public:
             : inner(std::exchange(other.inner, nullptr))
         {
         }
+        RecordedRasterCommands &operator=(RecordedRasterCommands &&other)
+        {
+            if (this != &other) {
+                if (inner) {
+                    cbindgen_private::slint_recorded_raster_commands_drop(inner);
+                }
+                inner = std::exchange(other.inner, nullptr);
+            }
+            return *this;
+        }
         RecordedRasterCommands(const RecordedRasterCommands &) = delete;
         ~RecordedRasterCommands()
         {
@@ -835,19 +844,18 @@ public:
         }
 
         /// Rasterizes the frame into \a buffer, like SoftwareRenderer::render() renders it.
-        PhysicalRegion rasterize(std::span<slint::Rgb8Pixel> buffer, std::size_t pixel_stride) const
+        PhysicalRegion rasterize(std::span<slint::Rgb8Pixel> buffer) const
         {
             return PhysicalRegion { cbindgen_private::slint_recorded_raster_commands_rasterize_rgb8(
-                    inner, buffer.data(), buffer.size(), pixel_stride) };
+                    inner, buffer.data(), buffer.size()) };
         }
 
         /// Rasterizes the frame into \a buffer, like SoftwareRenderer::render() renders it.
-        PhysicalRegion rasterize(std::span<Rgb565Pixel> buffer, std::size_t pixel_stride) const
+        PhysicalRegion rasterize(std::span<Rgb565Pixel> buffer) const
         {
             return PhysicalRegion {
                 cbindgen_private::slint_recorded_raster_commands_rasterize_rgb565(
-                        inner, reinterpret_cast<uint16_t *>(buffer.data()), buffer.size(),
-                        pixel_stride)
+                        inner, reinterpret_cast<uint16_t *>(buffer.data()), buffer.size())
             };
         }
 

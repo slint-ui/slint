@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore hframe qreal tabbar vframe
+// cSpell: ignore hframe tabbar vframe
 
 use i_slint_core::{
     cursor::MouseCursorInner,
@@ -295,7 +295,7 @@ impl Item for NativeTabWidget {
         FocusEventResult::FocusIgnored
     }
 
-    fn_render! { this dpr size painter widget initial_state =>
+    fn_render! { this size painter widget initial_state =>
         let tabbar_size = qttypes::QSizeF {
             width: this.tabbar_preferred_width().get() as _,
             height: this.tabbar_preferred_height().get() as _,
@@ -305,7 +305,6 @@ impl Item for NativeTabWidget {
             painter as "QPainterPtr*",
             widget as "QWidget*",
             size as "QSize",
-            dpr as "float",
             tabbar_size as "QSizeF",
             initial_state as "int",
             prop_horizontal as "bool"
@@ -321,7 +320,7 @@ impl Item for NativeTabWidget {
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
             }
-            option.rect = QRect(QPoint(), size / dpr);
+            option.rect = QRect(QPoint(), size);
             option.tabBarSize = tabbar_size.toSize();
             option.rightCornerWidgetSize = QSize(0, 0);
             option.leftCornerWidgetSize = QSize(0, 0);
@@ -535,7 +534,7 @@ impl Item for NativeTab {
         FocusEventResult::FocusIgnored
     }
 
-    fn_render! { this dpr size painter widget initial_state =>
+    fn_render! { this size painter widget initial_state =>
         let down: bool = this.pressed();
         let text: qttypes::QString = this.title().as_str().into();
         let icon: qttypes::QPixmap = crate::qt_window::image_to_pixmap(
@@ -557,7 +556,6 @@ impl Item for NativeTab {
             enabled as "bool",
             size as "QSize",
             down as "bool",
-            dpr as "float",
             tab_index as "int",
             current as "int",
             current_focused as "int",
@@ -568,7 +566,7 @@ impl Item for NativeTab {
             QStyleOptionTab option;
             option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
-            option.rect = QRect(QPoint(), size / dpr);;
+            option.rect = QRect(QPoint(), size);
             option.text = text;
             option.icon = icon;
             option.shape = QTabBar::RoundedNorth;

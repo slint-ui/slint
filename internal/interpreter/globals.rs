@@ -119,6 +119,7 @@ pub struct GlobalStorage {
     pub context: SlintContext,
     pub resources: Rc<crate::component::Resources>,
     /// Set through [`ComponentInstance::set_debug_hook_callback`]; see [`crate::debug_hook`].
+    #[cfg(feature = "std")]
     pub debug_hook_callback: RefCell<Option<crate::debug_hook::DebugHookCallback>>,
 }
 
@@ -181,6 +182,7 @@ impl GlobalStorage {
             root: OnceCell::new(),
             context,
             resources,
+            #[cfg(feature = "std")]
             debug_hook_callback: RefCell::new(None),
         }
     }
@@ -237,6 +239,7 @@ fn install_global_change_trackers(g: &Rc<GlobalInstance>, storage: &Rc<GlobalSto
         let prop_idx = *prop_idx;
         let notify_expr = expr.borrow().clone();
         g.change_trackers[idx].init(
+            storage.context.change_handler_queue(),
             (),
             move |()| -> Value {
                 let Some(st) = weak_storage_get.upgrade() else { return Value::Void };

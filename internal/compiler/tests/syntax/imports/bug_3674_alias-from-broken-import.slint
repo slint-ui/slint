@@ -21,3 +21,9 @@ export component Test {
 //                             > <error{Element 'Bug' does not have a property 'foo'}
     b := Bug {}
 }
+
+export component Derived inherits Bug {
+    out property <int> baz;
+    bar <=> baz;
+//  > <error{Cannot assign to 'out' property 'bar'}
+}

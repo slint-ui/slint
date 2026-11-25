@@ -20,7 +20,7 @@ fn lower_to_llr(source: &str) {
     let syntax_node = parse(source.into(), None, None, &mut diagnostics);
     let config = CompilerConfiguration::new(OutputFormat::Llr);
     let (doc, diagnostics, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
+        i_slint_compiler::poll_ready(compile_syntax_node(syntax_node, diagnostics, config));
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
     generator::generate(
         OutputFormat::Llr,
@@ -75,7 +75,7 @@ fn lowered_animation_enabled_fields(source: &str) -> Vec<llr::Expression> {
     let syntax_node = parse(source.into(), None, None, &mut diagnostics);
     let config = CompilerConfiguration::new(OutputFormat::Llr);
     let (doc, diagnostics, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
+        i_slint_compiler::poll_ready(compile_syntax_node(syntax_node, diagnostics, config));
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
     let unit = llr::lower_to_item_tree::lower_to_item_tree(&doc, &loader.compiler_config);
 

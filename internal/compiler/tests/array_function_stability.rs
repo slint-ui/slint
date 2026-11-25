@@ -23,8 +23,11 @@ fn compile(
         i_slint_compiler::ExperimentalFeatures::default()
     };
     compiler_config.style = Some("fluent".into());
-    let (_, build_diags, _) =
-        spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
+    let (_, build_diags, _) = i_slint_compiler::poll_ready(i_slint_compiler::compile_syntax_node(
+        syntax_node,
+        diag,
+        compiler_config,
+    ));
     build_diags
 }
 
