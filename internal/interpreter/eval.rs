@@ -2057,17 +2057,29 @@ fn eval_translation_reference(
     };
     let args = StringModelWrapper(args);
     let Some(plural) = plural else {
-        return Value::String(
-            component_context(ctx)
-                .translate_from_bundle(&translations.strings[string_index], &args),
-        );
+        let strings = i_slint_core::translations::BundledStrings {
+            text: &translations.text,
+            ranges: &translations.strings,
+            count: translations.string_count(),
+        };
+        return Value::String(component_context(ctx).translate_from_bundled_strings(
+            &strings,
+            string_index,
+            &args,
+        ));
     };
 
     let n: i32 = eval_expression(ctx, plural).try_into().unwrap_or(0);
-    let forms = translations.plurals[string_index].iter().map(|f| f.as_deref()).collect::<Vec<_>>();
+    let plurals = i_slint_core::translations::BundledPlurals {
+        text: &translations.text,
+        forms: &translations.forms,
+        ranges: &translations.plurals,
+        count: translations.plural_count(),
+    };
     let globals = ctx.globals.clone();
-    Value::String(component_context(ctx).translate_from_bundle_with_plural_form(
-        &forms,
+    Value::String(component_context(ctx).translate_from_bundled_plurals_with_form(
+        &plurals,
+        string_index,
         |language_index| {
             let rule = translations.plural_rules.get(language_index)?.as_ref()?;
             // The rules can't access any property, they only take `n` as argument

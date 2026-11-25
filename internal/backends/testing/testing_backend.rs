@@ -52,7 +52,9 @@ pub fn mock_elapsed_time(time_in_ms: u64) {
         tick
     });
     i_slint_core::timers::TimerList::maybe_activate_timers(tick);
-    i_slint_core::properties::ChangeTracker::run_change_handlers();
+    if let Some(ctx) = i_slint_core::SlintContext::current() {
+        ctx.run_change_handlers();
+    }
     ensure_all_tracked_trees_instantiated();
 }
 

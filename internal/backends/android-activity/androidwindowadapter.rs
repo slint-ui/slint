@@ -6,7 +6,7 @@
 use super::*;
 use crate::javahelper::{JavaHelper, print_jni_error};
 use android_activity::input::{
-    ButtonState, InputEvent, KeyAction, KeyMapChar, Keycode, MotionAction, MotionEvent,
+    Axis, ButtonState, InputEvent, KeyAction, KeyMapChar, Keycode, MotionAction, MotionEvent,
 };
 use android_activity::{InputStatus, MainEvent, PollEvent};
 use i_slint_core::SharedString;
@@ -235,6 +235,9 @@ impl AndroidWindowAdapter {
     }
 
     pub fn new(app: AndroidApp) -> Rc<Self> {
+        // GameActivity only reports the axes that are enabled, which by default are X and Y.
+        app.enable_motion_axis(Axis::Vscroll);
+        app.enable_motion_axis(Axis::Hscroll);
         let java_helper = JavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
         Rc::<Self>::new_cyclic(|w| Self {
             app,
@@ -587,7 +590,27 @@ impl AndroidWindowAdapter {
                             }
                             InputStatus::Handled
                         }
-                        MotionAction::Scroll => todo!(),
+                        MotionAction::Scroll => {
+                            let scroll_factors = self
+                                .java_helper
+                                .scroll_factors()
+                                .unwrap_or_else(|e| print_jni_error(&self.app, e));
+                            let (delta_x, delta_y) =
+                                scroll_delta_for_event(motion_event, scroll_factors, scale);
+                            if delta_x == 0. && delta_y == 0. {
+                                InputStatus::Unhandled
+                            } else {
+                                result = self
+                                    .window
+                                    .dispatch_event_with_result(WindowEvent::PointerScrolled {
+                                        position: position_for_event(motion_event, offset, scale),
+                                        delta_x,
+                                        delta_y,
+                                    })
+                                    .map(|_| ());
+                                InputStatus::Handled
+                            }
+                        }
                         MotionAction::HoverEnter | MotionAction::HoverExit => {
                             InputStatus::Unhandled
                         }
@@ -769,6 +792,23 @@ fn pointer_logical_position(
     scale_factor: f32,
 ) -> LogicalPosition {
     PhysicalPosition::new(x as i32 - offset.x, y as i32 - offset.y).to_logical(scale_factor)
+}
+
+/// Convert the scroll axes of a mouse wheel event to the content displacement in logical pixels.
+/// `scroll_factors` are the horizontal and vertical distance per wheel notch, in physical pixels.
+fn scroll_delta_for_event(
+    motion_event: &MotionEvent,
+    (factor_x, factor_y): (f32, f32),
+    scale: f32,
+) -> (f32, f32) {
+    // Android reports a wheel that turns up or tilts right as positive.
+    // Its views then move their content down or to the left.
+    motion_event.pointers().next().map_or((0., 0.), |p| {
+        (
+            -p.axis_value(Axis::Hscroll) * factor_x / scale,
+            p.axis_value(Axis::Vscroll) * factor_y / scale,
+        )
+    })
 }
 
 fn position_for_event(

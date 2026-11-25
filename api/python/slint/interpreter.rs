@@ -577,9 +577,9 @@ impl ComponentInstance {
     }
 
     fn _process_pending_events(&self) {
-        i_slint_core::properties::ChangeTracker::run_change_handlers();
-        i_slint_core::window::WindowInner::from_pub(self.instance.window())
-            .ensure_tree_instantiated();
+        let window = i_slint_core::window::WindowInner::from_pub(self.instance.window());
+        window.context().run_change_handlers();
+        window.ensure_tree_instantiated();
     }
 
     #[getter]

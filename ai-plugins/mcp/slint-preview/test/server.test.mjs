@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
 import {
     cpSync,
@@ -112,6 +112,41 @@ test("lists check_slint, publish_preview with its view, and app-only tools", asy
         type: "object",
         properties: { previewId: { type: "string" } },
     });
+});
+
+test("headless mode lists only check_slint and rejects preview calls", async () => {
+    const { result } = await request("tools/list");
+    const previewTools = result.tools.filter((tool) => tool.name !== "check_slint");
+    const requests = [
+        { method: "tools/list" },
+        ...previewTools.map(({ name }) => ({
+            method: "tools/call",
+            params: { name },
+        })),
+        {
+            method: "tools/call",
+            params: {
+                name: "check_slint",
+                arguments: { source: "export component Example {}", prepare_preview: true },
+            },
+        },
+    ];
+    const output = execFileSync(process.execPath, [serverPath.pathname, "--headless"], {
+        input: requests.map((request, id) =>
+            JSON.stringify({ jsonrpc: "2.0", id, ...request }) + "\n"
+        ).join(""),
+        encoding: "utf8",
+        timeout: 5000,
+    });
+    const responses = output.trim().split("\n").map((line) => JSON.parse(line));
+    const [listing, ...calls] = responses.sort((left, right) => left.id - right.id);
+    const [checkTool] = listing.result.tools;
+    assert.deepEqual(listing.result.tools.map((tool) => tool.name), ["check_slint"]);
+    assert.ok(!Object.hasOwn(checkTool.inputSchema.properties, "prepare_preview"));
+    assert.deepEqual(calls.map((response) => response.error), [
+        ...previewTools.map(({ name }) => ({ code: -32602, message: `Unknown tool: ${name}` })),
+        { code: -32602, message: "'prepare_preview' is unavailable in headless mode" },
+    ]);
 });
 
 test("all tools declare their annotations", async () => {
@@ -328,6 +363,7 @@ test("the Claude and Codex manifests start this server", () => {
     ];
     assert.deepEqual(claude.args, [
         "${CLAUDE_PLUGIN_ROOT}/slint-preview/server.mjs",
+        "--headless",
     ]);
 
     // Codex expands no variables in plugin MCP args and resolves `cwd` against the plugin root.

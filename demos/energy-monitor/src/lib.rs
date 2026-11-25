@@ -1,10 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-#![cfg_attr(feature = "mcu-board-support", no_std)]
-
-#[cfg(feature = "mcu-board-support")]
-extern crate alloc;
+#![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -16,14 +13,14 @@ pub mod ui {
 use slint::*;
 use ui::*;
 
-#[cfg(not(feature = "mcu-board-support"))]
+#[cfg(feature = "std")]
 mod controllers {
     #[cfg(feature = "chrono")]
     pub mod header;
     #[cfg(feature = "network")]
     pub mod weather;
 }
-#[cfg(not(feature = "mcu-board-support"))]
+#[cfg(feature = "std")]
 use controllers::*;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
@@ -36,17 +33,17 @@ pub fn main() -> Result<(), slint::PlatformError> {
     let window = MainWindow::new()?;
 
     // let _ to keep the timer alive.
-    #[cfg(all(not(feature = "mcu-board-support"), feature = "chrono"))]
+    #[cfg(feature = "chrono")]
     let _timer = header::setup(&window);
 
-    #[cfg(all(not(feature = "mcu-board-support"), feature = "network"))]
+    #[cfg(feature = "network")]
     let weather_join = weather::setup(&window);
 
     let _kiosk_mode_timer = kiosk_timer(&window);
 
     window.run()?;
 
-    #[cfg(all(not(feature = "mcu-board-support"), feature = "network"))]
+    #[cfg(feature = "network")]
     weather_join.join().unwrap();
 
     Ok(())

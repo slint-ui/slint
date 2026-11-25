@@ -1059,6 +1059,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         synthesis: &fontique::Synthesis,
         mut brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
+        _baseline: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     ) {
         let font_id = font_cache::FONT_CACHE.with(|cache| cache.borrow_mut().font(font));
@@ -1678,7 +1679,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                         .push(Texture::adopt(&self.canvas, clipped_image));
                     (clipped_image, Default::default(), texture_size)
                 } else {
-                    (image_id, fit.clip_rect.origin.cast::<f32>(), buf_size)
+                    let origin = euclid::default::Point2D::new(
+                        scale_w * fit.clip_rect.origin.x as f32,
+                        scale_h * fit.clip_rect.origin.y as f32,
+                    );
+                    (image_id, origin, buf_size)
                 };
             let tiled = fit.tiled.unwrap_or_default();
             let fill_paint = femtovg::Paint::image(

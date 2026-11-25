@@ -443,6 +443,7 @@ impl BorderRectLayout {
         // this is incorrect when the radius is smaller than that, but that can't be
         // helped - better a radius a bit too big than no radius.
         let fill_radius = (rect.border_radius().cast() * scale_factor)
+            .fit_to(geometry.size)
             .outer(border_width / 2. + euclid::Length::new(0.01));
         let border_radius = fill_radius.inner(border_width / 2.);
 
@@ -494,6 +495,7 @@ pub fn clip_content_box(
             size.height_length() - border_width * two,
         ),
     );
+    let radius: LogicalBorderRadius = radius.cast::<f32>().fit_to(size.cast()).cast();
     (rect, radius.inner(border_width))
 }
 
