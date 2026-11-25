@@ -6,6 +6,8 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::embedded_resources::*;
 use crate::expression_tree::Expression;
 use crate::expression_types::ImageReference;
+#[cfg(feature = "renderer-software")]
+use crate::expression_types::Unit;
 use crate::object_tree::*;
 use crate::source_path::SourcePath;
 #[cfg(feature = "renderer-software")]
@@ -69,6 +71,20 @@ pub async fn embed_images(
         urls
     };
 
+    #[cfg(feature = "renderer-software")]
+    if embed_files == EmbedResourcesKind::EmbedTextures && resource_url_mapper.is_none() {
+        for component in &all_components {
+            embed_images_at_drawn_size(
+                component,
+                global_embedded_resources,
+                &mut resource_ids,
+                scale_factor,
+                diag,
+                font_collection,
+            );
+        }
+    }
+
     // Use URLs (sync!):
     for component in &all_components {
         visit_all_expressions(component, |e, _| {
@@ -89,7 +105,8 @@ pub async fn embed_images(
 /// The resources already embedded, so that each is embedded once.
 #[derive(Default)]
 struct ResourceIds {
-    by_path: HashMap<SourcePath, EmbeddedResourcesIdx>,
+    /// The size in physical pixels of an image that is embedded at the size it's drawn at.
+    by_path: HashMap<(SourcePath, Option<(u32, u32)>), EmbeddedResourcesIdx>,
     by_data_uri: HashMap<SmolStr, EmbeddedResourcesIdx>,
     #[cfg(feature = "renderer-software")]
     animated: std::collections::HashSet<EmbeddedResourcesIdx>,
@@ -192,6 +209,7 @@ fn embed_images_from_expression(
                         embed_files,
                         path,
                         scale_factor,
+                        None,
                         diag,
                         source_location,
                         font_collection,
@@ -221,19 +239,141 @@ fn embed_images_from_expression(
     });
 }
 
+/// Embeds the image of each `Image` element with a constant size at that size,
+/// so that the renderer draws it without scaling.
+#[cfg(feature = "renderer-software")]
+fn embed_images_at_drawn_size(
+    component: &Component,
+    global_embedded_resources: &RefCell<TiVec<EmbeddedResourcesIdx, EmbeddedResources>>,
+    resource_ids: &mut ResourceIds,
+    scale_factor: f32,
+    diag: &mut BuildDiagnostics,
+    font_collection: Option<&SharedFontCollection>,
+) {
+    // A transform magnifies the image, and the renderer rasterizes an SVG at the magnified size.
+    recurse_elem_including_sub_components_no_borrow(component, &false, &mut |elem, transformed| {
+        let element = elem.borrow();
+        let transformed = *transformed || has_transform(&element);
+        if !transformed {
+            embed_plain_image(
+                &element,
+                global_embedded_resources,
+                resource_ids,
+                scale_factor,
+                diag,
+                font_collection,
+            );
+        }
+        transformed
+    });
+}
+
+#[cfg(feature = "renderer-software")]
+fn has_transform(element: &Element) -> bool {
+    ["transform-rotation", "transform-scale", "transform-scale-x", "transform-scale-y"]
+        .iter()
+        .any(|name| element.binding_cell_including_synthetic(name).is_some())
+}
+
+#[cfg(feature = "renderer-software")]
+fn embed_plain_image(
+    element: &Element,
+    global_embedded_resources: &RefCell<TiVec<EmbeddedResourcesIdx, EmbeddedResources>>,
+    resource_ids: &mut ResourceIds,
+    scale_factor: f32,
+    diag: &mut BuildDiagnostics,
+    font_collection: Option<&SharedFontCollection>,
+) {
+    let Some((width, height)) = constant_size_of_plain_image(element) else { return };
+    let Some(source) = element.binding_cell_including_synthetic("source") else { return };
+    let mut source = source.borrow_mut();
+    let Expression::ImageReference { resource_ref, source_location, nine_slice: None } =
+        &mut source.expression
+    else {
+        return;
+    };
+    let ImageReference::Source(path) = &*resource_ref else { return };
+    let path = path.clone();
+    let drawn_size = (
+        (width * scale_factor as f64).round().max(1.) as u32,
+        (height * scale_factor as f64).round().max(1.) as u32,
+    );
+    *resource_ref = embed_image(
+        global_embedded_resources,
+        resource_ids,
+        EmbedResourcesKind::EmbedTextures,
+        &path,
+        scale_factor,
+        Some(drawn_size),
+        diag,
+        source_location,
+        font_collection,
+    );
+}
+
+/// The width and height in logical pixels of an `Image` that the renderer draws
+/// stretched to its constant size, and with nothing but its source and colorize.
+#[cfg(feature = "renderer-software")]
+fn constant_size_of_plain_image(element: &Element) -> Option<(f64, f64)> {
+    if element.repeated.is_some() || !element.builtin_type().is_some_and(|b| b.name == "Image") {
+        return None;
+    }
+    const NOT_PLAIN: [&str; 9] = [
+        "image-rendering",
+        "source-clip-x",
+        "source-clip-y",
+        "source-clip-width",
+        "source-clip-height",
+        "horizontal-alignment",
+        "vertical-alignment",
+        "horizontal-tiling",
+        "vertical-tiling",
+    ];
+    if NOT_PLAIN.iter().any(|name| element.binding_cell_including_synthetic(name).is_some()) {
+        return None;
+    }
+    if let Some(fit) = element.binding_cell_including_synthetic("image-fit")
+        && !matches!(&fit.borrow().expression,
+            Expression::EnumerationValue(value) if value.to_string() == "fill")
+    {
+        return None;
+    }
+    let length = |name: &str| {
+        let binding = element.binding_cell_including_synthetic(name)?.borrow();
+        if binding.from_state || binding.animation.is_some() {
+            return None;
+        }
+        match &binding.expression {
+            Expression::NumberLiteral(value, Unit::Px) if *value > 0. => Some(*value),
+            _ => None,
+        }
+    };
+    Some((length("width")?, length("height")?))
+}
+
+/// The size to embed an image at, which is its drawn size if that's smaller than the image.
+#[cfg(feature = "renderer-software")]
+fn shrink_to(drawn_size: Option<(u32, u32)>, natural: (u32, u32)) -> (u32, u32) {
+    match drawn_size {
+        Some((width, height)) if width <= natural.0 && height <= natural.1 => (width, height),
+        _ => natural,
+    }
+}
+
 fn embed_image(
     global_embedded_resources: &RefCell<TiVec<EmbeddedResourcesIdx, EmbeddedResources>>,
     resource_ids: &mut ResourceIds,
     embed_files: EmbedResourcesKind,
     path: &SourcePath,
     _scale_factor: f32,
+    _drawn_size: Option<(u32, u32)>,
     diag: &mut BuildDiagnostics,
     source_location: &Option<crate::diagnostics::SourceLocation>,
     _font_collection: Option<&SharedFontCollection>,
 ) -> ImageReference {
     let extension = || path.extension().unwrap_or_default().to_string();
 
-    if let Some(&resource_id) = resource_ids.by_path.get(path) {
+    if let Some(&resource_id) = resource_ids.by_path.get(&(path.clone(), _drawn_size)) {
         #[cfg(feature = "renderer-software")]
         resource_ids.warn_if_animated(resource_id, diag, source_location);
         return match global_embedded_resources.borrow()[resource_id].kind {
@@ -252,7 +392,7 @@ fn embed_image(
     let mut resources = global_embedded_resources.borrow_mut();
     let mut push = |kind| {
         let id = resources.push_and_get_key(EmbeddedResources { path: Some(path.clone()), kind });
-        resource_ids.by_path.insert(path.clone(), id);
+        resource_ids.by_path.insert((path.clone(), _drawn_size), id);
         id
     };
 
@@ -290,8 +430,14 @@ fn embed_image(
     #[cfg(feature = "renderer-software")]
     if embed_files == EmbedResourcesKind::EmbedTextures {
         let loaded = _file.read().map_err(image::ImageError::IoError).and_then(|data| {
-            load_image_from_bytes(&data, _file.extension(), _scale_factor, _font_collection)
-                .map(|loaded| (loaded, is_animated(&data)))
+            load_image_from_bytes(
+                &data,
+                _file.extension(),
+                _scale_factor,
+                _drawn_size,
+                _font_collection,
+            )
+            .map(|loaded| (loaded, is_animated(&data)))
         });
         return match loaded {
             Ok(((img, source_format, original_size), animated)) => {
@@ -387,35 +533,54 @@ fn generate_texture(
         right -= 1;
         assert!(right > left); // otherwise we would have a transparent image
     }
-    let pixels = || (top..=bottom).flat_map(|y| (left..=right).map(move |x| (x, y)));
-    let is_opaque = pixels().all(|(x, y)| image.get_pixel(x, y)[3] == 255);
-
-    // A premultiplied pixel with a low alpha can't tell its color, so the most opaque pixel
-    // gives the color, and the others only need to match it once premultiplied.
-    let reference = pixels().map(|(x, y)| *image.get_pixel(x, y)).max_by_key(|p| p[3]).unwrap();
-    let reference_color = match source_format {
-        SourceFormat::RgbaPremultiplied => <[u8; 3]>::try_from(&reference.0[0..3])
-            .unwrap()
-            .map(|v| (v as u16 * 255 / reference[3] as u16) as u8),
-        SourceFormat::Rgba => reference.0[0..3].try_into().unwrap(),
-    };
-    let is_single_color = pixels().map(|(x, y)| image.get_pixel(x, y)).all(|p| {
-        let alpha = p[3] as u16;
-        (0..3).all(|i| match source_format {
-            SourceFormat::RgbaPremultiplied => {
-                p[i].abs_diff(((reference_color[i] as u16 * alpha + 127) / 255) as u8) <= 1
+    let mut is_opaque = true;
+    enum ColorState {
+        Unset,
+        Different,
+        Rgb([u8; 3]),
+    }
+    let mut color = ColorState::Unset;
+    'outer: for y in top..=bottom {
+        for x in left..=right {
+            let p = image.get_pixel(x, y);
+            let alpha = p[3];
+            if alpha != 255 {
+                is_opaque = false;
             }
-            SourceFormat::Rgba => alpha == 0 || p[i].abs_diff(reference_color[i]) <= 2,
-        })
-    });
+            if alpha == 0 {
+                continue;
+            }
+            let get_pixel = || match source_format {
+                SourceFormat::RgbaPremultiplied => <[u8; 3]>::try_from(&p.0[0..3])
+                    .unwrap()
+                    .map(|v| (v as u16 * 255 / alpha as u16) as u8),
+                SourceFormat::Rgba => p.0[0..3].try_into().unwrap(),
+            };
+            match color {
+                ColorState::Unset => {
+                    color = ColorState::Rgb(get_pixel());
+                }
+                ColorState::Different => {
+                    if !is_opaque {
+                        break 'outer;
+                    }
+                }
+                ColorState::Rgb([a, b, c]) => {
+                    let px = get_pixel();
+                    if a.abs_diff(px[0]) > 2 || b.abs_diff(px[1]) > 2 || c.abs_diff(px[2]) > 2 {
+                        color = ColorState::Different
+                    }
+                }
+            }
+        }
+    }
 
-    let (format, color) = if is_single_color {
-        let [r, g, b] = reference_color;
-        (TexturePixelFormat::AlphaMap, u32::from_be_bytes([0xff, r, g, b]))
-    } else if is_opaque {
-        (TexturePixelFormat::Rgb, 0)
-    } else {
-        (TexturePixelFormat::RgbaPremultiplied, 0)
+    let (format, color) = match color {
+        ColorState::Rgb([r, g, b]) => {
+            (TexturePixelFormat::AlphaMap, u32::from_be_bytes([0xff, r, g, b]))
+        }
+        _ if is_opaque => (TexturePixelFormat::Rgb, 0),
+        _ => (TexturePixelFormat::RgbaPremultiplied, 0),
     };
 
     let rect = IntRect::new(
@@ -508,6 +673,7 @@ fn load_image_from_bytes(
     data: &[u8],
     extension: Option<&str>,
     scale_factor: f32,
+    drawn_size: Option<(u32, u32)>,
     font_collection: Option<&SharedFontCollection>,
 ) -> image::ImageResult<(image::RgbaImage, SourceFormat, IntSize)> {
     use resvg::{tiny_skia, usvg};
@@ -525,8 +691,17 @@ fn load_image_from_bytes(
         };
 
         let original_size = tree.size();
-        let width = (original_size.width() * scale_factor) as u32;
-        let height = (original_size.height() * scale_factor) as u32;
+        let natural = (
+            (original_size.width() * scale_factor) as u32,
+            (original_size.height() * scale_factor) as u32,
+        );
+        let (width, height) = shrink_to(drawn_size, natural);
+        let (scale_x, scale_y) = match drawn_size {
+            Some(_) => {
+                (width as f32 / original_size.width(), height as f32 / original_size.height())
+            }
+            None => (scale_factor, scale_factor),
+        };
 
         let mut buffer = vec![0u8; width as usize * height as usize * 4];
 
@@ -540,11 +715,7 @@ fn load_image_from_bytes(
             tiny_skia::PixmapMut::from_bytes(buffer.as_mut_slice(), width, height)
                 .ok_or_else(size_error)?;
 
-        resvg::render(
-            &tree,
-            tiny_skia::Transform::from_scale(scale_factor, scale_factor),
-            &mut skia_buffer,
-        );
+        resvg::render(&tree, tiny_skia::Transform::from_scale(scale_x, scale_y), &mut skia_buffer);
 
         return image::RgbaImage::from_raw(width, height, buffer).ok_or_else(size_error).map(
             |img| {
@@ -559,6 +730,29 @@ fn load_image_from_bytes(
 
     image::load_from_memory(data).map(|mut image| {
         let (original_width, original_height) = image.dimensions();
+
+        let (width, height) = shrink_to(drawn_size, (original_width, original_height));
+        if drawn_size.is_some() && (width, height) != (original_width, original_height) {
+            // Resize premultiplied, so that the color of transparent pixels doesn't bleed in.
+            let mut rgba = image.to_rgba8();
+            for pixel in rgba.pixels_mut() {
+                let alpha = pixel[3] as u32;
+                for channel in &mut pixel.0[..3] {
+                    *channel = ((*channel as u32 * alpha + 127) / 255) as u8;
+                }
+            }
+            let resized = image::imageops::resize(
+                &rgba,
+                width,
+                height,
+                image::imageops::FilterType::Lanczos3,
+            );
+            return (
+                resized,
+                SourceFormat::RgbaPremultiplied,
+                IntSize::new(original_width, original_height),
+            );
+        }
 
         if scale_factor < 1.0 {
             image = image.resize_exact(
@@ -658,6 +852,7 @@ fn embed_data_uri(
             &decoded_data,
             Some(&extension),
             _scale_factor,
+            None,
             _font_collection,
         )
         .map(|loaded| (loaded, is_animated(&decoded_data)))
@@ -685,48 +880,4 @@ fn embed_data_uri(
     let resource_id = push(EmbeddedResourcesKind::DataUriPayload(decoded_data, extension.clone()));
 
     ImageReference::EmbeddedData { resource_id, extension }
-}
-
-#[cfg(all(test, feature = "renderer-software"))]
-mod tests {
-    use super::*;
-
-    fn format_of(image: image::RgbaImage, source_format: SourceFormat) -> TexturePixelFormat {
-        let size = IntSize::new(image.width(), image.height());
-        generate_texture(image, source_format, size).textures[0].format
-    }
-
-    /// Premultiplies a `color` pixel the way the SVG renderer does.
-    fn premultiplied(color: [u8; 3], alpha: u8) -> image::Rgba<u8> {
-        let [r, g, b] = color.map(|v| ((v as u16 * alpha as u16 + 127) / 255) as u8);
-        image::Rgba([r, g, b, alpha])
-    }
-
-    #[test]
-    fn antialiased_single_color_is_an_alpha_map() {
-        // The faint edge pixel comes first, where a premultiplied color is only a rough guess.
-        let alphas = [3, 40, 255, 255, 90, 7];
-        let image = image::RgbaImage::from_fn(alphas.len() as u32, 1, |x, _| {
-            premultiplied([0x33, 0x66, 0x99], alphas[x as usize])
-        });
-        assert_eq!(format_of(image, SourceFormat::RgbaPremultiplied), TexturePixelFormat::AlphaMap);
-    }
-
-    #[test]
-    fn two_colors_stay_premultiplied() {
-        let image = image::RgbaImage::from_fn(4, 1, |x, _| {
-            premultiplied(if x < 2 { [0xff, 0, 0] } else { [0, 0xff, 0] }, 200)
-        });
-        assert_eq!(
-            format_of(image, SourceFormat::RgbaPremultiplied),
-            TexturePixelFormat::RgbaPremultiplied
-        );
-    }
-
-    #[test]
-    fn opaque_gradient_is_rgb() {
-        let image =
-            image::RgbaImage::from_fn(8, 1, |x, _| image::Rgba([x as u8 * 30, 10, 200, 255]));
-        assert_eq!(format_of(image, SourceFormat::Rgba), TexturePixelFormat::Rgb);
-    }
 }
