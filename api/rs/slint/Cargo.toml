@@ -46,10 +46,17 @@ std = ["i-slint-core/std", "i-slint-renderer-software?/std"]
 
 ## Render `.svg` images.
 ##
-## With `compat-1-18` the Skia renderer and the Android backend always render SVG. With `compat-1-20`
-## or newer this is opt-in: enable `svg` (it is part of the default features).
-## Without it, the Skia renderer and the Android backend leave out SVG support; other backends
-## still include it on native targets. WebAssembly builds never include it, since the browser decodes images.
+## The std-widgets draw their icons from SVG files,
+## such as the check mark of a `CheckBox` and the arrow of a `ComboBox`.
+## Without this feature these icons disappear on the Android backend,
+## and on a custom platform that uses the Skia renderer.
+## Only a message in the debug log tells why.
+##
+## With `compat-1-18`, the Skia renderer and the Android backend always render SVG.
+## With `compat-1-20` or newer, enable `svg` for them to render SVG.
+## The default features enable it.
+## The winit and LinuxKMS backends include SVG support on native targets whether this feature is enabled or not.
+## WebAssembly builds never include it, since the browser decodes images.
 svg = ["i-slint-renderer-skia?/svg", "i-slint-backend-android-activity?/svg"]
 
 ## Enable the translations using [gettext](https://www.gnu.org/software/gettext/gettext)

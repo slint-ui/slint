@@ -47,9 +47,11 @@ system-tray = ["i-slint-core/system-tray"]
 
 ## Render `.svg` images.
 ##
-## On native targets the interpreter always renders SVG, since it loads images from files at runtime.
+## On native targets the interpreter always loads SVG, since it loads images from files at runtime.
+## Without this feature, the Android backend draws an SVG at its own size,
+## so a scaled SVG gets blurry.
 ## WebAssembly builds never include it, since the browser decodes images.
-## The feature exists to match the `slint` crate, and is part of the default features.
+## The feature is part of the default features, like the `svg` feature of the `slint` crate.
 svg = ["i-slint-backend-selector/svg"]
 
 # (internal) Use the standard library. Mandatory and enabled by `compat-1-20`
