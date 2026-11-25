@@ -14,14 +14,14 @@ use typed_index_collections::TiVec;
 
 #[derive(Clone)]
 enum Resource {
-    Texture(SharedPtr<StaticTextures<OwnedStorage>>),
+    Texture(alloc::sync::Arc<StaticTextures<OwnedStorage>>),
     BitmapFont(SharedPtr<BitmapFont<OwnedStorage>>),
 }
 
 impl From<PreRenderedResource> for Resource {
     fn from(resource: PreRenderedResource) -> Self {
         match resource {
-            PreRenderedResource::Texture(texture) => Self::Texture(SharedPtr::new(texture)),
+            PreRenderedResource::Texture(texture) => Self::Texture(alloc::sync::Arc::new(texture)),
             PreRenderedResource::BitmapFont(font) => Self::BitmapFont(SharedPtr::new(font)),
         }
     }
@@ -66,7 +66,7 @@ impl PreRendered {
             .into_iter()
             .map(|resource| match resource? {
                 Resource::Texture(texture) => {
-                    Some(PreRenderedResource::Texture(SharedPtr::unwrap_or_clone(texture)))
+                    Some(PreRenderedResource::Texture(alloc::sync::Arc::unwrap_or_clone(texture)))
                 }
                 Resource::BitmapFont(font) => {
                     Some(PreRenderedResource::BitmapFont(SharedPtr::unwrap_or_clone(font)))

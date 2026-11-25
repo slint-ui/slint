@@ -2638,7 +2638,7 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
         enum Pixels {
             Static(&'static [u8]),
             #[cfg(feature = "owned-pre-rendered-resources")]
-            Owned(i_slint_core::shared_pointer::SharedPtr<StaticTextures<OwnedStorage>>),
+            Owned(alloc::sync::Arc<StaticTextures<OwnedStorage>>),
         }
         let mut draw_textures = |pixels: Pixels,
                                  textures: &[StaticTexture],
@@ -2829,8 +2829,6 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
                         RasterCommand::TargetTexture { texture: t, clip: clipped_target.cast() },
                         &self.rounded_clips,
                     );
-                } else {
-                    unimplemented!("The image cannot be rendered")
                 }
             }
         };

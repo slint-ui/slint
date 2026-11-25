@@ -311,7 +311,7 @@ impl SoftwareRenderer {
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
         self.render_buffer_impl(
             &mut TargetPixelSlice { data: buffer, pixel_stride },
-            &mut PreparedTextures::new(),
+            &mut crate::prepared_textures::PreparedTextures::new(),
         )
     }
 
@@ -342,6 +342,9 @@ impl SoftwareRenderer {
     /// Records the window's next frame, like [`Self::render`] renders it,
     /// to rasterize later with [`RecordedRasterCommands::rasterize`],
     /// into a buffer of `num_lines` lines of `pixels_per_line` pixels.
+    ///
+    /// Rasterize every recording: recording marks the changed areas as clean,
+    /// so a recording dropped without rasterizing loses that frame's changes.
     ///
     /// Only available on targets with atomic pointers.
     #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]

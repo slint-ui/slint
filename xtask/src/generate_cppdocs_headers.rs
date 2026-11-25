@@ -46,7 +46,6 @@ pub fn generate(experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
         mcp: false,
         freestanding: true,
         experimental,
-        tracing: false,
     };
     cbindgen::gen_all(&root, &generated_headers_dir, enabled_features)?;
 

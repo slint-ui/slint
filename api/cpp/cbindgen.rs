@@ -430,6 +430,8 @@ fn default_config() -> cbindgen::Config {
     let defines: Vec<(String, String)> = vec![
         ("target_pointer_width = 64".into(), "SLINT_TARGET_64".into()),
         ("target_pointer_width = 32".into(), "SLINT_TARGET_32".into()),
+        // The recorded raster commands need atomic pointers, which thumbv6m lacks.
+        ("target_has_atomic = ptr".into(), "SLINT_TARGET_HAS_ATOMIC_PTR".into()),
         // Disable any wasm guarded code in C++, too - so that there are no gaps in enums.
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
