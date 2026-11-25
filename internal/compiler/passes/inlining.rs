@@ -213,24 +213,27 @@ fn inline_element(
     let mut reexported = HashSet::new();
     if Rc::ptr_eq(elem, &root_component.root_element) {
         for slot in inlined_component.declared_slots.borrow().iter() {
-            if (slot.interface.is_some() && children_by_slot.contains_key(&slot.name))
-                || elem_mut.forwarded_slots.iter().any(|f| f.target == slot.name)
+            let slot_name = slot.insertion_name();
+            if (slot.interface.is_some()
+                && !slot.is_collection
+                && children_by_slot.contains_key(slot_name))
+                || elem_mut.forwarded_slots.iter().any(|f| f.target.as_str() == slot_name)
             {
                 continue;
             }
-            if let Some(cip) = inlined_insertion_points.get(slot.name.as_str())
+            if let Some(cip) = inlined_insertion_points.get(slot_name)
                 && let Some(parent) = mapping.get(&element_key(cip.parent.clone()))
             {
                 if let Entry::Vacant(entry) =
-                    root_component.child_insertion_points.borrow_mut().entry(slot.name.to_string())
+                    root_component.child_insertion_points.borrow_mut().entry(slot_name.to_string())
                 {
                     entry.insert(ChildrenInsertionPoint {
                         parent: parent.clone(),
                         insertion_index: cip.insertion_index,
                         node: cip.node.clone(),
                     });
-                    if slot.interface.is_none() {
-                        reexported.insert(slot.name.clone());
+                    if slot.interface.is_none() || slot.is_collection {
+                        reexported.insert(SmolStr::new(slot_name));
                     }
                 }
                 let mut declarations = root_component.declared_slots.borrow_mut();
@@ -702,6 +705,8 @@ fn duplicate_element_with_mapping(
         slot_default: elem.slot_default.clone(),
         empty_slot_assignments: elem.empty_slot_assignments.clone(),
         typed_slot_interface: elem.typed_slot_interface.clone(),
+        slot_collection: elem.slot_collection,
+        slot_expansion: elem.slot_expansion.clone(),
         forwarded_slots: elem.forwarded_slots.clone(),
         // Deep-clone grid_layout_cell to avoid sharing between original and inlined copies.
         // This is important because children_constraints contain NamedReferences that need
@@ -721,6 +726,7 @@ fn duplicate_element_with_mapping(
 
     new
 }
+
 
 fn duplicate_optimized_elements(
     optimized: &[OptimizedElement],

@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView as StandardListView } from "std-widgets.slint";
+
+component Page inherits Rectangle { in property <string> title; height: 20px; }
+component DerivedList inherits StandardListView { }
+
+component ListView inherits Rectangle { @children }
+component DerivedCustomList inherits ListView { }
+
+component CustomListCollection {
+    default slot <[*]> rows;
+    ListView { for row in rows: row { } }
+}
+
+component DerivedCustomListCollection {
+    default slot <[*]> rows;
+    DerivedCustomList { for row in rows: row { } }
+}
+
+component CollectionList {
+    default slot <[*]> rows;
+    StandardListView { for row in rows: row { } }
+//                                >  <error{Collection slots cannot be expanded directly in 'ListView'; use a model 'for' loop instead}
+}
+
+component InheritedCollectionList {
+    default slot <[*]> rows;
+    DerivedList { for row in rows: row { } }
+//                           >  <error{Collection slots cannot be expanded directly in 'ListView'; use a model 'for' loop instead}
+}
+
+export component Test inherits Window {
+    CustomListCollection { Page { title: "Custom"; } }
+    DerivedCustomListCollection { Page { title: "Derived custom"; } }
+    CollectionList { Page { title: "One"; } }
+    InheritedCollectionList { Page { title: "One"; } }
+}

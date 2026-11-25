@@ -83,6 +83,8 @@ fn create_repeater_components(component: &Rc<Component>) {
                 slot_default: original_elem.slot_default.clone(),
                 empty_slot_assignments: original_elem.empty_slot_assignments.clone(),
                 typed_slot_interface: original_elem.typed_slot_interface.clone(),
+                slot_collection: original_elem.slot_collection,
+                slot_expansion: original_elem.slot_expansion.clone(),
                 forwarded_slots: original_elem.forwarded_slots.clone(),
                 grid_layout_cell: original_elem.grid_layout_cell.clone(),
             })),
