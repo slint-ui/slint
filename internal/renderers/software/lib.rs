@@ -538,6 +538,10 @@ impl<'a, T: TargetPixel> target_pixel_buffer::TargetPixelBuffer for TargetPixelS
 }
 
 impl SoftwareRenderer {
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(name = "render_buffer", skip_all, fields(lines = buffer.num_lines()))
+    )]
     fn render_buffer_impl(
         &self,
         buffer: &mut impl target_pixel_buffer::TargetPixelBuffer,
@@ -650,6 +654,8 @@ impl SoftwareRenderer {
 
                 self.measure_frame_rendered(&mut renderer);
 
+                #[cfg(feature = "tracing")]
+                tracing::info!(name: "frame", "frame");
                 dirty_region
             })
             .unwrap_or_default();
@@ -665,6 +671,7 @@ impl SoftwareRenderer {
     ///
     /// For `SwappedBuffers`, `prev_frame_dirty` intentionally keeps the unexpanded region:
     /// the next frame starts from a superset of it and re-applies the expansion.
+    #[cfg_attr(feature = "tracing", tracing::instrument(name = "dirty_region", skip_all))]
     fn compute_frame_dirty_region<T: ItemRenderer + ItemRendererFeatures>(
         &self,
         renderer: &mut PartialRenderer<'_, T>,
@@ -726,6 +733,7 @@ impl SoftwareRenderer {
         }
         physical_region
     }
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn measure_frame_rendered(&self, renderer: &mut dyn ItemRenderer) {
         if let Some(metrics) = &self.rendering_metrics_collector {
             let prev_frame_dirty = self.prev_frame_dirty.take();
@@ -1321,6 +1329,7 @@ where
     }
 }
 
+#[cfg_attr(feature = "tracing", tracing::instrument(name = "render", skip_all))]
 fn render_window_frame_by_line(
     window: &WindowInner,
     background: Brush,
@@ -1338,15 +1347,24 @@ fn render_window_frame_by_line(
         TargetPixel::blend(&mut background_color, background.color().into());
     }
 
+    #[cfg(feature = "tracing")]
+    let _rasterize_span = tracing::info_span!("rasterize").entered();
     while scene.current_line < to_draw_tr.origin.y_length() + to_draw_tr.size.height_length() {
         for r in &scene.current_line_ranges {
+            // Includes the platform's work on the line, such as sending it to the display.
+            #[cfg(feature = "tracing")]
+            let _process_line_span = tracing::info_span!("process_line").entered();
             line_buffer.process_line(
                 scene.current_line.get() as usize,
                 r.start as usize..r.end as usize,
                 |line_buffer| {
+                    #[cfg(feature = "tracing")]
+                    let _render_line_span = tracing::info_span!("render_line").entered();
                     let offset = r.start;
 
                     let items = &scene.items[0..scene.current_items_index];
+                    #[cfg(feature = "tracing")]
+                    let cover_search_span = tracing::info_span!("cover_search").entered();
                     // A span that opaquely covers the whole range hides
                     // everything behind it, background included. Draw from the
                     // frontmost such span and drop the rest.
@@ -1355,9 +1373,13 @@ fn render_window_frame_by_line(
                             && span.pos.x + span.size.width >= r.end
                             && scene.covers_line(span)
                     });
+                    #[cfg(feature = "tracing")]
+                    drop(cover_search_span);
                     let items = match first_cover {
                         Some(i) => &items[..=i],
                         None => {
+                            #[cfg(feature = "tracing")]
+                            let _span = tracing::info_span!("fill").entered();
                             line_buffer.fill(background_color);
                             items
                         }
@@ -1384,6 +1406,8 @@ fn render_window_frame_by_line(
                         if let ScanlineCommand::Rectangle { color } = span.command
                             && span.clip_len == 0
                         {
+                            #[cfg(feature = "tracing")]
+                            let _span = tracing::info_span!("blend_slice").entered();
                             TargetPixel::blend_slice(range_buffer, color);
                             continue;
                         }
@@ -1443,6 +1467,9 @@ fn render_window_frame_by_line(
             scene.next_line();
         }
     }
+    // Tracy's importer turns events with "frame" in their name into frame marks.
+    #[cfg(feature = "tracing")]
+    tracing::info!(name: "frame", "frame");
     scene.dirty_region
 }
 
@@ -1450,6 +1477,7 @@ fn gradient_background(background: &Brush) -> Option<&Brush> {
     (!matches!(background, Brush::SolidColor(_))).then_some(background)
 }
 
+#[cfg_attr(feature = "tracing", tracing::instrument(name = "tree_walk", skip_all))]
 fn record_scanline_scene(
     window: &WindowInner,
     size: PhysicalSize,
@@ -1480,6 +1508,8 @@ fn record_scanline_scene(
             factor,
             size,
         );
+        #[cfg(feature = "tracing")]
+        let _build_scene_span = tracing::info_span!("build_scene").entered();
 
         if let Some(gradient) = gradient_background {
             renderer.actual_renderer.push_background(gradient, &dirty_region);
@@ -1648,6 +1678,7 @@ fn hook_can_draw(rounded_clips: &[RoundedClip], geometry: impl FnOnce() -> Physi
     rounded_clips.is_empty() || shape_clips(rounded_clips, &geometry()).next().is_none()
 }
 
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 fn process_rectangle_impl(
     raster_commands: &mut dyn RasterCommandSink,
     args: &target_pixel_buffer::DrawRectangleArgs,
@@ -1979,6 +2010,64 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
 impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
     fn rasterize(&mut self, command: &RasterCommand, rounded_clips: &[RoundedClip]) {
         use RasterCommand::*;
+        #[cfg(feature = "tracing")]
+        let _span = {
+            macro_rules! span {
+                ($name:literal, $size:expr) => {
+                    tracing::info_span!($name, w = $size.width, h = $size.height)
+                };
+            }
+            match command {
+                Background { region, .. } => tracing::info_span!(
+                    "process_background",
+                    px = region
+                        .iter_box()
+                        .map(|b| b.width() as i64 * b.height() as i64)
+                        .sum::<i64>(),
+                    rects = region.count,
+                ),
+                Texture { geometry, .. } => span!("process_scene_texture", geometry.size),
+                SharedBuffer { geometry, .. } => span!("process_shared_buffer", geometry.size),
+                TargetTexture { texture, .. } => {
+                    let source = texture.source();
+                    tracing::info_span!(
+                        "process_target_texture",
+                        w = texture.dst_width,
+                        h = texture.dst_height,
+                        src_w = source.width,
+                        src_h = source.height,
+                        fmt = source.pixel_format as u8,
+                        src = source.data.as_ptr() as usize,
+                    )
+                }
+                Rectangle { args, .. } => {
+                    tracing::info_span!("process_rectangle", w = args.width, h = args.height)
+                }
+                SolidRectangle { geometry, .. } => span!("process_simple_rectangle", geometry.size),
+                RoundedRectangle { geometry, .. } => {
+                    span!("process_rounded_rectangle", geometry.size)
+                }
+                Gradient { geometry, gradient: AnyGradientCommand::Linear(_), .. } => {
+                    span!("process_linear_gradient", geometry.size)
+                }
+                Gradient { geometry, gradient: AnyGradientCommand::Radial(_), .. } => {
+                    span!("process_radial_gradient", geometry.size)
+                }
+                Gradient { geometry, gradient: AnyGradientCommand::Conic(_), .. } => {
+                    span!("process_conic_gradient", geometry.size)
+                }
+                BoxShadow { geometry, .. } => span!("process_box_shadow", geometry.size),
+                #[cfg(feature = "path")]
+                FilledPath { path_geometry, .. } => {
+                    span!("process_filled_path", path_geometry.size)
+                }
+                #[cfg(feature = "path")]
+                StrokedPath { path_geometry, .. } => {
+                    span!("process_stroked_path", path_geometry.size)
+                }
+            }
+            .entered()
+        };
         match command {
             Background { args, clip, region } => self.rasterize_background(args, *clip, region),
             Texture { geometry, texture } => {
@@ -2077,7 +2166,12 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
     ) {
         self.dirty_region = region.clone();
         // The user's hook, such as a 2D accelerator.
-        if self.buffer.fill_background(&args.background, region) {
+        let filled_by_hook = {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::info_span!("fill_background_hook").entered();
+            self.buffer.fill_background(&args.background, region)
+        };
+        if filled_by_hook {
             return;
         }
         // The software fallback.
@@ -2098,7 +2192,18 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
 
     fn fallback_fill_dirty_region(&mut self, pixel: B::TargetPixel) {
         let bounds = self.dirty_region.bounding_rect();
-        self.foreach_ranges(&bounds, |_, buffer, _, _| buffer.fill(pixel));
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!(
+            "fill_background_cpu",
+            lines = bounds.height(),
+            px = bounds.width() as i64 * bounds.height() as i64,
+        )
+        .entered();
+        self.foreach_ranges(&bounds, |_, buffer, _, _| {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::info_span!("fill_line", px = buffer.len()).entered();
+            buffer.fill(pixel);
+        });
     }
 
     fn rasterize_rectangle(
@@ -2156,6 +2261,7 @@ impl RecordedRasterCommands {
     /// The buffer has the `pixels_per_line` and `num_lines` that
     /// [`SoftwareRenderer::record_frame`] recorded the frame for,
     /// so it must hold at least `pixels_per_line * num_lines` pixels.
+    #[cfg_attr(feature = "tracing", tracing::instrument(name = "render_recorded", skip_all))]
     pub fn rasterize(&self, buffer: &mut [impl TargetPixel]) -> PhysicalRegion {
         assert!(
             buffer.len() >= self.pixels_per_line * self.num_lines,
@@ -2475,6 +2581,7 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
         Some(RoundedClip { rect, radius })
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn draw_image_impl(
         &mut self,
         image_inner: &ImageInner,
@@ -2694,6 +2801,7 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
         };
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn draw_text_paragraph<Font>(
         &mut self,
         paragraph: &TextParagraphLayout<'_, Font>,
@@ -2959,6 +3067,10 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         self.current_state.alpha == 0.0
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(w = size.width, h = size.height))
+    )]
     fn draw_rectangle(
         &mut self,
         rect: Pin<&dyn RenderRectangle>,
@@ -2983,6 +3095,10 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         }
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(w = size.width, h = size.height))
+    )]
     fn draw_border_rectangle(
         &mut self,
         rect: Pin<&dyn RenderBorderRectangle>,
@@ -3024,6 +3140,7 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         }
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn draw_window_background(
         &mut self,
         rect: Pin<&dyn RenderRectangle>,
@@ -3035,6 +3152,10 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         let _ = rect.background();
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(w = size.width, h = size.height))
+    )]
     fn draw_image(
         &mut self,
         image: Pin<&dyn RenderImage>,
@@ -3085,6 +3206,10 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         }
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(w = size.width, h = size.height))
+    )]
     fn draw_text(
         &mut self,
         text: Pin<&dyn i_slint_core::item_rendering::RenderText>,
@@ -3177,6 +3302,10 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         });
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(w = size.width, h = size.height))
+    )]
     fn draw_text_input(
         &mut self,
         text_input: Pin<&i_slint_core::items::TextInput>,
@@ -3282,6 +3411,7 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
     }
 
     #[cfg(all(feature = "std", not(feature = "path")))]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn draw_path(
         &mut self,
         _path: Pin<&i_slint_core::items::Path>,
@@ -3292,6 +3422,7 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
     }
 
     #[cfg(feature = "path")]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn draw_path(
         &mut self,
         path: Pin<&i_slint_core::items::Path>,
@@ -3415,6 +3546,10 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         }
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(w = size.width, h = size.height))
+    )]
     fn draw_box_shadow(
         &mut self,
         box_shadow: Pin<&i_slint_core::items::BoxShadow>,
@@ -3486,6 +3621,7 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         RenderingResult::ContinueRenderingChildren
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn combine_clip(&mut self, other: LogicalRect, radius: LogicalBorderRadius) -> bool {
         debug_assert!(radius.is_zero(), "rounded clips go through visit_clip");
         match self.current_state.clip.intersection(&other) {
@@ -3504,6 +3640,7 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         self.current_state.clip
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn translate(&mut self, distance: LogicalVector) {
         self.current_state.offset += distance;
         self.current_state.clip = self.current_state.clip.translate(-distance)
@@ -3522,14 +3659,17 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         // TODO
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn apply_opacity(&mut self, opacity: f32) {
         self.current_state.alpha *= opacity;
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn save_state(&mut self) {
         self.state_stack.push(self.current_state);
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn restore_state(&mut self) {
         self.current_state = self.state_stack.pop().unwrap();
         let count = self.current_state.rounded_clip_count as usize;
@@ -3541,6 +3681,7 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         self.scale_factor
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn draw_cached_pixmap(
         &mut self,
         _item: &ItemRc,
@@ -3585,6 +3726,7 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         });
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn draw_string(&mut self, string: &str, color: Color) {
         let font_request = Default::default();
         let font = {
@@ -3635,6 +3777,7 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         });
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
         let image_inner: &ImageInner = (&image).into();
         let source_size = image.size();
@@ -3764,6 +3907,7 @@ impl<T: RasterCommandSink> sharedparley::GlyphRenderer for SoftwareItemRenderer<
         self.raster_commands.push(RasterCommand::Rectangle { args, clip }, &self.rounded_clips);
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn draw_glyph_run(
         &mut self,
         font: &sharedparley::parley::FontData,

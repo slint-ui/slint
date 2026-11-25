@@ -24,6 +24,7 @@ impl Default for ChangeHandlerQueue {
 impl ChangeHandlerQueue {
     /// Run one round of the queued change handlers.
     /// Returns `true` if any handler was executed.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub(crate) fn run_once(&self) -> bool {
         let list = self.0.as_ref();
         if list.is_empty() {

@@ -226,6 +226,11 @@ if (SLINT_BUILD_RUNTIME)
         list(APPEND features std)
     endif()
 
+    # Set by the ESP-IDF component, which records the spans of the runtime.
+    if (SLINT_INTERNAL_TRACING)
+        list(APPEND features tracing)
+    endif()
+
 
     set_property(
         TARGET slint_cpp

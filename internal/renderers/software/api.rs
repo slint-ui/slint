@@ -336,6 +336,7 @@ impl SoftwareRenderer {
     ///
     /// Only available on targets with atomic pointers.
     #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn record_frame(&self, pixels_per_line: usize, num_lines: usize) -> RecordedRasterCommands {
         let recorder = |scale_factor| RecordedRasterCommands {
             scale_factor,

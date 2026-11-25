@@ -585,6 +585,7 @@ fn shape_bands(
 /// both exact.
 /// Rows of a single shape out of reach of the corner curves are a single band, drawn from the
 /// precomputed [`StraightRowProfile`].
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub(super) fn draw_box_shadow_line(
     span: &PhysicalRect,
     line: PhysicalLength,

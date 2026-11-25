@@ -243,6 +243,7 @@ impl<T> ItemCache<T> {
 }
 
 /// Renders the children of the item with the specified index into the renderer.
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn render_item_children(
     renderer: &mut dyn ItemRenderer,
     component: &ItemTreeRc,
@@ -254,7 +255,11 @@ pub fn render_item_children(
             renderer.save_state();
             let item_rc = ItemRc::new(component.clone(), index);
 
-            let (do_draw, item_origin, item_size) = renderer.filter_item(&item_rc, window_adapter);
+            let (do_draw, item_origin, item_size) = {
+                #[cfg(feature = "tracing")]
+                let _span = tracing::info_span!("filter_item").entered();
+                renderer.filter_item(&item_rc, window_adapter)
+            };
 
             renderer.translate(item_origin.to_vector());
 
@@ -272,6 +277,8 @@ pub fn render_item_children(
                || ItemRef::downcast_pin::<Opacity>(item).is_some()
                || ItemRef::downcast_pin::<Layer>(item).is_some()
             {
+                #[cfg(feature = "tracing")]
+                let _span = tracing::info_span!("item_render").entered();
                 let size = item_size.unwrap_or_else(|| {
                     crate::properties::evaluate_no_tracking(|| item_rc.geometry()).size
                 });
@@ -296,6 +303,7 @@ pub fn render_item_children(
 
 /// Renders the tree of items that component holds, using the specified renderer. Rendering is done
 /// relative to the specified origin.
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn render_component_items(
     component: &ItemTreeRc,
     renderer: &mut dyn ItemRenderer,

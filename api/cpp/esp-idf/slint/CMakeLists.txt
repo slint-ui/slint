@@ -1,10 +1,14 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore jtag
+
 idf_component_register(
-    SRCS "src/slint-esp.cpp"
+    SRCS "src/slint-esp.cpp" "src/slint-esp-trace.cpp"
     INCLUDE_DIRS "include"
-    REQUIRES "esp_lcd" "esp_lcd_touch")
+    REQUIRES "esp_lcd" "esp_lcd_touch" "esp_timer"
+    # The tracing capture is sent through this driver, see src/slint-esp-trace.cpp.
+    PRIV_REQUIRES "esp_driver_usb_serial_jtag")
 
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
@@ -28,6 +32,10 @@ if (SLINT_ESP_EXPERIMENTAL OR "$ENV{SLINT_ESP_EXPERIMENTAL}" STREQUAL "1")
     # The software renderer API for recording frames is still experimental.
     set(SLINT_FEATURE_EXPERIMENTAL ON)
 endif()
+if ("$ENV{SLINT_ESP_TRACING}" STREQUAL "1")
+    set(SLINT_INTERNAL_TRACING ON)
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE SLINT_ESP_TRACING=1)
+endif()
 set(SLINT_LIBRARY_CARGO_FLAGS "-Zbuild-std=core,alloc")
 set(DEFAULT_SLINT_EMBED_RESOURCES "embed-for-software-renderer" CACHE STRING "")
 set(CMAKE_BUILD_TYPE Release)
@@ -39,8 +47,8 @@ if (SLINT_ESP_LOCAL_EXAMPLE)
 else()
     list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
     # SLINT_NIGHTLY is set when generating nightly snapshot's CMakeLists.txt.
-    # The precompiled release lacks the experimental API, so build from source for that.
-    if (NOT SLINT_NIGHTLY AND NOT SLINT_FEATURE_EXPERIMENTAL)
+    # The precompiled release lacks the experimental API and tracing, so build from source for them.
+    if (NOT SLINT_NIGHTLY AND NOT SLINT_FEATURE_EXPERIMENTAL AND NOT SLINT_INTERNAL_TRACING)
         find_package(Slint)
     endif()
 
