@@ -57,5 +57,4 @@ component Example {
                     (length_value))))
               (struct_update
                 (expression
-                  (simple_identifier)))))))
-    )))
+                  (simple_identifier))))))))))
