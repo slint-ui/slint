@@ -4744,15 +4744,16 @@ fn compile_translation_reference(expr: &Expression, ctx: &EvaluationContext) -> 
     match plural {
         Some(plural) => {
             let plural = compile_expression(plural, ctx);
-            quote!(#context.translate_from_bundle_with_plural(
-                &self::_SLINT_TRANSLATED_STRINGS_PLURALS[#string_index],
+            quote!(#context.translate_from_bundled_plurals(
+                &self::_SLINT_TRANSLATED_STRINGS_PLURALS,
+                #string_index,
                 &self::_SLINT_TRANSLATED_PLURAL_RULES,
                 sp::Slice::<sp::SharedString>::from(#args).as_slice(),
                 #plural as _
             ))
         }
         None => {
-            quote!(#context.translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice()))
+            quote!(#context.translate_from_bundled_strings(&self::_SLINT_TRANSLATED_STRINGS, #string_index, sp::Slice::<sp::SharedString>::from(#args).as_slice()))
         }
     }
 }
@@ -6327,23 +6328,21 @@ fn generate_translations(
     translations: &crate::translations::Translations,
     compilation_unit: &llr::CompilationUnit,
 ) -> TokenStream {
-    let strings = translations.strings.iter().map(|strings| {
-        let array = strings.iter().map(|s| match s.as_ref().map(SmolStr::as_str) {
-            Some(s) => quote!(Some(#s)),
-            None => quote!(None),
-        });
-        quote!(&[#(#array),*])
-    });
-    let plurals = translations.plurals.iter().map(|plurals| {
-        let array = plurals.iter().map(|p| match p {
-            Some(p) => {
-                let p = p.iter().map(SmolStr::as_str);
-                quote!(Some(&[#(#p),*]))
-            }
-            None => quote!(None),
-        });
-        quote!(&[#(#array),*])
-    });
+    let text = translations.text.as_str();
+    let range_tokens = |ranges: &[core::ops::Range<u32>]| {
+        ranges
+            .iter()
+            .map(|range| {
+                let [start, end] =
+                    [range.start, range.end].map(proc_macro2::Literal::u32_unsuffixed);
+                quote!(#start..#end)
+            })
+            .collect::<Vec<_>>()
+    };
+    let string_range_tokens = range_tokens(&translations.strings);
+    let plural_range_tokens = range_tokens(&translations.plurals);
+    let form_tokens = range_tokens(&translations.forms);
+    let (string_count, plural_count) = (translations.string_count(), translations.plural_count());
 
     let ctx = EvaluationContext {
         compilation_unit,
@@ -6375,8 +6374,18 @@ fn generate_translations(
     });
 
     quote!(
-        const _SLINT_TRANSLATED_STRINGS: &[&[sp::Option<&str>]] = &[#(#strings),*];
-        const _SLINT_TRANSLATED_STRINGS_PLURALS: &[&[sp::Option<&[&str]>]] = &[#(#plurals),*];
+        const _SLINT_TRANSLATED_TEXT: &str = #text;
+        static _SLINT_TRANSLATED_STRINGS: sp::BundledStrings<'static> = sp::BundledStrings {
+            text: _SLINT_TRANSLATED_TEXT,
+            ranges: &[#(#string_range_tokens),*],
+            count: #string_count,
+        };
+        static _SLINT_TRANSLATED_STRINGS_PLURALS: sp::BundledPlurals<'static> = sp::BundledPlurals {
+            text: _SLINT_TRANSLATED_TEXT,
+            forms: &[#(#form_tokens),*],
+            ranges: &[#(#plural_range_tokens),*],
+            count: #plural_count,
+        };
         const _SLINT_TRANSLATED_PLURAL_RULES: &[sp::Option<fn(i32) -> usize>] = &[#(#rules),*];
         const _SLINT_BUNDLED_TRANSLATIONS: &[sp::TranslationsBundled] = &[#(#lang),*];
     )
