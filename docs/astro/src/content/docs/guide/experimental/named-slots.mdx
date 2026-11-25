@@ -379,6 +379,10 @@ Use a component type after the colon to create a separate view for each supplied
 The loop variable exposes the supplied component's members allowed by the collection constraint.
 Property visibility and directions apply as for named element references.
 The reference is scoped to the loop and can't be stored in properties or models.
+Outside a loop, read an exposed property with `entries[index].property`.
+Indexed reads return the property's default value when the index is out of bounds.
+They follow the current entry at that index after model edits.
+They don't support assignments, callback or function calls, or storing the entry itself.
 The collection still requires one placement expansion.
 
 ```slint

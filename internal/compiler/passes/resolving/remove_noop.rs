@@ -56,6 +56,7 @@ fn warns_about_own_values(expression: &Expression) -> bool {
 /// contain side effects.
 fn without_side_effects(expression: &Expression) -> bool {
     match expression {
+        Expression::IndexedPropertyReference { index, .. } => without_side_effects(index),
         Expression::Condition { condition, true_expr, false_expr, .. } => {
             without_side_effects(condition)
                 && without_side_effects(true_expr)

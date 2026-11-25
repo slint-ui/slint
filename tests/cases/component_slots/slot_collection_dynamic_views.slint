@@ -152,6 +152,39 @@ export component FocusTest inherits Window {
     }
 }
 
+component InitView {
+    in-out property <int> value;
+    callback value-changed();
+    changed value => { root.value-changed(); }
+    init => { root.value += 1; }
+}
+
+component InitGroup {
+    default slot <[Item]> entries;
+    out property <int> value: entries[0].value;
+    callback value-changed();
+    VerticalLayout {
+        for entry in entries: InitView {
+            value <=> entry.value;
+            value-changed => { root.value-changed(); }
+        }
+        for entry in entries: entry { }
+    }
+}
+
+export component InitTest inherits Window {
+    out property <int> changes;
+    out property <bool> test: static-group.value == 6 && repeated-group.value == 6;
+    static-group := InitGroup {
+        value-changed => { root.changes += 1; }
+        Item { value: 5; }
+    }
+    repeated-group := InitGroup {
+        value-changed => { root.changes += 1; }
+        for index in 1: Item { value: 5; }
+    }
+}
+
 /*
 ```rust
 use slint::platform::PointerEventButton;
@@ -197,6 +230,20 @@ assert!(ElementHandle::find_by_accessible_label(&instance, "Progress B: 50").nex
 assert!(ElementHandle::find_by_accessible_label(&instance, "Progress D: 0").next().is_some());
 slint_testing::mock_elapsed_time(100);
 assert!(ElementHandle::find_by_accessible_label(&instance, "Progress B: 100").next().is_some());
+```
+
+```rust
+let instance = InitTest::new().unwrap();
+assert!(instance.get_test());
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_changes(), 2);
+```
+
+```cpp
+auto instance = InitTest::create();
+assert(instance->get_test());
+slint_testing::mock_elapsed_time(1);
+assert(instance->get_changes() == 2);
 ```
 
 ```rust

@@ -573,6 +573,19 @@ mod visitor {
         visitor: &mut (impl Visitor + ?Sized),
     ) {
         expr.visit_recursive_mut(&mut |expr| {
+            if let Expression::RepeaterPropertyReference {
+                repeater, property, sub_component, ..
+            } = expr
+            {
+                visit_member_reference(repeater, scope, state, visitor);
+                visit_local_member_reference(
+                    property,
+                    &EvaluationScope::SubComponent(*sub_component, None),
+                    state,
+                    visitor,
+                );
+                return;
+            }
             let p = match expr {
                 Expression::PropertyReference(p) => p,
                 Expression::CallBackCall { callback, .. } => callback,
