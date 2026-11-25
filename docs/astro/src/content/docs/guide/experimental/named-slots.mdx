@@ -473,6 +473,7 @@ export component OuterContainer {
 ```
 
 The inner container applies its expansion bindings and layout to the supplied components.
+If both expansions bind the same property, the outer expansion's binding takes precedence.
 Generated views can also supply another component's default collection.
 The target's interface or component constraint still applies, and conflicting callback handlers produce errors.
 Lengths and indexes remain those of the supplied collection, including through multiple containers.

@@ -171,7 +171,7 @@ pub(super) fn lower_slot_collections(
             .borrow()
             .get(contracts[source].slot.insertion_name())
             .cloned();
-        let Some(point) = point else { return };
+        let Some(point) = point else { continue };
         let forwarding = point
             .parent
             .borrow()
@@ -179,11 +179,11 @@ pub(super) fn lower_slot_collections(
             .iter()
             .find(|forwarding| forwarding.source == contracts[source].slot.name)
             .cloned();
-        let Some(forwarding) = forwarding else { return };
+        let Some(forwarding) = forwarding else { continue };
         let Some(target) = contracts.iter().position(|contract| {
             inherits(&point.parent, &contract.owner) && contract.slot.name == forwarding.target
         }) else {
-            return;
+            continue;
         };
         contracts[source].forwarding =
             Some(Forwarding { target, group: point.parent, node: forwarding.expression_node });
@@ -517,6 +517,7 @@ fn validate_composed_children(
         && validate_consumers(index, children, contracts, compositions, diag)
 }
 
+// The lowering pass rejects cycles in prepare_contract before walking these consumers.
 fn validate_consumers(
     index: usize,
     children: &[ElementRc],
