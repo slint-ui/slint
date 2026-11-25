@@ -11,8 +11,8 @@ mod snapshot_tests;
 mod versioned_url;
 
 pub use debugger::{
-    DebuggerToPreviewMessage, PreviewToDebuggerMessage, PreviewToDebuggerNotification,
-    SystemTestMessage,
+    DebuggerToPreviewMessage, DebuggerToPreviewNotification, PreviewToDebuggerMessage,
+    PreviewToDebuggerNotification, SystemTestMessage,
 };
 pub use lsp_to_preview::{
     LspToPreview, LspToPreviewMessage, PreviewComponent, PreviewConfig, RemoteConnectionState,

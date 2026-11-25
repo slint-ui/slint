@@ -150,6 +150,13 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
             debug_assert!(false, "The LSP sent its preview a debugger message: {message:?}");
             tracing::warn!("Ignoring debugger message {message:?}");
         }
+        Message::DebuggerNotification(notification) => {
+            debug_assert!(
+                false,
+                "The LSP sent its preview a debugger notification: {notification:?}"
+            );
+            tracing::warn!("Ignoring debugger notification {notification:?}");
+        }
     }
 }
 

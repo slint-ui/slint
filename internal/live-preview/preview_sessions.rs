@@ -17,8 +17,9 @@ use tokio::sync::{mpsc, oneshot};
 use crate::REBUILD_DEBOUNCE;
 use crate::debug_agent::{DebugAgent, PreviewUpdate};
 use crate::protocol::{
-    DebuggerToPreviewMessage, LspToPreviewMessage, PreviewComponent, PreviewConfig,
-    PreviewToDebuggerNotification, PreviewToLsp, PreviewToLspMessage, SourceFileVersion,
+    DebuggerToPreviewMessage, DebuggerToPreviewNotification, LspToPreviewMessage, PreviewComponent,
+    PreviewConfig, PreviewToDebuggerNotification, PreviewToLsp, PreviewToLspMessage,
+    SourceFileVersion,
 };
 
 /// Small wrapper around tokio::spawn_local to silence the clippy warning that
@@ -52,6 +53,7 @@ pub enum PreviewSessionEvent {
     HighlightFromEditor { url: Option<Url>, offset: u32 },
     RegisterFont { url: Url, contents: Arc<[u8]> },
     Debugger { id: u64, message: DebuggerToPreviewMessage },
+    DebuggerNotification(DebuggerToPreviewNotification),
 }
 
 pub enum PreviewCompilation {
@@ -285,6 +287,9 @@ impl PreviewSession {
             }
             LspToPreviewMessage::Debugger { id, message } => {
                 event_handler(PreviewSessionEvent::Debugger { id, message });
+            }
+            LspToPreviewMessage::DebuggerNotification(notification) => {
+                event_handler(PreviewSessionEvent::DebuggerNotification(notification));
             }
         }
         true

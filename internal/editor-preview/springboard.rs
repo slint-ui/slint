@@ -10,8 +10,8 @@ use std::{
 };
 
 use i_slint_live_preview::protocol::{
-    DebuggerToPreviewMessage, LspToPreviewMessage, PreviewTarget, PreviewToDebuggerMessage,
-    PreviewToDebuggerNotification, PreviewToLspMessage, pairing,
+    DebuggerToPreviewMessage, DebuggerToPreviewNotification, LspToPreviewMessage, PreviewTarget,
+    PreviewToDebuggerMessage, PreviewToDebuggerNotification, PreviewToLspMessage, pairing,
 };
 use slint::ModelRc;
 use tokio::sync::{mpsc, oneshot};
@@ -301,6 +301,16 @@ impl Springboard {
     pub fn send_debugger_message(&self, id: u64, message: DebuggerToPreviewMessage) {
         let _ =
             self.task_sender.send(Box::new(move |task| task.send_debugger_message(id, message)));
+    }
+
+    /// Sends the debugger's `notification` to the running preview, if there is one.
+    pub fn send_debugger_notification(&self, notification: DebuggerToPreviewNotification) {
+        let _ = self.task_sender.send(Box::new(move |task| {
+            let message = LspToPreviewMessage::DebuggerNotification(notification);
+            if let Err(error) = task.connection.send_debugger_message(message) {
+                tracing::debug!("Dropping a debugger notification: {error}");
+            }
+        }));
     }
 }
 
@@ -594,7 +604,8 @@ impl SpringboardTask {
     }
 
     fn send_debugger_message(&mut self, id: u64, message: DebuggerToPreviewMessage) {
-        if let Err(error) = self.connection.send_debugger_message(id, message) {
+        let message = LspToPreviewMessage::Debugger { id, message };
+        if let Err(error) = self.connection.send_debugger_message(message) {
             let _ = self.to_debugger.send(DebuggerEvent::Message {
                 id,
                 message: PreviewToDebuggerMessage::SystemTestResponse(Err(error)),
@@ -1793,6 +1804,18 @@ mod tests {
                 assert!(matches!(
                     event,
                     PreviewSessionEvent::Debugger { id: 7, message } if message == request
+                ));
+
+                let notification = DebuggerToPreviewNotification::SetInspectMode { enabled: true };
+                controller.send_debugger_notification(notification.clone());
+                let event = viewer
+                    .preview_event(|event| {
+                        matches!(event, PreviewSessionEvent::DebuggerNotification(_))
+                    })
+                    .await;
+                assert!(matches!(
+                    event,
+                    PreviewSessionEvent::DebuggerNotification(received) if received == notification
                 ));
 
                 let to_editor = viewer.connection.preview_to_lsp();
