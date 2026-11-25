@@ -166,15 +166,24 @@ impl i_slint_compiler::llr::TypeResolutionContext for EvalContext {
                     | LocalMemberIndex::Repeater(_) => &Type::Invalid,
                 }
             }
-            MemberReference::Relative { parent_level, local_reference } => {
-                let current =
-                    self.current.as_ref().expect("property_ty needs a sub-component context");
+            MemberReference::Relative { local_reference, .. }
+            | MemberReference::Repeated { local_reference, .. } => {
                 // The `Type` values live in the shared `CompilationUnit`, so
                 // resolve the target sub-component index through the parent
                 // chain and borrow from `cu`.
-                let sc_idx = match try_walk_parent(current, *parent_level) {
-                    Some(sub) => Some(sub.sub_component_idx),
-                    None => static_ancestor(cu, current.sub_component_idx, *parent_level),
+                let sc_idx = match mr {
+                    MemberReference::Repeated { sub_component, .. } => Some(*sub_component),
+                    MemberReference::Relative { parent_level, .. } => {
+                        let current = self
+                            .current
+                            .as_ref()
+                            .expect("property_ty needs a sub-component context");
+                        match try_walk_parent(current, *parent_level) {
+                            Some(sub) => Some(sub.sub_component_idx),
+                            None => static_ancestor(cu, current.sub_component_idx, *parent_level),
+                        }
+                    }
+                    _ => unreachable!(),
                 };
                 let Some(mut sc_idx) = sc_idx else {
                     return &Type::Invalid;
@@ -372,8 +381,81 @@ fn walk_to_target_with_animation(
     (owner, animation)
 }
 
+pub(crate) fn resolve_repeated_instance(
+    ctx: &EvalContext,
+    reference: &MemberReference,
+) -> Option<VRc<ItemTreeVTable, crate::instance::Instance>> {
+    let MemberReference::Repeated { parent_level, sub_component_path, .. } = reference else {
+        unreachable!()
+    };
+    let view =
+        walk_sub_path(try_walk_parent(ctx.current.as_ref()?, *parent_level)?, sub_component_path);
+    view.collection_source.get()?.upgrade()
+}
+
+pub(crate) fn resolve_collection_source(
+    sub: &Pin<Rc<SubComponentInstance>>,
+    source: &llr::CollectionSource,
+) -> Option<VRc<ItemTreeVTable, crate::instance::Instance>> {
+    let ctx = EvalContext::new(sub.clone());
+    let index =
+        MemberReference::from(llr::LocalMemberReference::from(llr::PropertyIdx::REPEATER_INDEX));
+    let Value::Number(index) = load_property(&ctx, &index) else { unreachable!() };
+    resolve_repeater_instance(
+        &ctx,
+        &MemberReference::Relative {
+            parent_level: source.parent_level,
+            local_reference: llr::LocalMemberIndex::Repeater(source.repeater_index).into(),
+        },
+        index,
+    )
+}
+
+fn resolve_repeater_instance(
+    ctx: &EvalContext,
+    reference: &MemberReference,
+    index: f64,
+) -> Option<VRc<ItemTreeVTable, crate::instance::Instance>> {
+    let MemberReference::Relative { parent_level, local_reference } = reference else {
+        unreachable!()
+    };
+    let llr::LocalMemberIndex::Repeater(repeater_index) = local_reference.reference else {
+        unreachable!()
+    };
+    let owner = try_walk_to(ctx, *parent_level, local_reference)?;
+    if index < 0. {
+        return None;
+    }
+    let cu = owner.compilation_unit.clone();
+    let tree = cu.sub_components[owner.sub_component_idx].repeated[repeater_index].sub_tree.clone();
+    let parent = Rc::downgrade(&Pin::into_inner(owner.clone()));
+    let globals = ctx.globals.upgrade()?;
+    let repeater = &owner.repeaters[repeater_index];
+    repeater.track_model_changes();
+    repeater.track_instance_changes();
+    repeater.ensure_updated(move || {
+        crate::instance::Instance::new_repeated(
+            cu.clone(),
+            &tree,
+            parent.clone(),
+            repeater_index,
+            globals.clone(),
+        )
+    });
+    repeater.instance_at(index as usize)
+}
+
 pub fn load_property(ctx: &EvalContext, mr: &MemberReference) -> Value {
     match mr {
+        MemberReference::Repeated { local_reference, .. } => {
+            let Some(instance) = resolve_repeated_instance(ctx, mr) else {
+                return default_value_for_type(llr::TypeResolutionContext::property_ty(ctx, mr));
+            };
+            load_property(
+                &EvalContext::new(instance.root_sub_component.clone()),
+                &local_reference.clone().into(),
+            )
+        }
         MemberReference::Global { global_index, member } => {
             let Some(storage) = ctx.globals.upgrade() else { return Value::Void };
             let Some(global) = storage.get(*global_index) else { return Value::Void };
@@ -390,6 +472,15 @@ pub fn load_property(ctx: &EvalContext, mr: &MemberReference) -> Value {
 
 pub fn store_property(ctx: &EvalContext, mr: &MemberReference, value: Value) {
     match mr {
+        MemberReference::Repeated { local_reference, .. } => {
+            if let Some(instance) = resolve_repeated_instance(ctx, mr) {
+                store_property(
+                    &EvalContext::new(instance.root_sub_component.clone()),
+                    &local_reference.clone().into(),
+                    value,
+                );
+            }
+        }
         MemberReference::Global { global_index, member } => {
             let Some(storage) = ctx.globals.upgrade() else { return };
             let Some(global) = storage.get(*global_index) else { return };
@@ -409,6 +500,19 @@ pub fn store_property(ctx: &EvalContext, mr: &MemberReference, value: Value) {
 
 pub fn invoke_callback(ctx: &EvalContext, mr: &MemberReference, args: &[Value]) -> Value {
     match mr {
+        MemberReference::Repeated { local_reference, .. } => {
+            let Some(instance) = resolve_repeated_instance(ctx, mr) else {
+                return match llr::TypeResolutionContext::property_ty(ctx, mr) {
+                    Type::Callback(callback) => default_value_for_type(&callback.return_type),
+                    _ => Value::Void,
+                };
+            };
+            invoke_callback(
+                &EvalContext::new(instance.root_sub_component.clone()),
+                &local_reference.clone().into(),
+                args,
+            )
+        }
         MemberReference::Global { global_index, member } => {
             let Some(storage) = ctx.globals.upgrade() else { return Value::Void };
             let Some(global) = storage.get(*global_index) else { return Value::Void };
@@ -470,6 +574,16 @@ pub(crate) fn ensure_typed_default(value: Value, ret_ty: &Type) -> Value {
 
 pub fn invoke_function(ctx: &EvalContext, mr: &MemberReference, args: Vec<Value>) -> Value {
     match mr {
+        MemberReference::Repeated { local_reference, .. } => {
+            let Some(instance) = resolve_repeated_instance(ctx, mr) else {
+                return default_value_for_type(llr::TypeResolutionContext::property_ty(ctx, mr));
+            };
+            invoke_function(
+                &EvalContext::new(instance.root_sub_component.clone()),
+                &local_reference.clone().into(),
+                args,
+            )
+        }
         MemberReference::Global { global_index, member } => {
             let Some(storage) = ctx.globals.upgrade() else { return Value::Void };
             let Some(global) = storage.get(*global_index) else { return Value::Void };
@@ -865,6 +979,16 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                     })
                 }
                 _ => Value::Void,
+            }
+        }
+        Expression::RepeaterPropertyReference { repeater, property, index, ty, .. } => {
+            let Value::Number(index) = eval_expression(ctx, index) else { unreachable!() };
+            match resolve_repeater_instance(ctx, repeater, index) {
+                Some(instance) => load_property(
+                    &EvalContext::new(instance.root_sub_component.clone()),
+                    &property.clone().into(),
+                ),
+                None => default_value_for_type(ty),
             }
         }
         Expression::Cast { from, to } => {
@@ -2646,6 +2770,13 @@ pub(crate) fn resolve_item_rc_from_ref(
     ctx: &EvalContext,
     mr: &MemberReference,
 ) -> Option<(VRc<ItemTreeVTable, Instance>, usize)> {
+    if let MemberReference::Repeated { local_reference, .. } = mr {
+        let instance = resolve_repeated_instance(ctx, mr)?;
+        return resolve_item_rc_from_ref(
+            &EvalContext::new(instance.root_sub_component.clone()),
+            &local_reference.clone().into(),
+        );
+    }
     let MemberReference::Relative { parent_level, local_reference } = mr else { return None };
     let LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
         return None;

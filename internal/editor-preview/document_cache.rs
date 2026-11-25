@@ -518,6 +518,44 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn collection_constraints_in_document_diagnostics() {
+        for (constraint, supplied, expected_error) in [
+            ("implements Entry", "Rectangle { }", Some("Cannot implement 'Entry'")),
+            ("Item", "Rectangle { }", Some("requires 'Item'")),
+            ("implements Entry", "Item { }", None),
+            ("Item", "Item { }", None),
+        ] {
+            let mut cache = crate::test::empty_document_cache_with_experimental();
+            let url =
+                Url::from_file_path(std::env::current_dir().unwrap().join("collections.slint"))
+                    .unwrap();
+            let source = format!(
+                r#"
+                interface Entry {{ in property <int> value; }}
+                component Item {{ in property <int> value; }}
+                component Group {{
+                    default slot <[{constraint}]> entries;
+                    out property <int> first: entries[0].value;
+                    for entry in entries: entry {{ }}
+                }}
+                export component App inherits Window {{ Group {{ {supplied} }} }}
+            "#
+            );
+            let mut diagnostics = BuildDiagnostics::default();
+            i_slint_compiler::poll_ready(cache.load_url(&url, None, source, &mut diagnostics))
+                .unwrap();
+            match expected_error {
+                Some(message) => assert!(
+                    diagnostics.to_string_vec().iter().any(|error| error.contains(message)),
+                    "{:?}",
+                    diagnostics.to_string_vec()
+                ),
+                None => assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec()),
+            }
+        }
+    }
+
     fn id_at_position(dc: &DocumentCache, url: &Url, line: u32, character: u32) -> Option<String> {
         let result = dc.element_at_position(url, &lsp_types::Position { line, character })?;
         let element = result.element.borrow();

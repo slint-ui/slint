@@ -45,6 +45,12 @@ fn install_property_bindings(sub: &Pin<Rc<SubComponentInstance>>) {
     let cu = &sub.compilation_unit;
     let sc: &SubComponent = &cu.sub_components[sub.sub_component_idx];
     let weak_sub = Rc::downgrade(&Pin::into_inner(sub.clone()));
+    if let Some(source) = &sc.collection_source {
+        let source = crate::eval::resolve_collection_source(sub, source)
+            .map(|source| VRc::downgrade(&source))
+            .unwrap_or_default();
+        let _ = sub.collection_source.set(source);
+    }
 
     // Initialization order:
     //   1. Initialize each nested sub-component (including its own two-way
@@ -600,6 +606,10 @@ fn member_property_ty(
     sub: &Pin<Rc<SubComponentInstance>>,
 ) -> Option<i_slint_compiler::langtype::Type> {
     match mr {
+        MemberReference::Repeated { .. } => {
+            let ctx = crate::eval::EvalContext::new(sub.clone());
+            Some(i_slint_compiler::llr::TypeResolutionContext::property_ty(&ctx, mr).clone())
+        }
         MemberReference::Relative { parent_level, local_reference } => {
             let base = walk_parent(sub, *parent_level);
             let instance = walk_sub_path(base, &local_reference.sub_component_path);
@@ -646,6 +656,13 @@ fn prepare_two_way(
     sub: &Pin<Rc<SubComponentInstance>>,
 ) -> Option<Pin<Rc<Property<Value>>>> {
     match mr {
+        MemberReference::Repeated { local_reference, .. } => {
+            let instance = crate::eval::resolve_repeated_instance(
+                &crate::eval::EvalContext::new(sub.clone()),
+                mr,
+            )?;
+            prepare_two_way(&local_reference.clone().into(), &instance.root_sub_component)
+        }
         MemberReference::Relative { parent_level, local_reference } => {
             let base = walk_parent(sub, *parent_level);
             let instance = walk_sub_path(base, &local_reference.sub_component_path);

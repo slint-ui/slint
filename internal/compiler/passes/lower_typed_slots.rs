@@ -62,6 +62,9 @@ pub(super) fn check_content(
         let mut base = base.clone();
         loop {
             for slot in base.declared_slots.borrow().iter() {
+                if slot.is_collection {
+                    continue;
+                }
                 let Some(interface) = &slot.interface else { continue };
                 if assigned.contains(&slot.name)
                     || !base.child_insertion_points.borrow().contains_key(slot.name.as_str())
@@ -160,56 +163,8 @@ pub(super) fn lower(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                 )
                 .internal_or_resolved_name();
             let reference = NamedReference::new(&actual, actual_name.clone());
-            mapping.insert(NamedReference::new(child, name.clone()), reference.clone());
-            let binding = child
-                .borrow()
-                .binding_cell_including_synthetic(&name)
-                .map(|binding| binding.borrow().clone());
-            if let Some(binding) = binding {
-                if matches!(declaration.property_type, Type::Callback(_))
-                    && has_callback_handler(
-                        &NamedReference::new(child, name.clone()),
-                        &mut HashSet::new(),
-                    )
-                    && has_callback_handler(&reference, &mut HashSet::new())
-                {
-                    diag.push_error(
-                        format!("Callback '{name}' has handlers in both the typed slot and its supplied component"),
-                        &*child.borrow(),
-                    );
-                }
-                let mut target = actual.borrow_mut();
-                if let Some(existing) = target.binding_cell_including_synthetic(&actual_name) {
-                    let mut existing = existing.borrow_mut();
-                    if binding.priority < existing.priority && binding.has_binding() {
-                        let mut replacement = binding;
-                        replacement.merge_with(&existing);
-                        *existing = replacement;
-                    } else {
-                        existing.merge_with(&binding);
-                    }
-                } else {
-                    target.set_binding(actual_name.clone(), binding);
-                }
-            }
-            if let Some(handlers) = child.borrow().change_callbacks.get(&name) {
-                actual
-                    .borrow_mut()
-                    .change_callbacks
-                    .entry(actual_name.clone())
-                    .or_default()
-                    .borrow_mut()
-                    .extend(handlers.borrow().iter().cloned());
-            }
-            if let Some(analysis) = child.borrow().property_analysis.borrow().get(&name) {
-                actual
-                    .borrow()
-                    .property_analysis
-                    .borrow_mut()
-                    .entry(actual_name)
-                    .or_default()
-                    .merge_with_base(analysis);
-            }
+            mapping.insert(NamedReference::new(child, name.clone()), reference);
+            apply_slot_member(child, &name, &actual, actual_name, "typed slot", diag);
         }
         Some(actual)
     }
@@ -229,8 +184,70 @@ pub(super) fn lower(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     }
 }
 
+pub(super) fn apply_slot_member(
+    slot: &ElementRc,
+    name: &SmolStr,
+    actual: &ElementRc,
+    actual_name: SmolStr,
+    context: &str,
+    diag: &mut BuildDiagnostics,
+) {
+    let reference = NamedReference::new(actual, actual_name.clone());
+    let binding = slot
+        .borrow()
+        .binding_cell_including_synthetic(name)
+        .map(|binding| binding.borrow().clone());
+    if let Some(binding) = binding {
+        if matches!(reference.ty(), Type::Callback(_))
+            && has_callback_handler(&NamedReference::new(slot, name.clone()), &mut HashSet::new())
+            && has_callback_handler(&reference, &mut HashSet::new())
+        {
+            diag.push_error(
+                format!(
+                    "Callback '{name}' has handlers in both the {context} and its supplied component"
+                ),
+                &*slot.borrow(),
+            );
+        }
+        let mut target = actual.borrow_mut();
+        if let Some(existing) = target.binding_cell_including_synthetic(&actual_name) {
+            let mut existing = existing.borrow_mut();
+            if binding.priority < existing.priority && binding.has_binding() {
+                let mut replacement = binding;
+                replacement.merge_with(&existing);
+                *existing = replacement;
+            } else {
+                existing.merge_with(&binding);
+            }
+        } else {
+            target.set_binding(actual_name.clone(), binding);
+        }
+    }
+    if let Some(handlers) = slot.borrow().change_callbacks.get(name) {
+        actual
+            .borrow_mut()
+            .change_callbacks
+            .entry(actual_name.clone())
+            .or_default()
+            .borrow_mut()
+            .extend(handlers.borrow().iter().cloned());
+    }
+    if let Some(analysis) = slot.borrow().property_analysis.borrow().get(name) {
+        actual
+            .borrow()
+            .property_analysis
+            .borrow_mut()
+            .entry(actual_name)
+            .or_default()
+            .merge_with_base(analysis);
+    }
+}
+
 #[allow(clippy::mutable_key_type)]
-fn has_callback_handler(reference: &NamedReference, visited: &mut HashSet<NamedReference>) -> bool {
+pub(crate) fn has_callback_handler(
+    reference: &NamedReference,
+    visited: &mut HashSet<NamedReference>,
+) -> bool {
     if !visited.insert(reference.clone()) {
         return false;
     }

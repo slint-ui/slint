@@ -2075,6 +2075,76 @@ impl Expression {
         node: syntax_nodes::MemberAccess,
         ctx: &mut LookupCtx,
     ) -> Expression {
+        if let Some(indexed) = node.Expression().IndexExpression() {
+            let (collection, index) = indexed.Expression();
+            let metadata = collection.QualifiedName().and_then(|name| {
+                let identifiers = name
+                    .children_with_tokens()
+                    .filter_map(|token| token.into_token())
+                    .filter(|token| token.kind() == SyntaxKind::Identifier)
+                    .collect::<Vec<_>>();
+                if identifiers.len() != 1 {
+                    return None;
+                }
+                match crate::lookup::global_lookup()
+                    .lookup(ctx, &identifiers[0].text().replace('_', "-").into())?
+                {
+                    LookupResult::Expression {
+                        expression: Expression::ElementReference(element),
+                        ..
+                    } => element.upgrade().filter(|element| element.borrow().slot_collection),
+                    _ => None,
+                }
+            });
+            if let Some(metadata) = metadata {
+                let name: SmolStr = node
+                    .child_token(SyntaxKind::Identifier)
+                    .unwrap()
+                    .text()
+                    .replace('_', "-")
+                    .into();
+                let owner = metadata.borrow().enclosing_component.upgrade().unwrap();
+                let slot = owner
+                    .declared_slots
+                    .borrow()
+                    .iter()
+                    .find(|slot| slot.name == metadata.borrow().id)
+                    .cloned()
+                    .unwrap();
+                let constraint = slot
+                    .interface
+                    .map(ElementType::Component)
+                    .or(slot.component_type)
+                    .unwrap_or_else(|| ctx.type_register.empty_type());
+                let lookup = constraint.lookup_property(&name, PropertyLookupMode::ComponentLocal);
+                if !lookup.property_type.is_property_type()
+                    || matches!(
+                        lookup.property_visibility,
+                        PropertyVisibility::Private | PropertyVisibility::Protected
+                    )
+                {
+                    ctx.diag.push_error(
+                        format!(
+                            "Collection slot '{}' does not expose a readable property '{name}'",
+                            slot.name
+                        ),
+                        &node,
+                    );
+                    return Expression::Invalid;
+                }
+                let function = crate::object_tree::slot_collections::indexed_member(
+                    &metadata,
+                    name.clone(),
+                    lookup.property_type,
+                );
+                let index = Self::from_expression_node_as(index, Type::Int32, ctx);
+                return Expression::FunctionCall {
+                    function: Callable::Function(function),
+                    arguments: vec![index],
+                    source_location: Some(node.to_source_location()),
+                };
+            }
+        }
         let base = Self::from_expression_node(node.Expression(), ctx);
         let field = node.child_token(SyntaxKind::Identifier);
         Self::from_lookup_result(
@@ -2897,6 +2967,10 @@ fn continue_lookup_within_element(
     let second = if let Some(second) = it.next() {
         second
     } else if matches!(ctx.property_type, Type::ElementReference) {
+        if elem.borrow().slot_collection {
+            ctx.diag.push_error("A child collection is not an element".into(), &node);
+            return None;
+        }
         return Some(Expression::ElementReference(Rc::downgrade(elem)).into());
     } else {
         // Try to recover in case we wanted to access a property
@@ -2932,6 +3006,14 @@ fn continue_lookup_within_element(
         return None;
     };
     let prop_name = crate::parser::normalize_identifier(second.text());
+    if elem.borrow().slot_collection && prop_name != "length" {
+        ctx.diag.push_error(
+            "A slot collection only exposes its 'length'; access each child inside its expansion"
+                .into(),
+            &second,
+        );
+        return None;
+    }
 
     let is_local_element = ctx.is_local_element(elem);
     let mode = if is_local_element {

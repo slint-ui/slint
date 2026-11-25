@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Host {
+    default slot <[*]> entries;
+    for entry in entries: entry { }
+}
+
+export component Mixed {
+    default slot <[*]> content;
+    Host {
+        entries << content;
+        Rectangle { }
+//      >        <error{Remove the children supplied to forwarded collection slot 'entries'}
+    }
+}

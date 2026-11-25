@@ -82,6 +82,13 @@ impl RepeaterOrConditional {
         }
     }
 
+    pub fn track_model_changes(&self) {
+        match self {
+            Self::Repeater(r) => Pin::as_ref(r).track_model_changes(),
+            Self::Conditional(c) => Pin::as_ref(c).track_model_changes(),
+        }
+    }
+
     /// Ensure the repeater/conditional has been updated. Must be called
     /// before accessing instances.
     /// Returns `true` if instances were created or removed.
@@ -173,6 +180,7 @@ pub struct SubComponentInstance {
     pub repeaters: TiVec<RepeatedElementIdx, RepeaterOrConditional>,
     /// Resolves `MemberReference::Relative { parent_level: > 0 }`.
     pub parent: Weak<SubComponentInstance>,
+    pub collection_source: OnceCell<VWeak<ItemTreeVTable, Instance>>,
     /// Back-reference to the owning root, populated right after construction.
     pub root: OnceCell<VWeak<ItemTreeVTable, Instance>>,
     /// One change tracker per entry of the LLR `change_callbacks`.
@@ -928,6 +936,7 @@ fn build_sub_component_instance(
             sub_components,
             repeaters,
             parent,
+            collection_source: OnceCell::new(),
             root: OnceCell::new(),
             change_trackers: core::iter::repeat_with(ChangeTracker::default)
                 .take(sc.change_callbacks.len())
