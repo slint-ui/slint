@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-#![cfg(feature = "unstable-fontique-012")]
+#![cfg(feature = "unstable-fontique-013")]
 
-use slint::fontique_012::{fontique, set_shared_collection, shared_collection};
+use slint::fontique_013::{fontique, set_shared_collection, shared_collection};
 
 slint::slint! {
     #[edition = "1.20"]
