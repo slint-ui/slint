@@ -261,7 +261,7 @@ Property bindings follow the existing priorities; more local bindings take prece
 ## Collection Slots
 
 Declare `slot <[implements Entry]> entries;` to accept multiple components that implement an interface.
-Enable the `interfaces` experimental feature when using an interface type.
+Enable both `named-slots` and `interfaces` to run the interface-based examples.
 Collection slots support three constraints:
 
 | Declaration | Accepted Children |
@@ -279,6 +279,39 @@ The `default` qualifier routes ordinary children into the collection instead of 
 Fill named collections with repeated assignments such as `entries << EntryView { }`.
 A component can declare multiple collection slots, including one default collection, alongside scalar slots.
 
+### Placing Supplied Entries
+
+Enable `named-slots` to run this example.
+`ItemGroup` places its supplied children in a vertical layout and exposes their count.
+
+```slint
+component ItemGroup {
+    default slot <[*]> items;
+    out property <int> count: items.length;
+
+    VerticalLayout {
+        for item in items: item { }
+    }
+}
+
+export component App inherits Window {
+    VerticalLayout {
+        padding: 12px;
+        spacing: 6px;
+
+        Text { text: "Entries: \{group.count}"; }
+        group := ItemGroup {
+            Text { text: "One"; }
+            Text { text: "Two"; }
+        }
+    }
+}
+```
+
+The window shows the two supplied entries and a count of two.
+
+### Collection Defaults
+
 Collections follow the same default-content rules as named slots.
 The declaration can provide one default element; a derived component can provide several default entries.
 Omitting an assignment keeps the default; supplying entries replaces the whole default list, and `entries << { }` clears it.
@@ -286,6 +319,8 @@ All entries supplied at the same inheritance level form one list.
 Entries supplied by a derived component become defaults that its callers can replace or clear.
 For a default collection, ordinary children in the derived component also form its default list.
 References to default entries must stay inside that default content, as with other named slots.
+
+### Binding Entry Properties
 
 Expand the supplied components with `for`, applying bindings and callback handlers to each component:
 
