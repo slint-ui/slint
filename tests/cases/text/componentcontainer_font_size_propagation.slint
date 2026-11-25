@@ -25,7 +25,7 @@ let inner_instance = std::rc::Rc::<core::cell::RefCell<Option<slint_interpreter:
 let inner_instance_clone = inner_instance.clone();
 let factory = slint::ComponentFactory::new(move |ctx| {
     let compiler = slint_interpreter::Compiler::new();
-    let e = spin_on::spin_on(compiler.build_from_source(
+    let e = pollster::block_on(compiler.build_from_source(
         // This is the same test as font_size_propagation.slint
         r#"export component Inner inherits Window {
                 default-font-size: 34px;

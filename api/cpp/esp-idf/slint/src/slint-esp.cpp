@@ -359,21 +359,24 @@ void EspPlatform<PixelType>::run_event_loop()
     SemaphoreHandle_t frame_recorded = xSemaphoreCreateBinary();
     SemaphoreHandle_t frame_presented = xSemaphoreCreateBinary();
     xSemaphoreGive(frame_presented);
-    auto raster_task = [this, &recorded, stride, frame_recorded, frame_presented] {
+    auto raster_task = [this, &recorded, frame_recorded, frame_presented] {
         SLINT_TRACE_REGISTER_CORE();
         while (true) {
             xSemaphoreTake(frame_recorded, portMAX_DELAY);
             {
                 SLINT_TRACE_SPAN("redraw");
-                render_and_present([&recorded, stride](std::span<PixelType> buffer) {
-                    return recorded->rasterize(buffer, stride);
+                render_and_present([&recorded](std::span<PixelType> buffer) {
+                    return recorded->rasterize(buffer);
                 });
             }
             xSemaphoreGive(frame_presented);
         }
     };
+    if (rasterize_in_separate_task && !(buffer1 && buffer2)) {
+        ESP_LOGW(TAG, "rasterize_in_separate_task needs two frame buffers, so it is ignored");
+    }
     TaskHandle_t raster_task_handle = nullptr;
-    const bool pipeline = rasterize_in_separate_task && buffer1
+    const bool pipeline = rasterize_in_separate_task && buffer1 && buffer2
             && xTaskCreate([](void *task) { (*static_cast<decltype(raster_task) *>(task))(); },
                            "slint_raster", raster_task_stack_size, &raster_task,
                            uxTaskPriorityGet(nullptr), &raster_task_handle)
@@ -543,6 +546,7 @@ void EspPlatform<PixelType>::run_event_loop()
         xSemaphoreTake(frame_presented, portMAX_DELAY);
         vTaskDelete(raster_task_handle);
     }
+    recorded.reset();
     vSemaphoreDelete(frame_recorded);
     vSemaphoreDelete(frame_presented);
 #endif

@@ -278,7 +278,7 @@ impl Design {
             None => path.read_to_string().map_err(|err| format!("Cannot read {path}: {err}"))?,
         };
         let mut diagnostics = BuildDiagnostics::default();
-        let (input, _) = spin_on::spin_on(project_file::load_input(
+        let (input, _) = i_slint_compiler::poll_ready(project_file::load_input(
             &path,
             Some(source),
             self.project_root.as_ref().map(SourcePath::from_url),
@@ -291,8 +291,11 @@ impl Design {
             config.open_import_callback = Some(open_file);
             crate::document_cache::configure_preview(&mut config, component.component.clone());
             let compiled;
-            (diagnostics, compiled) =
-                spin_on::spin_on(serialize::compile(&input.source, input.source_code, config));
+            (diagnostics, compiled) = i_slint_compiler::poll_ready(serialize::compile(
+                &input.source,
+                input.source_code,
+                config,
+            ));
             compiled
         });
         let Some((unit, resources)) = compiled else {

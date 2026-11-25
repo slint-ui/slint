@@ -8,20 +8,22 @@ description: Set up dependencies needed to build Skia
 runs:
     using: composite
     steps:
-        # libclang must not be newer than the clang bundled with Visual Studio,
-        # otherwise bindgen ends up parsing VS's older clang resource headers
-        # (mmintrin.h & friends) with a libclang that no longer knows their
-        # builtins. VS 2022 bundles clang 19; newer VS bundles clang >= 20
-        # and works with the LLVM preinstalled on the image.
-        # Blacksmith's Windows 2025 image still has VS 2022.
-        - name: Pin LLVM to match the Visual Studio 2022 bundled clang
+        # bindgen takes the clang resource headers (mmintrin.h & friends) from CLANG_PATH or the clang on PATH.
+        # A libclang from another LLVM may not know their builtins.
+        - name: Use the libclang and clang bundled with Visual Studio
           if: runner.os == 'Windows'
           run: |
               vs=$(cygpath -u "$("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property installationPath)")
-              if [ -d "$vs/VC/Tools/Llvm/x64/lib/clang/19" ]; then
-                  # The download from GitHub sometimes fails with HTTP 504.
-                  choco upgrade llvm --version "19.1.7" --allow-downgrade \
-                      || { sleep 10 && choco upgrade llvm --version "19.1.7" --allow-downgrade; }
+              case "$RUNNER_ARCH" in
+                  ARM64) libclang_dir="$vs/VC/Tools/Llvm/ARM64/bin" ;;
+                  *) libclang_dir="$vs/VC/Tools/Llvm/x64/bin" ;;
+              esac
+              if [ -f "$libclang_dir/libclang.dll" ]; then
+                  win_dir=$(cygpath -w "$libclang_dir")
+                  echo "LIBCLANG_PATH=$win_dir" >> $GITHUB_ENV
+                  echo "CLANG_PATH=$win_dir\\clang.exe" >> $GITHUB_ENV
+              else
+                  echo "::warning::No libclang.dll in $libclang_dir, bindgen uses the preinstalled LLVM"
               fi
           shell: bash
         # See https://github.com/ilammy/msvc-dev-cmd?tab=readme-ov-file#caveats

@@ -33,6 +33,8 @@ impl FontStorage for i_slint_core::graphics::OwnedStorage {
     }
 }
 
+const NOTDEF_GLYPH_INDEX: usize = 0;
+
 /// A bitmap font that is resolved to a specific pixel size.
 pub struct PixelFont<S: FontStorage = StaticStorage> {
     font: S::Font,
@@ -68,7 +70,7 @@ impl<S: FontStorage> PixelFont<S> {
     }
 
     fn glyph_index(&self, ch: char) -> Option<usize> {
-        self.font.character_map.binary_search(&ch).ok()
+        self.font.character_map.binary_search(&ch).ok().map(|index| index + 1)
     }
 
     fn x_advance(&self, glyph_index: usize) -> TextLength {
@@ -141,7 +143,9 @@ impl<S: FontStorage> TextShaper for PixelFont<S> {
         glyphs: &mut GlyphStorage,
     ) {
         let glyphs_iter = text.char_indices().map(|(byte_offset, char)| {
-            let glyph_index = self.glyph_index(char);
+            let glyph_index = self
+                .glyph_index(char)
+                .or_else(|| (!char.is_control()).then_some(NOTDEF_GLYPH_INDEX));
             let x_advance = glyph_index
                 .map_or_else(|| self.pixel_size.cast(), |glyph_index| self.x_advance(glyph_index));
             Glyph {

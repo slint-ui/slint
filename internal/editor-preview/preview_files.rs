@@ -243,8 +243,10 @@ mod tests {
             Some(PreviewComponent { url: url.clone(), component: None }),
             None,
         );
-        spin_on::spin_on(session.trigger_file_watcher(url.clone(), FileChangeKind::Changed))
-            .unwrap();
+        i_slint_compiler::poll_ready(
+            session.trigger_file_watcher(url.clone(), FileChangeKind::Changed),
+        )
+        .unwrap();
         assert!(!session.document_cache.all_paths_to_watch().contains(&main));
         recorded.borrow_mut().clear();
 

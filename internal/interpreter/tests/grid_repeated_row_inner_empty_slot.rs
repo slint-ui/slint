@@ -12,8 +12,9 @@ fn inner_empty_slot_keeps_its_grid_position() {
     i_slint_backend_testing::init_no_event_loop();
     let source =
         include_str!("../../../tests/cases/layout/grid_repeated_row_inner_empty_slot.slint");
-    let result =
-        spin_on::spin_on(Compiler::default().build_from_source(source.into(), Default::default()));
+    let result = i_slint_compiler::poll_ready(
+        Compiler::default().build_from_source(source.into(), Default::default()),
+    );
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let instance = result.component("TestCase").unwrap().create().unwrap();
 

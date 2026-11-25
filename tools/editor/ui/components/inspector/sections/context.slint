@@ -50,7 +50,6 @@ export global InspectorContext {
     public pure function has-current-index-selection() -> bool {
         return InspectorContext.has-backend-rect()
             && (InspectorContext.element-information.type-name == "ComboBox"
-                || InspectorContext.element-information.type-name == "RadioGroup"
                 || InspectorContext.element-information.type-name == "TabWidget");
     }
 
@@ -98,9 +97,14 @@ export global InspectorContext {
         return Api.selection.highlight-index >= 0 && InspectorContext.element-information.type-name == "CheckBox";
     }
 
+    public pure function is-radio-button-selection() -> bool {
+        return Api.selection.highlight-index >= 0 && InspectorContext.element-information.type-name == "RadioButton";
+    }
+
     public pure function is-checked-selection() -> bool {
         return InspectorContext.is-checkbox-selection()
-            || (InspectorContext.is-button-selection() && InspectorContext.is-checkable());
+            || (InspectorContext.is-button-selection() && InspectorContext.is-checkable())
+            || InspectorContext.is-radio-button-selection();
     }
 
     public pure function is-slider-selection() -> bool {
@@ -134,8 +138,7 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect()
             && (InspectorContext.element-information.type-name == "Text"
                 || InspectorContext.element-information.type-name == "LineEdit"
-                || InspectorContext.element-information.type-name == "TextEdit"
-                || InspectorContext.element-information.type-name == "SpinBox");
+                || InspectorContext.element-information.type-name == "TextEdit");
     }
 
     public pure function is-title-selection() -> bool {

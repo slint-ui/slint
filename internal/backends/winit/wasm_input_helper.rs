@@ -87,8 +87,9 @@ impl WasmInputHelper {
                     {
                         if let Some(text_input) =
                             focus_item.downcast::<i_slint_core::items::TextInput>()
+                            && let Some(access) = text_input.as_pin_ref().user_edit_access()
                         {
-                            text_input.as_pin_ref().paste(&window_adapter, &focus_item);
+                            text_input.as_pin_ref().paste(access, &window_adapter, &focus_item);
                         }
                     }
                 })
@@ -128,6 +129,7 @@ impl WasmInputHelper {
                 {
                     if let Some(text_input) =
                         focus_item.downcast::<i_slint_core::items::TextInput>()
+                        && let Some(access) = text_input.as_pin_ref().user_edit_access()
                     {
                         let (anchor, cursor) =
                             text_input.as_pin_ref().selection_anchor_and_cursor();
@@ -139,6 +141,7 @@ impl WasmInputHelper {
                             data.set_data("text", &text[anchor..cursor]).ok();
                         }
                         text_input.as_pin_ref().delete_selection(
+                            access,
                             &window_adapter,
                             &focus_item,
                             i_slint_core::items::TextChangeNotify::TriggerCallbacks,

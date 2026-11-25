@@ -12,24 +12,13 @@ LOG_MODULE_REGISTER(zephyrSlint, LOG_LEVEL_DBG);
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/display.h>
 #include <zephyr/input/input.h>
-#include <zephyr/version.h>
-
-// Zephyr 4.4 renamed PIXEL_FORMAT_BGR_565 to PIXEL_FORMAT_RGB_565X. The EK-RZ/A3M board support
-// currently only exists on a 4.3 based fork, so this demo has to compile against both spellings.
-#if KERNEL_VERSION_NUMBER >= ZEPHYR_VERSION(4, 4, 0)
-#    define SLINT_PIXEL_FORMAT_RGB565_SWAPPED PIXEL_FORMAT_RGB_565X
-#    define SLINT_PIXEL_FORMAT_RGB565_SWAPPED_NAME "RGB_565X"
-#else
-#    define SLINT_PIXEL_FORMAT_RGB565_SWAPPED PIXEL_FORMAT_BGR_565
-#    define SLINT_PIXEL_FORMAT_RGB565_SWAPPED_NAME "BGR_565"
-#endif
 
 #include <chrono>
 #include <deque>
 #include <ranges>
 
-// Set by boards whose driver declares one byte order and consumes the other, and by trees
-// older than Zephyr 4.4. See https://github.com/zephyrproject-rtos/zephyr/issues/53642
+// Set by boards whose driver declares one byte order and consumes the other.
+// See https://github.com/zephyrproject-rtos/zephyr/issues/53642
 #ifndef SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN
 #    define SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN 0
 #endif
@@ -45,12 +34,7 @@ LOG_MODULE_REGISTER(zephyrSlint, LOG_LEVEL_DBG);
 namespace {
 constexpr bool is_big_endian_format(display_pixel_format format)
 {
-#if KERNEL_VERSION_NUMBER >= ZEPHYR_VERSION(4, 4, 0)
-    return format == SLINT_PIXEL_FORMAT_RGB565_SWAPPED;
-#else
-    // display_sdl.c read RGB_565 with sys_be16_to_cpu() and BGR_565 natively until the rename.
-    return format == PIXEL_FORMAT_RGB_565;
-#endif
+    return format == PIXEL_FORMAT_RGB_565X;
 }
 
 constexpr bool needs_byte_swap(display_pixel_format format)
@@ -65,7 +49,7 @@ bool is_supported_pixel_format(display_pixel_format current_pixel_format)
 {
     switch (current_pixel_format) {
     case PIXEL_FORMAT_RGB_565:
-    case SLINT_PIXEL_FORMAT_RGB565_SWAPPED:
+    case PIXEL_FORMAT_RGB_565X:
         return true;
     case PIXEL_FORMAT_RGB_888:
         // Slint supports this format, but it uses more space.
@@ -73,9 +57,9 @@ bool is_supported_pixel_format(display_pixel_format current_pixel_format)
     case PIXEL_FORMAT_MONO01:
     case PIXEL_FORMAT_MONO10:
     case PIXEL_FORMAT_ARGB_8888:
+    default:
         return false;
     }
-    assert(false);
 }
 
 struct k_unique_lock
@@ -263,8 +247,11 @@ std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device
     case PIXEL_FORMAT_ARGB_8888:
         LOG_WRN("Unsupported pixel format: ARGB_8888");
         break;
-    case SLINT_PIXEL_FORMAT_RGB565_SWAPPED:
-        LOG_WRN("Unsupported pixel format: " SLINT_PIXEL_FORMAT_RGB565_SWAPPED_NAME);
+    case PIXEL_FORMAT_RGB_565X:
+        LOG_WRN("Unsupported pixel format: RGB_565X");
+        break;
+    default:
+        LOG_WRN("Unsupported pixel format: 0x%x", capabilities.current_pixel_format);
         break;
     }
 
@@ -278,9 +265,8 @@ std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device
             static_cast<bool>(capabilities.supported_pixel_formats & PIXEL_FORMAT_ARGB_8888));
     LOG_INF("Supports RGB_565: %d",
             static_cast<bool>(capabilities.supported_pixel_formats & PIXEL_FORMAT_RGB_565));
-    LOG_INF("Supports " SLINT_PIXEL_FORMAT_RGB565_SWAPPED_NAME ": %d",
-            static_cast<bool>(capabilities.supported_pixel_formats
-                              & SLINT_PIXEL_FORMAT_RGB565_SWAPPED));
+    LOG_INF("Supports RGB_565X: %d",
+            static_cast<bool>(capabilities.supported_pixel_formats & PIXEL_FORMAT_RGB_565X));
 
     // Keep the format the display already uses: its panel may be wired for that byte order.
     auto pixel_format = capabilities.current_pixel_format;
@@ -288,9 +274,9 @@ std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device
         if (capabilities.supported_pixel_formats & PIXEL_FORMAT_RGB_565) {
             LOG_INF("Switching to RGB_565");
             pixel_format = PIXEL_FORMAT_RGB_565;
-        } else if (capabilities.supported_pixel_formats & SLINT_PIXEL_FORMAT_RGB565_SWAPPED) {
-            LOG_INF("Switching to " SLINT_PIXEL_FORMAT_RGB565_SWAPPED_NAME);
-            pixel_format = SLINT_PIXEL_FORMAT_RGB565_SWAPPED;
+        } else if (capabilities.supported_pixel_formats & PIXEL_FORMAT_RGB_565X) {
+            LOG_INF("Switching to RGB_565X");
+            pixel_format = PIXEL_FORMAT_RGB_565X;
         } else {
             LOG_WRN("No supported pixel formats!");
         }

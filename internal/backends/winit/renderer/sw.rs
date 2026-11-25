@@ -9,7 +9,7 @@ use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
 pub use i_slint_renderer_software::SoftwareRenderer;
-use i_slint_renderer_software::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
+use i_slint_renderer_software::{Argb8888Pixel, RepaintBufferType, TargetPixel};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -23,51 +23,6 @@ pub struct WinitSoftwareRenderer {
     surface: RefCell<
         Option<softbuffer::Surface<Arc<winit::window::Window>, Arc<winit::window::Window>>>,
     >,
-}
-
-#[repr(transparent)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct SoftBufferPixel(pub u32);
-
-impl From<SoftBufferPixel> for PremultipliedRgbaColor {
-    #[inline]
-    fn from(pixel: SoftBufferPixel) -> Self {
-        let v = pixel.0;
-        PremultipliedRgbaColor {
-            red: (v >> 16) as u8,
-            green: (v >> 8) as u8,
-            blue: v as u8,
-            alpha: (v >> 24) as u8,
-        }
-    }
-}
-
-impl From<PremultipliedRgbaColor> for SoftBufferPixel {
-    #[inline]
-    fn from(pixel: PremultipliedRgbaColor) -> Self {
-        Self(
-            (pixel.alpha as u32) << 24
-                | ((pixel.red as u32) << 16)
-                | ((pixel.green as u32) << 8)
-                | (pixel.blue as u32),
-        )
-    }
-}
-
-impl TargetPixel for SoftBufferPixel {
-    fn blend(&mut self, color: PremultipliedRgbaColor) {
-        let mut x = PremultipliedRgbaColor::from(*self);
-        x.blend(color);
-        *self = x.into();
-    }
-
-    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        Self(0xff000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32))
-    }
-
-    fn background() -> Self {
-        Self(0)
-    }
 }
 
 impl WinitSoftwareRenderer {
@@ -119,8 +74,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         });
 
         let region = if std::env::var_os("SLINT_LINE_BY_LINE").is_none() {
-            let buffer: &mut [SoftBufferPixel] =
-                bytemuck::cast_slice_mut(target_buffer.deref_mut());
+            let buffer: &mut [Argb8888Pixel] = bytemuck::cast_slice_mut(target_buffer.deref_mut());
             self.renderer.render(buffer, width.get() as usize)
         } else {
             // SLINT_LINE_BY_LINE is set and this is a debug mode where we also render in a Rgb565Pixel
@@ -141,8 +95,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
                     render_fn(sub);
                     for (dst, src) in self.buffer[line_begin..][range].iter_mut().zip(sub) {
                         let p = Rgb8Pixel::from(*src);
-                        *dst =
-                            0xff000000 | ((p.r as u32) << 16) | ((p.g as u32) << 8) | (p.b as u32);
+                        *dst = Argb8888Pixel::from_rgb(p.r, p.g, p.b).0;
                     }
                 }
             }

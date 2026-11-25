@@ -55,60 +55,43 @@ pub unsafe extern "C" fn slint_property_set_changed(
     }
 }
 
-fn make_c_function_binding(
-    binding: extern "C" fn(*mut c_void, *mut c_void),
+struct CFunctionBinding {
+    binding_function: extern "C" fn(*mut c_void, *mut c_void),
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    intercept_set: Option<
-        extern "C" fn(user_data: *mut c_void, pointer_to_value: *const c_void) -> bool,
-    >,
-    intercept_set_binding: Option<
-        extern "C" fn(user_data: *mut c_void, new_binding: *mut c_void) -> bool,
-    >,
-) -> impl BindingCallable<c_void> {
-    struct CFunctionBinding<T> {
-        binding_function: extern "C" fn(*mut c_void, *mut T),
-        user_data: *mut c_void,
-        drop_user_data: Option<extern "C" fn(*mut c_void)>,
-        intercept_set:
-            Option<extern "C" fn(user_data: *mut c_void, pointer_to_value: *const T) -> bool>,
-        intercept_set_binding:
-            Option<extern "C" fn(user_data: *mut c_void, new_binding: *mut c_void) -> bool>,
-    }
+    intercept_set:
+        Option<extern "C" fn(user_data: *mut c_void, pointer_to_value: *const c_void) -> bool>,
+    intercept_set_binding:
+        Option<extern "C" fn(user_data: *mut c_void, new_binding: *mut c_void) -> bool>,
+}
 
-    impl<T> Drop for CFunctionBinding<T> {
-        fn drop(&mut self) {
-            if let Some(x) = self.drop_user_data {
-                x(self.user_data)
-            }
+impl Drop for CFunctionBinding {
+    fn drop(&mut self) {
+        if let Some(x) = self.drop_user_data {
+            x(self.user_data)
         }
     }
+}
 
-    impl<T> BindingCallable<T> for CFunctionBinding<T> {
-        fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
-            (self.binding_function)(self.user_data, value as *mut T);
-            BindingResult::KeepBinding
-        }
-        fn intercept_set(self: Pin<&Self>, value: &T) -> bool {
-            match self.intercept_set {
-                None => false,
-                Some(intercept_set) => intercept_set(self.user_data, value as *const T),
-            }
-        }
-        unsafe fn intercept_set_binding(self: Pin<&Self>, new_binding: *mut BindingHolder) -> bool {
-            match self.intercept_set_binding {
-                None => false,
-                Some(intercept_set_b) => intercept_set_b(self.user_data, new_binding.cast()),
-            }
+impl BindingCallable<c_void> for CFunctionBinding {
+    fn evaluate(self: Pin<&Self>, value: &mut c_void) -> BindingResult {
+        (self.binding_function)(self.user_data, value as *mut c_void);
+        BindingResult::KeepBinding
+    }
+    fn intercept_set(self: Pin<&Self>, value: &c_void) -> bool {
+        match self.intercept_set {
+            None => false,
+            Some(intercept_set) => intercept_set(self.user_data, value as *const c_void),
         }
     }
-
-    CFunctionBinding {
-        binding_function: binding,
-        user_data,
-        drop_user_data,
-        intercept_set,
-        intercept_set_binding,
+    unsafe fn intercept_set_binding(self: Pin<&Self>, new_binding: *mut BindingHolder) -> bool {
+        match self.intercept_set_binding {
+            None => false,
+            Some(intercept_set_b) => intercept_set_b(self.user_data, new_binding.cast()),
+        }
+    }
+    fn common_property(self: Pin<&Self>) -> Option<&dyn core::any::Any> {
+        Some(self.get_ref())
     }
 }
 
@@ -133,14 +116,32 @@ pub unsafe extern "C" fn slint_property_set_binding(
         extern "C" fn(user_data: *mut c_void, new_binding: *mut c_void) -> bool,
     >,
 ) {
-    let binding = make_c_function_binding(
-        binding,
+    let binding = CFunctionBinding {
+        binding_function: binding,
         user_data,
         drop_user_data,
         intercept_set,
         intercept_set_binding,
-    );
+    };
     unsafe { handle.0.set_binding(binding) };
+}
+
+/// The user data of the binding of this property, if `binding` is the function of that binding.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_property_binding_user_data(
+    handle: &PropertyHandleOpaque,
+    binding: extern "C" fn(user_data: *mut c_void, pointer_to_value: *mut c_void),
+) -> *mut c_void {
+    handle
+        .0
+        .access(|b| {
+            let b = b?;
+            let common = unsafe { (b.vtable.common_property)(&*b as *const BindingHolder)? };
+            let c_binding = unsafe { &*common }.downcast_ref::<CFunctionBinding>()?;
+            core::ptr::fn_addr_eq(c_binding.binding_function, binding)
+                .then_some(c_binding.user_data)
+        })
+        .unwrap_or(core::ptr::null_mut())
 }
 
 /// Set a binding using an already allocated building holder
@@ -300,13 +301,13 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
         >(binding);
         let original_binding = PropertyHandle {
             handle: Cell::new(
-                (alloc_binding_holder(make_c_function_binding(
-                    binding,
+                (alloc_binding_holder(CFunctionBinding {
+                    binding_function: binding,
                     user_data,
                     drop_user_data,
-                    None,
-                    None,
-                )) as *mut ())
+                    intercept_set: None,
+                    intercept_set_binding: None,
+                }) as *mut ())
                     .map_addr(|a| a | 0b10),
             ),
         };
@@ -542,6 +543,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
     let ct = unsafe { &*ct.cast::<ChangeTracker>() };
     #[allow(non_camel_case_types)]
     struct C_ChangeTrackerInner {
+        queue: super::change_tracker::ChangeHandlerQueue,
         user_data: *mut c_void,
         drop_user_data: extern "C" fn(user_data: *mut c_void),
         eval_fn: extern "C" fn(user_data: *mut c_void) -> bool,
@@ -576,7 +578,10 @@ pub unsafe extern "C" fn slint_change_tracker_init(
     const VT: &BindingVTable = &BindingVTable {
         drop,
         evaluate,
-        mark_dirty: ChangeTracker::mark_dirty,
+        mark_dirty: |s, _| unsafe {
+            let inner = &(*(s as *const BindingHolder<C_ChangeTrackerInner>)).binding;
+            ChangeTracker::mark_dirty(s, &inner.queue)
+        },
         intercept_set: |_, _| false,
         intercept_set_binding: |_, _| false,
         velocity: |_| None,
@@ -585,7 +590,17 @@ pub unsafe extern "C" fn slint_change_tracker_init(
 
     ct.clear();
 
-    let inner = C_ChangeTrackerInner { user_data, drop_user_data, eval_fn, notify_fn };
+    let inner = C_ChangeTrackerInner {
+        // C++ components only use the current context.
+        queue: crate::SlintContext::current()
+            .expect("a component exists, so there is a current context")
+            .change_handler_queue()
+            .clone(),
+        user_data,
+        drop_user_data,
+        eval_fn,
+        notify_fn,
+    };
 
     let holder = BindingHolder {
         dependencies: Cell::new(core::ptr::null_mut()),
@@ -641,6 +656,7 @@ mod ffi_change_tracker_leak_test {
     // The dependency nodes must not accumulate across re-evaluations.
     #[test]
     fn ffi_change_tracker_does_not_leak_dep_nodes() {
+        let ctx = crate::SlintContext::new(Box::new(crate::testing::NoWindowPlatform));
         let prop = Box::pin(Property::new(0));
         let state = EvalState { prop: &*prop as *const _, last: Cell::new(0) };
         let ct = ChangeTracker::default();
@@ -657,7 +673,7 @@ mod ffi_change_tracker_leak_test {
 
         for i in 1..=200 {
             prop.as_ref().set(i);
-            ChangeTracker::run_change_handlers();
+            ctx.run_change_handlers();
             assert_eq!(ct.test_dep_node_count(), 1, "leaked a DependencyNode at iteration {i}");
         }
     }
