@@ -366,6 +366,8 @@ The expansion places existing supplied components without replacing their type o
 The child and optional index variables are available only inside the expansion.
 `entries.length` tracks the number of supplied components, including changes to a supplied repeater's model.
 Collection lengths and indexes are read-only.
+Supply entries as individual components or a single `for` loop.
+To include an entry conditionally, use a `for` loop over a model with zero or one row.
 
 Property bindings follow the same priorities as scalar typed slots; more local bindings take precedence.
 Property change handlers from both sides are combined.

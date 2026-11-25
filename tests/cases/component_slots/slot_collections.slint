@@ -164,7 +164,7 @@ export component TestCase inherits Window {
         }
         repeated := EntryGroup {
             factor: 7;
-            for label in root.model: EntryView { }
+            for _ in root.model: EntryView { }
         }
         inherited := FixedGroup { factor: 9; }
         empty := EntryGroup { }
@@ -195,7 +195,7 @@ export component TestCase inherits Window {
             entries << nominal-second := DerivedPositionedView { }
         }
         nominal-repeated := ComponentChildren {
-            for label in root.model: DerivedPositionedView { }
+            for _ in root.model: DerivedPositionedView { }
         }
         rectangles := RectangleChildren { Rectangle { } RectangleView { } }
         literal-name := ComponentNamedComponent { component { } }
