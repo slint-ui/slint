@@ -26,6 +26,7 @@ export component ComboBox {
     accessible-expandable: true;
     accessible-expanded: base.popup-has-focus;
     accessible-value <=> root.current-value;
+    accessible-action-default => { if (root.enabled) { root.focus(); base.show-popup(); } }
     accessible-action-expand => { base.show-popup(); }
 
     states [
@@ -192,6 +193,7 @@ export component ComboBox {
                             pressed: touch-area.pressed;
                             pressed-x: touch-area.pressed-x;
                             pressed-y: touch-area.pressed-y;
+                            accessible-action-default => { touch-area.clicked(); }
 
                             touch-area := TouchArea {
                                 clicked => {
