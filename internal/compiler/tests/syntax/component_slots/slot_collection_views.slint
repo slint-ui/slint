@@ -16,7 +16,6 @@ component Views {
 
 export component Test inherits Window {
     Views {
-        Page { title: "One"; }
-        Page { title: "Two"; }
+        for title in ["One", "Two"]: Page { title: title; }
     }
 }

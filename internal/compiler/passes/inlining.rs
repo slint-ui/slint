@@ -99,6 +99,7 @@ pub(super) fn duplicate_elements(
         .map(|element| duplicate_element_with_mapping(element, &mut mapping, component, 0))
         .collect();
     for element in mapping.values() {
+        fixup_collection_source(element, &mapping);
         visit_element_expressions(element, |expression, _, _| {
             fixup_element_references(expression, &mapping);
         });
@@ -397,6 +398,9 @@ fn inline_element(
                 if Rc::ptr_eq(&cip.parent, elem)
                     && !is_reexported
                     && (name.as_str() == insertion.slot_name.as_str()
+                        && !forwarded_sources_by_target.values().any(|sources| {
+                            sources.iter().any(|source| source.as_str() == name.as_str())
+                        })
                         || forwarded_sources_by_target
                             .get(insertion.slot_name.as_str())
                             .is_some_and(|sources| sources.iter().any(|source| source == name)))
@@ -619,6 +623,7 @@ fn inline_element(
 
     // Now fixup all bindings and references
     for e in mapping.values() {
+        fixup_collection_source(e, &mapping);
         // Must run before visit_all_named_references_in_element to break shared
         // GridLayoutCell Rcs (otherwise NR fixup would modify the original's cells).
         visit_element_expressions(e, |expr, _, _| fixup_element_references(expr, &mapping));
@@ -695,6 +700,7 @@ fn duplicate_element_with_mapping(
             .map(|x| duplicate_element_with_mapping(x, mapping, root_component, priority_delta))
             .collect(),
         repeated: elem.repeated.clone(),
+        collection_source: elem.collection_source.clone(),
         is_component_placeholder: elem.is_component_placeholder,
         debug: elem.debug.clone(),
         enclosing_component: Rc::downgrade(root_component),
@@ -751,6 +757,14 @@ fn duplicate_element_with_mapping(
     new
 }
 
+fn fixup_collection_source(element: &ElementRc, mapping: &Mapping) {
+    if let Some(source) = element.borrow_mut().collection_source.as_mut()
+        && let Some(original) = source.upgrade()
+        && let Some(mapped) = mapping.get(&element_key(original))
+    {
+        *source = Rc::downgrade(mapped);
+    }
+}
 
 fn duplicate_optimized_elements(
     optimized: &[OptimizedElement],

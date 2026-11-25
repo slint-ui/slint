@@ -218,10 +218,17 @@ pub(super) fn lower_slot_collections(
                 continue;
             }
             if !contract.projections.is_empty()
-                && let Some(child) = children.iter().find(|child| child.borrow().repeated.is_some())
+                && let Some(child) = children.iter().find(|child| {
+                    child
+                        .borrow()
+                        .repeated
+                        .as_ref()
+                        .is_some_and(|repeated| repeated.is_listview.is_some())
+                })
             {
+                let operation = "Generating collection views";
                 diag.push_error(
-                    "Generating views from repeated collection entries is not supported yet".into(),
+                    format!("{operation} from virtualized 'ListView' children is not supported; use model data for the views instead"),
                     &*child.borrow(),
                 );
                 continue;
@@ -349,6 +356,13 @@ fn project(
     let component = group.borrow().enclosing_component.upgrade().unwrap();
     let view = super::inlining::duplicate_element(template, &component);
     let expansion = view.borrow_mut().slot_expansion.take().unwrap();
+    let index = if let Some(repeated) = child.borrow().repeated.clone() {
+        view.borrow_mut().repeated = Some(repeated);
+        view.borrow_mut().collection_source = Some(Rc::downgrade(child));
+        Expression::RepeaterIndexReference { element: Rc::downgrade(&view) }
+    } else {
+        index
+    };
     let entry = expansion.entry_element(&view);
     for (name, analysis) in entry.borrow().property_analysis.borrow().iter() {
         let actual_name = child

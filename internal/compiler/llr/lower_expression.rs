@@ -38,6 +38,23 @@ pub struct ExpressionLoweringCtx<'a> {
 }
 
 impl ExpressionLoweringCtx<'_> {
+    pub(super) fn collection_source(&self) -> Option<super::CollectionSource> {
+        let parent = self.component.parent_element()?;
+        let source = parent.borrow().collection_source.as_ref()?.upgrade()?;
+        let owner = source.borrow().enclosing_component.upgrade().unwrap();
+        let (parent_level, owner_context) = self.find_component(&owner);
+        let LoweredElement::Repeated { repeated_index } =
+            owner_context.mapping.element_mapping[&source.clone().into()]
+        else {
+            unreachable!()
+        };
+        Some(super::CollectionSource {
+            parent_level,
+            repeater_index: repeated_index,
+            sub_component: self.state.sub_component_idx(source.borrow().base_type.as_component()),
+        })
+    }
+
     /// How many parent contexts up `enclosing` is, together with its lowering context.
     fn find_component(
         &self,
@@ -60,6 +77,29 @@ impl ExpressionLoweringCtx<'_> {
     pub fn map_property_reference(&self, from: &NamedReference) -> MemberReference {
         let element = from.element();
         let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
+        let mut view = Some(&self.inner);
+        let mut view_level = 0;
+        while let Some(context) = view {
+            if let Some(parent) = context.component.parent_element()
+                && let Some(source) =
+                    parent.borrow().collection_source.as_ref().and_then(Weak::upgrade)
+                && Rc::ptr_eq(source.borrow().base_type.as_component(), enclosing)
+            {
+                let MemberReference::Relative { parent_level: 0, local_reference } =
+                    self.state.map_property_reference(from)
+                else {
+                    unreachable!()
+                };
+                return MemberReference::Repeated {
+                    parent_level: view_level,
+                    sub_component_path: Vec::new(),
+                    sub_component: self.state.sub_component_idx(enclosing),
+                    local_reference,
+                };
+            }
+            view = context.parent;
+            view_level += 1;
+        }
         let (level, map) =
             if enclosing.is_global() { (0, &self.inner) } else { self.find_component(enclosing) };
         let mut r = map.mapping.map_property_reference(from, self.state);

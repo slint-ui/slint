@@ -348,6 +348,12 @@ component Pages {
 ```
 
 Views read the actual component's properties, so changes to a title update its view.
+Views support static collection children or a single supplied `for` loop.
+For repeated children, each view references the supplied component instance at its row, including after model edits.
+Views hold weak references to their supplied instances; removing an entry doesn't retarget an existing view to another entry.
+Once the instance is destroyed, reads return type defaults, and writes and calls do nothing.
+Calls with return values return type defaults after the instance is destroyed.
+
 ## Current limitations
 
 The named slot feature is in its early stages. The following restrictions apply:
