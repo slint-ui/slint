@@ -6328,47 +6328,21 @@ fn generate_translations(
     translations: &crate::translations::Translations,
     compilation_unit: &llr::CompilationUnit,
 ) -> TokenStream {
-    let mut text = String::new();
-    let mut text_ranges = std::collections::HashMap::<SmolStr, [u32; 2]>::new();
-    let mut text_range = |s: &SmolStr| -> [u32; 2] {
-        *text_ranges.entry(s.clone()).or_insert_with(|| {
-            let start = text.len();
-            text.push_str(s);
-            [start, text.len()].map(|offset| u32::try_from(offset).unwrap())
-        })
-    };
-    let to_index = |index: usize| u32::try_from(index).unwrap();
-
-    let language_count = translations.languages.len();
-    let string_ranges = (0..language_count)
-        .flat_map(|language| translations.strings.iter().map(move |s| s.get(language)))
-        .map(|s| s.and_then(Option::as_ref).map_or([0, 0], &mut text_range))
-        .collect::<Vec<_>>();
-    let mut forms = Vec::new();
-    let plural_ranges = (0..language_count)
-        .flat_map(|language| translations.plurals.iter().map(move |p| p.get(language)))
-        .map(|p| match p.and_then(Option::as_ref) {
-            Some(p) => {
-                let start = forms.len();
-                forms.extend(p.iter().map(&mut text_range));
-                [to_index(start), to_index(forms.len())]
-            }
-            None => [0, 0],
-        })
-        .collect::<Vec<_>>();
-    let range_tokens = |ranges: &[[u32; 2]]| {
+    let text = translations.text.as_str();
+    let range_tokens = |ranges: &[core::ops::Range<u32>]| {
         ranges
             .iter()
             .map(|range| {
-                let [start, end] = range.map(proc_macro2::Literal::u32_unsuffixed);
+                let [start, end] =
+                    [range.start, range.end].map(proc_macro2::Literal::u32_unsuffixed);
                 quote!(#start..#end)
             })
             .collect::<Vec<_>>()
     };
-    let string_range_tokens = range_tokens(&string_ranges);
-    let plural_range_tokens = range_tokens(&plural_ranges);
-    let form_tokens = range_tokens(&forms);
-    let (string_count, plural_count) = (translations.strings.len(), translations.plurals.len());
+    let string_range_tokens = range_tokens(&translations.strings);
+    let plural_range_tokens = range_tokens(&translations.plurals);
+    let form_tokens = range_tokens(&translations.forms);
+    let (string_count, plural_count) = (translations.string_count(), translations.plural_count());
 
     let ctx = EvaluationContext {
         compilation_unit,
@@ -6401,12 +6375,12 @@ fn generate_translations(
 
     quote!(
         const _SLINT_TRANSLATED_TEXT: &str = #text;
-        static _SLINT_TRANSLATED_STRINGS: sp::BundledStrings = sp::BundledStrings {
+        static _SLINT_TRANSLATED_STRINGS: sp::BundledStrings<'static> = sp::BundledStrings {
             text: _SLINT_TRANSLATED_TEXT,
             ranges: &[#(#string_range_tokens),*],
             count: #string_count,
         };
-        static _SLINT_TRANSLATED_STRINGS_PLURALS: sp::BundledPlurals = sp::BundledPlurals {
+        static _SLINT_TRANSLATED_STRINGS_PLURALS: sp::BundledPlurals<'static> = sp::BundledPlurals {
             text: _SLINT_TRANSLATED_TEXT,
             forms: &[#(#form_tokens),*],
             ranges: &[#(#plural_range_tokens),*],

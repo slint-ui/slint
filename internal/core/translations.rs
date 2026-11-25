@@ -321,48 +321,44 @@ pub struct TranslationsBundled {
     pub decimal_separator: char,
 }
 
-/// The strings without plural forms that the Rust code generator bundles, in every language.
+/// The strings without plural forms of the bundled translations, in every language.
 // A position-independent executable relocates every pointer at startup.
 // With a `&str` per string instead of byte ranges,
-// each page of the table would become private memory.
+// each page of the generated table would become private memory.
 #[derive(Clone, Copy)]
-pub struct BundledStrings {
+pub struct BundledStrings<'a> {
     /// The strings, one after the other.
-    pub text: &'static str,
+    pub text: &'a str,
     /// The range of each string in `text`, for each language and then each string.
     /// An empty range stands for a string without translation.
-    pub ranges: &'static [Range<u32>],
+    pub ranges: &'a [Range<u32>],
     /// The number of strings in each language.
     pub count: usize,
 }
 
-impl BundledStrings {
-    fn get(&self, language: usize, index: usize) -> Option<&'static str> {
+impl<'a> BundledStrings<'a> {
+    fn get(&self, language: usize, index: usize) -> Option<&'a str> {
         let range = self.ranges.get(language * self.count + index).filter(|r| !r.is_empty())?;
         self.text.get(indices(range))
     }
 }
 
-/// The strings with plural forms that the Rust code generator bundles, in every language.
+/// The strings with plural forms of the bundled translations, in every language.
 #[derive(Clone, Copy)]
-pub struct BundledPlurals {
+pub struct BundledPlurals<'a> {
     /// The plural forms, one after the other.
-    pub text: &'static str,
+    pub text: &'a str,
     /// The range of each plural form in `text`.
-    pub forms: &'static [Range<u32>],
+    pub forms: &'a [Range<u32>],
     /// The range in `forms` of each string's plural forms, for each language and then each string.
     /// An empty range stands for a string without translation.
-    pub ranges: &'static [Range<u32>],
+    pub ranges: &'a [Range<u32>],
     /// The number of strings in each language.
     pub count: usize,
 }
 
-impl BundledPlurals {
-    fn forms(
-        &self,
-        language: usize,
-        index: usize,
-    ) -> Option<impl Fn(usize) -> Option<&'static str>> {
+impl<'a> BundledPlurals<'a> {
+    fn forms(&self, language: usize, index: usize) -> Option<impl Fn(usize) -> Option<&'a str>> {
         let range = self.ranges.get(language * self.count + index).filter(|r| !r.is_empty())?;
         let forms = self.forms.get(indices(range))?;
         let text = self.text;
@@ -507,18 +503,6 @@ impl crate::SlintContext {
         format_translation(&translated, arguments, n)
     }
 
-    /// Translate a string bundled into the application, in this context's language.
-    /// Falls back to the default language if the selected one has no translation.
-    ///
-    /// `strs` holds the string in each bundled language.
-    pub fn translate_from_bundle<S: AsRef<str>>(
-        &self,
-        strs: &[Option<S>],
-        arguments: &(impl FormatArgs + ?Sized),
-    ) -> SharedString {
-        self.translate_bundled(|language| Some(strs.get(language)?.as_ref()?.as_ref()), arguments)
-    }
-
     /// Translate the string at `index` of `strings`, in this context's language.
     /// Falls back to the default language if the selected one has no translation.
     pub fn translate_from_bundled_strings(
@@ -527,16 +511,10 @@ impl crate::SlintContext {
         index: usize,
         arguments: &(impl FormatArgs + ?Sized),
     ) -> SharedString {
-        self.translate_bundled(|language| strings.get(language, index), arguments)
-    }
-
-    fn translate_bundled<'a>(
-        &self,
-        translation: impl Fn(usize) -> Option<&'a str>,
-        arguments: &(impl FormatArgs + ?Sized),
-    ) -> SharedString {
         let mut output = SharedString::default();
-        let Some(translated) = translation(self.language_index()).or_else(|| translation(0)) else {
+        let Some(translated) =
+            strings.get(self.language_index(), index).or_else(|| strings.get(0, index))
+        else {
             return output;
         };
         use core::fmt::Write;
@@ -555,51 +533,32 @@ impl crate::SlintContext {
         arguments: &(impl FormatArgs + ?Sized),
         n: i32,
     ) -> SharedString {
-        self.translate_bundled_plural(
-            |language| plurals.forms(language, index),
+        self.translate_from_bundled_plurals_with_form(
+            plurals,
+            index,
             |language| plural_rules.get(language).and_then(|x| *x).map(|rule| rule(n)),
             arguments,
             n,
         )
     }
 
-    /// Translate a string with plural forms bundled into the application, in this context's
-    /// language.
-    ///
-    /// `strs` holds the plural forms in each bundled language,
-    /// and `plural_form` computes the form from the language index.
+    /// Same as [`Self::translate_from_bundled_plurals`], but `plural_form` computes the form
+    /// from the language index.
     /// It returns `None` if the language has no rule, in which case the English rule is used.
-    pub fn translate_from_bundle_with_plural_form<S: AsRef<str>>(
+    pub fn translate_from_bundled_plurals_with_form(
         &self,
-        strs: &[Option<&[S]>],
+        plurals: &BundledPlurals,
+        index: usize,
         plural_form: impl FnOnce(usize) -> Option<usize>,
         arguments: &(impl FormatArgs + ?Sized),
         n: i32,
     ) -> SharedString {
-        self.translate_bundled_plural(
-            |language| {
-                let forms = (*strs.get(language)?)?;
-                Some(move |form: usize| forms.get(form).map(S::as_ref))
-            },
-            plural_form,
-            arguments,
-            n,
-        )
-    }
-
-    fn translate_bundled_plural<'a, F: Fn(usize) -> Option<&'a str>>(
-        &self,
-        forms: impl Fn(usize) -> Option<F>,
-        plural_form: impl FnOnce(usize) -> Option<usize>,
-        arguments: &(impl FormatArgs + ?Sized),
-        n: i32,
-    ) -> SharedString {
-        let idx = self.language_index();
+        let language = self.language_index();
         let mut output = SharedString::default();
         let en = |n| (n != 1) as usize;
-        let (form_text, form) = match forms(idx) {
-            Some(x) => (x, plural_form(idx)),
-            None => match forms(0) {
+        let (form_text, form) = match plurals.forms(language, index) {
+            Some(x) => (x, plural_form(language)),
+            None => match plurals.forms(0, index) {
                 Some(x) => (x, plural_form(0)),
                 None => return output,
             },
@@ -821,7 +780,7 @@ mod ffi {
 fn test_bundled_translations_per_context() {
     use crate::testing::NoWindowPlatform as TestPlatform;
     let languages = || [("".into(), '.'), ("fr".into(), ',')];
-    let strs = [Some("Hello"), Some("Bonjour")];
+    let strings = BundledStrings { text: "HelloBonjour", ranges: &[0..5, 5..12], count: 1 };
     let no_args: &[SharedString] = &[];
 
     // The first context created becomes the thread's.
@@ -833,15 +792,15 @@ fn test_bundled_translations_per_context() {
     other.select_bundled_translation("").unwrap();
 
     other.select_bundled_translation("fr").unwrap();
-    assert_eq!(other.translate_from_bundle(&strs, no_args), "Bonjour");
+    assert_eq!(other.translate_from_bundled_strings(&strings, 0, no_args), "Bonjour");
     assert_eq!(other.locale_decimal_separator(), ',');
-    assert_eq!(thread_ctx.translate_from_bundle(&strs, no_args), "Hello");
+    assert_eq!(thread_ctx.translate_from_bundled_strings(&strings, 0, no_args), "Hello");
     assert_eq!(thread_ctx.locale_decimal_separator(), '.');
 
     select_bundled_translation("fr").unwrap();
-    assert_eq!(thread_ctx.translate_from_bundle(&strs, no_args), "Bonjour");
+    assert_eq!(thread_ctx.translate_from_bundled_strings(&strings, 0, no_args), "Bonjour");
     other.select_bundled_translation("en").unwrap();
-    assert_eq!(other.translate_from_bundle(&strs, no_args), "Hello");
+    assert_eq!(other.translate_from_bundled_strings(&strings, 0, no_args), "Hello");
 
     assert!(matches!(
         other.select_bundled_translation("de"),
