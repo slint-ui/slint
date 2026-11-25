@@ -4,6 +4,7 @@
 // cSpell: ignore cntr demangle fichier fichiers indice
 use crate::SharedString;
 use core::fmt::Display;
+use core::ops::Range;
 pub use formatter::FormatArgs;
 #[cfg(feature = "tr")]
 pub use tr::Translator;
@@ -328,17 +329,17 @@ pub struct TranslationsBundled {
 pub struct BundledStrings {
     /// The strings, one after the other.
     pub text: &'static str,
-    /// The start and end of each string in `text`, for each language and then each string.
+    /// The range of each string in `text`, for each language and then each string.
     /// An empty range stands for a string without translation.
-    pub ranges: &'static [[u32; 2]],
+    pub ranges: &'static [Range<u32>],
     /// The number of strings in each language.
     pub count: usize,
 }
 
 impl BundledStrings {
     fn get(&self, language: usize, index: usize) -> Option<&'static str> {
-        let [start, end] = *self.ranges.get(language * self.count + index)?;
-        self.text.get(start as usize..end as usize).filter(|s| !s.is_empty())
+        let range = self.ranges.get(language * self.count + index).filter(|r| !r.is_empty())?;
+        self.text.get(indices(range))
     }
 }
 
@@ -347,11 +348,11 @@ impl BundledStrings {
 pub struct BundledPlurals {
     /// The plural forms, one after the other.
     pub text: &'static str,
-    /// The start and end of each plural form in `text`.
-    pub forms: &'static [[u32; 2]],
+    /// The range of each plural form in `text`.
+    pub forms: &'static [Range<u32>],
     /// The range in `forms` of each string's plural forms, for each language and then each string.
     /// An empty range stands for a string without translation.
-    pub ranges: &'static [[u32; 2]],
+    pub ranges: &'static [Range<u32>],
     /// The number of strings in each language.
     pub count: usize,
 }
@@ -362,14 +363,15 @@ impl BundledPlurals {
         language: usize,
         index: usize,
     ) -> Option<impl Fn(usize) -> Option<&'static str>> {
-        let [start, end] = *self.ranges.get(language * self.count + index)?;
-        let forms = self.forms.get(start as usize..end as usize).filter(|f| !f.is_empty())?;
+        let range = self.ranges.get(language * self.count + index).filter(|r| !r.is_empty())?;
+        let forms = self.forms.get(indices(range))?;
         let text = self.text;
-        Some(move |form: usize| {
-            let [start, end] = *forms.get(form)?;
-            text.get(start as usize..end as usize)
-        })
+        Some(move |form: usize| text.get(indices(forms.get(form)?)))
     }
+}
+
+fn indices(range: &Range<u32>) -> Range<usize> {
+    range.start as usize..range.end as usize
 }
 
 /// The languages of the bundled translations, in the order in which they were bundled.
@@ -852,15 +854,12 @@ fn test_bundled_translations_per_context() {
 fn test_bundled_strings_and_plurals() {
     use crate::testing::NoWindowPlatform as TestPlatform;
     let languages = || [("".into(), '.'), ("fr".into(), ',')];
-    let strings = BundledStrings {
-        text: "HelloBonjourBye",
-        ranges: &[[0, 5], [12, 15], [5, 12], [0, 0]],
-        count: 2,
-    };
+    let strings =
+        BundledStrings { text: "HelloBonjourBye", ranges: &[0..5, 12..15, 5..12, 0..0], count: 2 };
     let plurals = BundledPlurals {
         text: "{n} file{n} files{n} fichier{n} fichiers",
-        forms: &[[0, 8], [8, 17], [17, 28], [28, 40]],
-        ranges: &[[0, 2], [2, 4]],
+        forms: &[0..8, 8..17, 17..28, 28..40],
+        ranges: &[0..2, 2..4],
         count: 1,
     };
     let rules: &[Option<fn(i32) -> usize>] = &[None, Some(|n: i32| (n > 1) as usize)];

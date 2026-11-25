@@ -6361,7 +6361,7 @@ fn generate_translations(
             .iter()
             .map(|range| {
                 let [start, end] = range.map(proc_macro2::Literal::u32_unsuffixed);
-                quote!([#start, #end])
+                quote!(#start..#end)
             })
             .collect::<Vec<_>>()
     };
