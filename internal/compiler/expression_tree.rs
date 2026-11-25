@@ -302,7 +302,6 @@ pub enum Expression {
         index: Box<Expression>,
     },
 
-
     /// Cast an expression to the given type
     Cast {
         from: Box<Expression>,
