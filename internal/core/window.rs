@@ -768,7 +768,7 @@ fn collect_popups_to_close(
 ) {
     if walk_own_popups {
         to_close.extend(
-            WindowInner::from_pub(window_adapter.window()).find_top_popup_without_autoclose(),
+            WindowInner::from_pub(window_adapter.window()).outermost_auto_close_popup_in_chain(),
         );
     }
     // Reaches popups of child windows that aren't popups themselves,
@@ -1100,7 +1100,7 @@ impl WindowInner {
         }
 
         // Select correct window adapter. If this is not a popup we must not use the parent
-        // because this is already the parent of all it's popups
+        // because this is already the parent of all its popups
         let is_native_popup = self.kind.get().is_some_and(WindowKind::is_popup);
         let to_check_window_adapter = is_native_popup
             .then(|| self.parent_window_adapter())
@@ -2619,9 +2619,9 @@ impl WindowInner {
         }
     }
 
-    /// returns the outermost popup that can auto-close and sits above the
-    /// topmost no-auto-close popup in the chain of native popups
-    fn find_top_popup_without_autoclose(&self) -> Option<(WindowAdapterRc, NonZeroU32)> {
+    /// Returns the outermost popup that can auto-close and sits above the
+    /// topmost no-auto-close popup in the chain of native popups.
+    fn outermost_auto_close_popup_in_chain(&self) -> Option<(WindowAdapterRc, NonZeroU32)> {
         let mut to_close = None;
         let mut window_adapter = self.window_adapter();
         loop {
