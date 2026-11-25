@@ -13,6 +13,7 @@ name: PR Checks
 on:
   pull_request_target:
     types: [opened, reopened, synchronize, edited]
+    branches-ignore: [nigel/windows-8vcpu-probe-base]
 
 permissions:
   pull-requests: write
