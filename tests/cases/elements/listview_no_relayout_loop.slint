@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Rows of very different heights must not make the ListView lay out again on every pass,
+// which printed "long callback/instantiation chain detected" (#15105).
+
+import { ListView } from "std-widgets.slint";
+export component Test inherits Window {
+    width: 600px;
+    height: 500px;
+    in property <[int]> heights;
+    out property <int> clicked-row: -1;
+    callback ensure-row-visible(int, ScrollBehavior);
+    ensure-row-visible(row, behavior) => {
+        listview.ensure-row-visible(row, behavior);
+    }
+    listview := ListView {
+        for h[i] in heights: Rectangle {
+            height: h * 1px;
+            TouchArea {
+                clicked => {
+                    root.clicked-row = i;
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::language::ScrollBehavior;
+use slint::platform::{PointerEventButton, WindowEvent};
+use slint::{LogicalPosition, ModelRc, VecModel};
+
+let scroll = |heights: Vec<i32>, from: i32, to: i32| {
+    let instance = Test::new().unwrap();
+    instance.set_heights(ModelRc::new(VecModel::from(heights)));
+    slint_testing::mock_elapsed_time(16);
+    instance.invoke_ensure_row_visible(from, ScrollBehavior::Instant);
+    slint_testing::mock_elapsed_time(16);
+    instance.invoke_ensure_row_visible(to, ScrollBehavior::Smooth);
+    for frame in 0..100 {
+        slint_testing::mock_elapsed_time(16);
+        let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+        assert!(logs.is_empty(), "scrolling from {from} to {to}, frame {frame}: {logs:?}");
+    }
+    // The row ends up at the viewport edge it was scrolled toward.
+    let position = LogicalPosition::new(300., if to > from { 499. } else { 1. });
+    let button = PointerEventButton::Left;
+    instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+    instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+    assert_eq!(instance.get_clicked_row(), to, "scrolling from {from} to {to}");
+};
+
+// Laying out the rows toward the target changes the estimated distance to it.
+scroll(vec![727, 28, 38, 21, 37, 28, 39, 715, 1467, 28], 0, 9);
+// The estimated row height must not depend on where the rows start.
+scroll(vec![24, 34, 10, 10, 53, 35, 17, 13, 11, 10, 121, 23, 20, 37, 26, 26, 24, 35, 22, 27, 36, 22, 20, 26, 121, 18], 17, 25);
+// Rounding must not move a row edge across the viewport edge.
+scroll(vec![37, 24, 1426, 17, 38, 12, 12, 1300, 28, 10, 38, 895, 1222, 34, 19, 22, 39, 37, 16, 29, 21, 36, 20, 297, 30, 504], 22, 3);
+```
+*/

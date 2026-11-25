@@ -28,7 +28,7 @@ mod tests {
         let mut compiler = Compiler::default();
         compiler.compiler_configuration(i_slint_core::InternalToken).experimental_features =
             i_slint_compiler::ExperimentalFeatures::all();
-        let result = spin_on::spin_on(compiler.build_from_source(
+        let result = i_slint_compiler::poll_ready(compiler.build_from_source(
             source.into(),
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("ui/metadata-probe.slint"),
         ));
@@ -109,7 +109,7 @@ mod tests {
             let mut config = CompilerConfiguration::default();
             config.compiler_config.style = Some(style.into());
             let mut document_cache = i_slint_editor_preview::DocumentCache::new(config);
-            spin_on::spin_on(document_cache.preload_builtins());
+            i_slint_compiler::poll_ready(document_cache.preload_builtins());
             let mut components = Vec::new();
             all_exported_components(&document_cache, &mut |_| true, &mut components);
 
@@ -145,7 +145,7 @@ mod tests {
             );
             let mut compiler = slint_interpreter::Compiler::default();
             compiler.set_style(style.into());
-            let result = spin_on::spin_on(
+            let result = i_slint_compiler::poll_ready(
                 compiler.build_from_source(source, std::path::PathBuf::from("probe.slint")),
             );
             assert!(

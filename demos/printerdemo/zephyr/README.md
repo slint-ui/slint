@@ -99,21 +99,6 @@ west flash
 
 This sample can run on the [Renesas EK-RZ/A3M](https://www.renesas.com/en/products/microcontrollers-microprocessors/rz-mpus/ek-rza3m-evaluation-kit-rza3m-mpu) evaluation kit with its 5-inch 720x1280 MIPI display.
 
-**Note:** The EK-RZ/A3M requires using Renesas's Zephyr fork. Replace step 4 of the prerequisites with:
-
-```bash
-# If Slint source is already checked out (use west-rza3m.yaml instead of west.yaml):
-cd ..
-west init -l --mf demos/zephyr-common/west-rza3m.yaml ./slint
-
-# If you do not have Slint source yet:
-west init -m https://github.com/slint-ui/slint --mr zephyr --mf demos/zephyr-common/west-rza3m.yaml slint-zephyr
-cd slint-zephyr
-
-# Checkout the repositories:
-west update
-```
-
 ```bash
 # Build
 west build -b rza3m_ek -p always slint/demos/printerdemo/zephyr -- -DSHIELD=rtkapplcdms02001be -DCMAKE_BUILD_TYPE=Release

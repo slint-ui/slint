@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { LightsTheme } from "lightsTheme.slint";
+import { SecurityHeroCard } from "securityHeroCard.slint";
+import { SecurityDeviceCard } from "securityDeviceCard.slint";
+
+export component SecurityPage inherits Rectangle {
+    SecurityHeroCard {
+        x: 0px;
+        y: 0px;
+        width: 780px;
+        height: 324px;
+    }
+
+    SecurityDeviceCard {
+        x: 0px;
+        y: 345px;
+        width: 375px;
+        height: 149px;
+        title: "Front Door";
+        value: "Locked";
+        icon: @image-url("../../images/primer-icons/key.svg");
+    }
+
+    SecurityDeviceCard {
+        x: 390px;
+        y: 345px;
+        width: 390px;
+        height: 149px;
+        title: "Garage";
+        value: "Closed";
+        icon: @image-url("../../images/primer-icons/home-fill.svg");
+    }
+}

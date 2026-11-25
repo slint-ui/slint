@@ -3,16 +3,49 @@
 
 use super::{BindingHolder, BindingResult, BindingVTable, DependencyListHead, DependencyNode};
 use alloc::boxed::Box;
+use alloc::rc::Rc;
 use core::cell::{Cell, UnsafeCell};
 use core::ffi::c_void;
 use core::marker::PhantomPinned;
 use core::pin::Pin;
 use core::ptr::addr_of;
 
-// TODO a pinned thread local key?
-crate::thread_local! {static CHANGED_NODES : Pin<Box<DependencyListHead>> = Box::pin(DependencyListHead::default()) }
+/// The queue of the change trackers initialized with it that are waiting for their notify
+/// callback to run. Each [`SlintContext`](crate::SlintContext) has one, which its event loop runs.
+#[derive(Clone)]
+pub struct ChangeHandlerQueue(Pin<Rc<DependencyListHead>>);
+
+impl Default for ChangeHandlerQueue {
+    fn default() -> Self {
+        Self(Rc::pin(DependencyListHead::default()))
+    }
+}
+
+impl ChangeHandlerQueue {
+    /// Run one round of the queued change handlers.
+    /// Returns `true` if any handler was executed.
+    pub(crate) fn run_once(&self) -> bool {
+        let list = self.0.as_ref();
+        if list.is_empty() {
+            return false;
+        }
+        let old_list = DependencyListHead::default();
+        let old_list = core::pin::pin!(old_list);
+        DependencyListHead::swap(list, old_list.as_ref());
+        while let Some(node) = old_list.take_head() {
+            unsafe {
+                ((*addr_of!((*node).vtable)).evaluate)(
+                    node as *mut BindingHolder,
+                    core::ptr::null_mut(),
+                );
+            }
+        }
+        true
+    }
+}
 
 struct ChangeTrackerInner<T, EvalFn, NotifyFn, Data> {
+    queue: ChangeHandlerQueue,
     eval_fn: EvalFn,
     notify_fn: NotifyFn,
     /// The value. Borrowed-mut when `evaluating` is true
@@ -26,8 +59,8 @@ struct ChangeTrackerInner<T, EvalFn, NotifyFn, Data> {
 ///
 /// The Change Tracker must be initialized with the [`Self::init`] method.
 ///
-/// When the property changes, the ChangeTracker is added to a thread local list, and the notify
-/// callback is called when the [`Self::run_change_handlers()`] method is called
+/// When the property changes, the ChangeTracker is queued on the [`ChangeHandlerQueue`] it was
+/// initialized with, and the notify callback is called when that queue runs.
 #[derive(Debug)]
 pub struct ChangeTracker {
     /// (Actually a `BindingHolder<ChangeTrackerInner>`)
@@ -51,7 +84,7 @@ impl ChangeTracker {
     ///
     /// The `data` is any struct that is going to be passed to the functor.
     /// The `eval_fn` is a function that queries and return the property.
-    /// And the `notify_fn` is the callback run if the property is changed
+    /// And the `notify_fn` is the callback run from `queue` if the property is changed.
     pub fn init<
         Data: 'static,
         T: Default + PartialEq,
@@ -59,11 +92,12 @@ impl ChangeTracker {
         NF: Fn(&Data, &T) + 'static,
     >(
         &self,
+        queue: &ChangeHandlerQueue,
         data: Data,
         eval_fn: EF,
         notify_fn: NF,
     ) {
-        self.init_impl(data, eval_fn, notify_fn, false);
+        self.init_impl(queue.clone(), data, eval_fn, notify_fn, false);
     }
 
     /// Initialize the change tracker with the given data and callbacks.
@@ -78,11 +112,12 @@ impl ChangeTracker {
         NF: Fn(&Data, &T) + 'static,
     >(
         &self,
+        queue: &ChangeHandlerQueue,
         data: Data,
         eval_fn: EF,
         notify_fn: NF,
     ) {
-        self.init_impl(data, eval_fn, notify_fn, true);
+        self.init_impl(queue.clone(), data, eval_fn, notify_fn, true);
     }
 
     fn init_impl<
@@ -92,6 +127,7 @@ impl ChangeTracker {
         NF: Fn(&Data, &T) + 'static,
     >(
         &self,
+        queue: ChangeHandlerQueue,
         data: Data,
         eval_fn: EF,
         notify_fn: NF,
@@ -99,6 +135,7 @@ impl ChangeTracker {
     ) {
         self.clear();
         let inner = ChangeTrackerInner {
+            queue,
             eval_fn,
             notify_fn,
             value: T::default().into(),
@@ -167,7 +204,10 @@ impl ChangeTracker {
             const VT: &'static BindingVTable = &BindingVTable {
                 drop: drop::<T, EF, NF, Data>,
                 evaluate: evaluate::<T, EF, NF, Data>,
-                mark_dirty: ChangeTracker::mark_dirty,
+                mark_dirty: |s, _| unsafe {
+                    let inner = &(*(s as *const BindingHolder<Self>)).binding;
+                    ChangeTracker::mark_dirty(s, &inner.queue)
+                },
                 intercept_set: |_, _| false,
                 intercept_set_binding: |_, _| false,
                 velocity: |_| None,
@@ -192,9 +232,7 @@ impl ChangeTracker {
             unsafe {
                 let dep_nodes = &mut *(*core::ptr::addr_of!((*raw).dep_nodes)).get();
                 let node = dep_nodes.push_front(DependencyNode::new(raw as *const BindingHolder));
-                CHANGED_NODES.with(|changed_nodes| {
-                    changed_nodes.append(node);
-                });
+                (*core::ptr::addr_of!((*raw).binding)).queue.0.append(node);
             }
             return;
         }
@@ -232,49 +270,17 @@ impl ChangeTracker {
         }
     }
 
-    /// Run all the change handlers that were queued, looping until no more
-    /// handlers are pending (up to an internal limit).
-    pub fn run_change_handlers() {
-        for _ in 0..10 {
-            if !Self::run_change_handlers_once() {
-                return;
-            }
-        }
-        crate::debug_log!("Slint: long changed callback chain detected");
-    }
-
-    /// Run one round of pending change handlers.
-    /// Returns `true` if any handler was executed.
-    pub fn run_change_handlers_once() -> bool {
-        CHANGED_NODES.with(|list| {
-            if list.is_empty() {
-                return false;
-            }
-            let old_list = DependencyListHead::default();
-            let old_list = core::pin::pin!(old_list);
-            DependencyListHead::swap(list.as_ref(), old_list.as_ref());
-            while let Some(node) = old_list.take_head() {
-                unsafe {
-                    ((*addr_of!((*node).vtable)).evaluate)(
-                        node as *mut BindingHolder,
-                        core::ptr::null_mut(),
-                    );
-                }
-            }
-            true
-        })
-    }
-
-    pub(super) unsafe fn mark_dirty(_self: *const BindingHolder, _was_dirty: bool) {
+    /// Moves the change tracker `_self` to `queue`.
+    ///
+    /// Safety: `_self` must be a valid change tracker binding.
+    pub(super) unsafe fn mark_dirty(_self: *const BindingHolder, queue: &ChangeHandlerQueue) {
         unsafe {
             // Take dep_nodes out so we can iterate without alias conflicts.
             let dep_nodes = &mut *(*_self).dep_nodes.get();
             let node_head = core::mem::take(dep_nodes);
             if let Some(node) = node_head.iter().next() {
                 node.remove();
-                CHANGED_NODES.with(|changed_nodes| {
-                    changed_nodes.append(node);
-                });
+                queue.0.append(node);
             }
             // Restore the list.
             let other = core::mem::replace(dep_nodes, node_head);
@@ -289,6 +295,7 @@ impl ChangeTracker {
 
 #[test]
 fn change_tracker() {
+    let queue = ChangeHandlerQueue::default();
     use super::Property;
     use std::rc::Rc;
     let prop1 = Rc::pin(Property::new(42));
@@ -304,6 +311,7 @@ fn change_tracker() {
     let state = Rc::new(core::cell::RefCell::new(std::string::String::new()));
 
     change1.init(
+        &queue,
         (state.clone(), prop1.clone()),
         |(_, prop1)| prop1.as_ref().get(),
         |(state, _), val| {
@@ -311,6 +319,7 @@ fn change_tracker() {
         },
     );
     change2.init(
+        &queue,
         (state.clone(), prop2.clone()),
         |(_, prop2)| prop2.as_ref().get(),
         |(state, _), val| {
@@ -324,19 +333,20 @@ fn change_tracker() {
     prop1.as_ref().set(30);
     assert_eq!(state.borrow().as_str(), "");
 
-    ChangeTracker::run_change_handlers();
+    while queue.run_once() {}
     assert_eq!(state.borrow().as_str(), ":1(30):2(60)");
-    ChangeTracker::run_change_handlers();
+    while queue.run_once() {}
     assert_eq!(state.borrow().as_str(), ":1(30):2(60)");
     prop1.as_ref().set(1);
     assert_eq!(state.borrow().as_str(), ":1(30):2(60)");
-    ChangeTracker::run_change_handlers();
+    while queue.run_once() {}
     assert_eq!(state.borrow().as_str(), ":1(30):2(60):1(1):2(2)");
 }
 
 /// test for issue #8741
 #[test]
 fn delete_from_eval_fn() {
+    let queue = ChangeHandlerQueue::default();
     use std::cell::RefCell;
     use std::rc::Rc;
     use std::string::String;
@@ -348,11 +358,13 @@ fn delete_from_eval_fn() {
     // The change event are run in reverse order as they are created, so this one shouldn't be ever called as it is being destroyed from `change`
     let another = Rc::<RefCell<Option<ChangeTracker>>>::new(Some(ChangeTracker::default()).into());
     another.borrow().as_ref().unwrap().init_delayed(
+        &queue,
         (),
         |()| unreachable!(),
         move |(), &()| unreachable!(),
     );
     change.borrow().as_ref().unwrap().init_delayed(
+        &queue,
         change.clone(),
         |x| {
             x.borrow_mut().take().unwrap();
@@ -369,14 +381,15 @@ fn delete_from_eval_fn() {
     );
 
     assert_eq!(result.borrow().as_str(), "");
-    ChangeTracker::run_change_handlers();
+    while queue.run_once() {}
     assert_eq!(result.borrow().as_str(), "*+");
-    ChangeTracker::run_change_handlers();
+    while queue.run_once() {}
     assert_eq!(result.borrow().as_str(), "*+");
 }
 
 #[test]
 fn change_multiple_dependencies() {
+    let queue = ChangeHandlerQueue::default();
     use super::Property;
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -390,6 +403,7 @@ fn change_multiple_dependencies() {
 
     let change_tracker = ChangeTracker::default();
     change_tracker.init(
+        &queue,
         result.clone(),
         {
             let prop1 = prop1.clone();
@@ -411,7 +425,7 @@ fn change_multiple_dependencies() {
     );
 
     assert_eq!(result.borrow().as_str(), "");
-    ChangeTracker::run_change_handlers();
+    while queue.run_once() {}
     assert_eq!(result.borrow().as_str(), "");
 
     prop_with_deps.as_ref().set_binding({
@@ -421,30 +435,30 @@ fn change_multiple_dependencies() {
     });
 
     assert_eq!(result.borrow().as_str(), "");
-    ChangeTracker::run_change_handlers();
+    while queue.run_once() {}
     assert_eq!(prop_with_deps.as_ref().get(), 3);
     assert_eq!(result.borrow().as_str(), "[13]"); // 1 + 2 + 3 + 4 + 3
 
-    ChangeTracker::run_change_handlers();
+    while queue.run_once() {}
     assert_eq!(result.borrow().as_str(), "[13]");
 
     prop1.as_ref().set(10);
     assert_eq!(result.borrow().as_str(), "[13]");
-    ChangeTracker::run_change_handlers();
+    while queue.run_once() {}
     assert_eq!(result.borrow().as_str(), "[13][31]"); // 10 + 2 + 3 + 4 + 12
 
     prop2.as_ref().set(20);
     prop3.as_ref().set(30);
     assert_eq!(result.borrow().as_str(), "[13][31]");
-    ChangeTracker::run_change_handlers();
+    while queue.run_once() {}
     assert_eq!(result.borrow().as_str(), "[13][31][94]"); // 10 + 20 + 30 + 4 + 30
 
-    ChangeTracker::run_change_handlers();
+    while queue.run_once() {}
     assert_eq!(result.borrow().as_str(), "[13][31][94]");
 
     // just swap prop1 and prop2, doesn't change the outcome
     prop1.as_ref().set(20);
     prop2.as_ref().set(10);
-    ChangeTracker::run_change_handlers();
+    while queue.run_once() {}
     assert_eq!(result.borrow().as_str(), "[13][31][94]");
 }

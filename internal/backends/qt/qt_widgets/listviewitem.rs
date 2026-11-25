@@ -130,7 +130,7 @@ impl Item for NativeStandardListViewItem {
         FocusEventResult::FocusIgnored
     }
 
-    fn_render! { this dpr size painter widget initial_state =>
+    fn_render! { this size painter widget initial_state =>
         let index: i32 = this.index();
         let is_selected: bool = this.is_selected();
         let combobox: bool = this.combobox();
@@ -142,7 +142,6 @@ impl Item for NativeStandardListViewItem {
             painter as "QPainterPtr*",
             widget as "QWidget*",
             size as "QSize",
-            dpr as "float",
             index as "int",
             is_selected as "bool",
             has_hover as "bool",
@@ -157,8 +156,8 @@ impl Item for NativeStandardListViewItem {
                 QStyleOptionMenuItem option;
                 option.styleObject = widget;
                 option.state |= QStyle::State(initial_state);
-                option.rect = QRect(QPoint(), size / dpr);
-                option.menuRect = QRect(QPoint(), size / dpr);
+                option.rect = QRect(QPoint(), size);
+                option.menuRect = QRect(QPoint(), size);
                 option.state |= QStyle::State_Enabled;
                 if (has_hover) {
                     option.state |= QStyle::State_MouseOver;
@@ -182,7 +181,7 @@ impl Item for NativeStandardListViewItem {
                 QStyleOptionViewItem option;
                 option.styleObject = widget;
                 option.state |= QStyle::State(initial_state);
-                option.rect = QRect(QPoint(), size / dpr);
+                option.rect = QRect(QPoint(), size);
                 option.state |= QStyle::State_Enabled;
                 if (is_selected) {
                     option.state |= QStyle::State_Selected;

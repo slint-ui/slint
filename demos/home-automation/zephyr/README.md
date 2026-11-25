@@ -99,21 +99,6 @@ west flash
 
 This sample can run on the [Renesas EK-RZ/A3M](https://www.renesas.com/en/products/microcontrollers-microprocessors/rz-mpus/ek-rza3m-evaluation-kit-rza3m-mpu) evaluation kit with its 5-inch 720x1280 MIPI display.
 
-**Note:** The EK-RZ/A3M requires using Renesas's Zephyr fork. Replace step 4 of the prerequisites with:
-
-```bash
-# If Slint source is already checked out (use west-rza3m.yaml instead of west.yaml):
-cd ..
-west init -l --mf demos/zephyr-common/west-rza3m.yaml ./slint
-
-# If you do not have Slint source yet:
-west init -m https://github.com/slint-ui/slint --mr zephyr --mf demos/zephyr-common/west-rza3m.yaml slint-zephyr
-cd slint-zephyr
-
-# Checkout the repositories:
-west update
-```
-
 ```bash
 # Build
 west build -b rza3m_ek -p always slint/demos/home-automation/zephyr -- -DSHIELD=rtkapplcdms02001be -DCMAKE_BUILD_TYPE=Release
@@ -121,3 +106,14 @@ west build -b rza3m_ek -p always slint/demos/home-automation/zephyr -- -DSHIELD=
 # Flash (using J-Link)
 west flash
 ```
+
+### NXP FRDM-MCXN947
+
+This sample has been tested on the [NXP FRDM-MCXN947](https://docs.zephyrproject.org/latest/boards/nxp/frdm_mcxn947/doc/index.html) with an [LCD-PAR-S035 shield](https://www.nxp.com/part/LCD-PAR-S035).
+
+```bash
+# Build
+west build -b frdm_mcxn947/mcxn947/cpu0 -p always slint/demos/home-automation/zephyr -- -DSHIELD=lcd_par_s035_8080 -DCMAKE_BUILD_TYPE=Release
+```
+
+Flash it as described for the [printer demo for MCUs](../../printerdemo_mcu/zephyr/README.md#nxp-frdm-mcxn947--lcd-par-s035).

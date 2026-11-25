@@ -377,7 +377,7 @@ impl Item for NativeButton {
         }
     }
 
-    fn_render! { this dpr size painter widget initial_state =>
+    fn_render! { this size painter widget initial_state =>
         let down: bool = this.pressed();
         let checked: bool = this.checked();
         let standard_button_kind = this.actual_standard_button_kind();
@@ -404,7 +404,6 @@ impl Item for NativeButton {
             primary as "bool",
             icon_size as "int",
             colorize_icon as "bool",
-            dpr as "float",
             initial_state as "int"
         ] {
             class ColorizedIconEngine : public QIconEngine
@@ -471,7 +470,7 @@ impl Item for NativeButton {
                 option.icon = icon;
             }
             option.iconSize = QSize(icon_size, icon_size);
-            option.rect = QRect(QPoint(), size / dpr);
+            option.rect = QRect(QPoint(), size);
 
             qApp->style()->drawControl(QStyle::CE_PushButton, &option, painter->get(), widget);
         });

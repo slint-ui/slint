@@ -15,8 +15,8 @@ use sha2::Digest as _;
 
 use super::pairing::{Confirmation, Element, Handshake, Role, Secrets, Token, TokenId};
 use super::{
-    LspToPreviewMessage, PairingRejection, PreviewComponent, PreviewToLspMessage, VersionedUrl,
-    session,
+    DebuggerToPreviewMessage, LspToPreviewMessage, PairingRejection, PreviewComponent,
+    PreviewToDebuggerMessage, PreviewToLspMessage, SystemTestMessage, VersionedUrl, session,
 };
 
 const SNAPSHOTS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/protocol/snapshots.txt");
@@ -96,6 +96,17 @@ fn wire_format_matches_snapshots() {
         element: Element::for_test(vec![1, 2, 3]),
         confirmation: Confirmation::for_test(7),
     });
+
+    snapshots.assert_roundtrip(L::Debugger {
+        id: 7,
+        message: DebuggerToPreviewMessage::SystemTestRequest(SystemTestMessage(vec![1, 2, 3])),
+    });
+    for response in [Ok(SystemTestMessage(vec![1, 2, 3])), Err("disabled".into())] {
+        snapshots.assert_roundtrip(P::Debugger {
+            id: 7,
+            message: PreviewToDebuggerMessage::SystemTestResponse(response),
+        });
+    }
 
     let mut sealer = session::Sealer::new([7; 32]);
     let frames = [sealer.seal(b"a".to_vec()).unwrap(), sealer.seal(b"b".to_vec()).unwrap()];

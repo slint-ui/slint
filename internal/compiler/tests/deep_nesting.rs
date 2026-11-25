@@ -44,8 +44,11 @@ fn compile_on_small_stack(source: String) {
                 let mut diagnostics = BuildDiagnostics::default();
                 let syntax_node = parse(source, None, None, &mut diagnostics);
                 let config = CompilerConfiguration::new(format.clone());
-                let (doc, diagnostics, loader) =
-                    spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
+                let (doc, diagnostics, loader) = i_slint_compiler::poll_ready(compile_syntax_node(
+                    syntax_node,
+                    diagnostics,
+                    config,
+                ));
                 assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
                 if format == OutputFormat::Interpreter {
                     return;

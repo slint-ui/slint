@@ -4,7 +4,8 @@
 //! Path rendering support for the software renderer using zeno
 
 use super::PhysicalRect;
-use super::draw_functions::{LineClip, PremultipliedRgbaColor, TargetPixel, interpolate_color};
+use super::draw_functions::{LineClip, interpolate_color};
+use super::target_pixel::{PremultipliedRgbaColor, TargetPixel};
 use super::{
     AnyGradientCommand, PhysicalLength, PhysicalRegion, RoundedClip, ShapeClip, shape_clips,
 };

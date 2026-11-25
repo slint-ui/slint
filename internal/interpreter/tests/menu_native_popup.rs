@@ -49,7 +49,8 @@ fn context_menu_is_native_popup() {
             }
         }
     "#;
-    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    let result =
+        i_slint_compiler::poll_ready(compiler.build_from_source(code.into(), Default::default()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let instance = result.component("TestCase").unwrap().create().unwrap();
     i_slint_backend_testing::access_testing_window(instance.window(), |w| w.use_native_popup(true));

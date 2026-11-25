@@ -13,8 +13,11 @@ fn compile(source: &str) -> ElementRc {
     let mut diagnostics = BuildDiagnostics::default();
     let syntax_node = parse(source.into(), None, None, &mut diagnostics);
     let compiler_config = CompilerConfiguration::new(OutputFormat::Interpreter);
-    let (doc, diagnostics, _) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, compiler_config));
+    let (doc, diagnostics, _) = i_slint_compiler::poll_ready(compile_syntax_node(
+        syntax_node,
+        diagnostics,
+        compiler_config,
+    ));
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
     doc.last_exported_component().unwrap().root_element.clone()
 }

@@ -13,14 +13,14 @@ use typed_index_collections::TiVec;
 
 #[derive(Clone)]
 enum Resource {
-    Texture(Rc<StaticTextures<OwnedStorage>>),
+    Texture(alloc::sync::Arc<StaticTextures<OwnedStorage>>),
     BitmapFont(Rc<BitmapFont<OwnedStorage>>),
 }
 
 impl From<PreRenderedResource> for Resource {
     fn from(resource: PreRenderedResource) -> Self {
         match resource {
-            PreRenderedResource::Texture(texture) => Self::Texture(Rc::new(texture)),
+            PreRenderedResource::Texture(texture) => Self::Texture(alloc::sync::Arc::new(texture)),
             PreRenderedResource::BitmapFont(font) => Self::BitmapFont(Rc::new(font)),
         }
     }
@@ -65,7 +65,7 @@ impl PreRendered {
             .into_iter()
             .map(|resource| match resource? {
                 Resource::Texture(texture) => {
-                    Some(PreRenderedResource::Texture(Rc::unwrap_or_clone(texture)))
+                    Some(PreRenderedResource::Texture(alloc::sync::Arc::unwrap_or_clone(texture)))
                 }
                 Resource::BitmapFont(font) => {
                     Some(PreRenderedResource::BitmapFont(Rc::unwrap_or_clone(font)))
@@ -98,8 +98,9 @@ mod tests {
         let source = r#"export component Live inherits Window {
             Text { text: "Version 1"; font-size: 32px; }
         }"#;
-        let result =
-            spin_on::spin_on(compiler.build_from_source(source.into(), Default::default()));
+        let result = i_slint_compiler::poll_ready(
+            compiler.build_from_source(source.into(), Default::default()),
+        );
         assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
         let loaded = {
             let sent = result.clone().into_send();
