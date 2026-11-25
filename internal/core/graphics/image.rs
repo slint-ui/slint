@@ -828,11 +828,7 @@ impl ImageInner {
 }
 
 /// Explains why an SVG cannot be loaded when the `svg` feature is compiled out.
-#[cfg(all(
-    not(feature = "svg"),
-    feature = "image-decoders",
-    any(not(target_arch = "wasm32"), target_os = "emscripten")
-))]
+#[cfg(all(not(feature = "svg"), feature = "image-decoders"))]
 pub(crate) const SVG_DISABLED_MESSAGE: &str = "SVG support is not enabled. Enable the `svg` feature of the `slint` crate (or of `slint-interpreter`) to render SVG images";
 
 /// Convert `image::DynamicImage` to `SharedImageBuffer`
