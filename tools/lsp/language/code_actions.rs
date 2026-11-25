@@ -14,7 +14,7 @@ mod translate;
 
 use crate::editor_preview::{self, DocumentCache};
 
-use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
+use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, TextRange, syntax_nodes};
 use lsp_types::{ClientCapabilities, CodeActionKind, CodeActionOrCommand, TextEdit, Url};
 
 struct Context<'a> {
@@ -23,6 +23,8 @@ struct Context<'a> {
     node: SyntaxNode,
     uri: Url,
     snippets: bool,
+    /// Caret requests stay `None`. A drag selection is the LSP range.
+    selection: Option<TextRange>,
 }
 
 impl<'a> Context<'a> {
@@ -30,11 +32,13 @@ impl<'a> Context<'a> {
         document_cache: &'a DocumentCache,
         token: SyntaxToken,
         client_capabilities: &ClientCapabilities,
+        selection: Option<TextRange>,
     ) -> Option<Self> {
         let node = token.parent();
         let uri = token.source_file.path().to_url()?;
         let snippets = has_experimental_client_capability(client_capabilities, "snippetTextEdit");
-        Some(Self { document_cache, token, node, uri, snippets })
+        let selection = selection.filter(|range| !range.is_empty());
+        Some(Self { document_cache, token, node, uri, snippets, selection })
     }
 
     fn push_edit(
@@ -73,8 +77,9 @@ pub fn get_code_actions(
     document_cache: &DocumentCache,
     token: SyntaxToken,
     client_capabilities: &ClientCapabilities,
+    selection: Option<TextRange>,
 ) -> Option<Vec<CodeActionOrCommand>> {
-    let ctx = Context::new(document_cache, token, client_capabilities)?;
+    let ctx = Context::new(document_cache, token, client_capabilities, selection)?;
     let mut result = Vec::new();
 
     #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
