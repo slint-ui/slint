@@ -584,21 +584,38 @@ mod tests {
     }
 
     #[test]
-    fn showing_a_new_component_ends_the_subscriptions_of_the_old_one() {
+    fn dropping_a_component_pushes_nothing_until_a_window_shows() {
         let fixture = Fixture::new();
         let root = fixture.element("App::root");
         subscribe_element_properties(&fixture.state, root, &fixture.sink).unwrap();
         fixture.subscribe_children("App::list");
+        let roots = element_children(&fixture.state, None, Some(&fixture.sink)).unwrap();
 
         drop(fixture.app);
+        assert!(notifications(&fixture.pushed).is_empty());
+
         let next = App::new().unwrap();
         fixture.state.add_window(&window_adapter_for_test(&next));
-        let notifications = notifications(&fixture.pushed);
+        ChangeTracker::run_change_handlers();
+        let (roots_changed, ended): (Vec<_>, Vec<_>) = fixture
+            .pushed
+            .take()
+            .into_iter()
+            .partition(|notification| notification.subscription_id == roots.subscription_id);
         assert!(
-            matches!(notifications.as_slice(), [Notification::Ended(_), Notification::Ended(_)]),
-            "got: {notifications:?}"
+            ended
+                .iter()
+                .all(|notification| matches!(notification.msg, Some(Notification::Ended(_))))
+                && ended.len() == 2,
+            "got: {ended:?}"
         );
-        assert!(fixture.state.subscriptions.trackers.borrow().is_empty());
+        let [roots_changed] = <[_; 1]>::try_from(roots_changed).unwrap();
+        let Some(Notification::ChildrenChanged(changed)) = roots_changed.msg else {
+            panic!("expected a children change, got: {roots_changed:?}");
+        };
+        assert_eq!(changed.removed, [roots.children[0].handle.unwrap()]);
+        let trackers = fixture.state.subscriptions.trackers.borrow();
+        assert_eq!(trackers.keys().collect::<Vec<_>>(), [&roots.subscription_id]);
     }
 
     #[test]
