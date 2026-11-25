@@ -418,7 +418,8 @@ impl LookupObject for IdLookup {
             None
         }
         for e in ctx.component_scope.iter().rev() {
-            if e.borrow().repeated.is_some() && let Some(r) = visit(e, f)
+            if e.borrow().repeated.is_some()
+                && let Some(r) = visit(e, f)
             {
                 return Some(r);
             }
