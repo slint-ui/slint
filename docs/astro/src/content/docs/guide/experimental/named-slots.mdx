@@ -514,8 +514,10 @@ Unlike forwarding, a placement loop supplies a list explicitly, so an empty loop
 - Each collection requires exactly one placement expansion or forwarding assignment; additional loops can generate views.
 - Expansions accept bindings, two-way bindings, callback connections, and property change handlers, but no child elements or member declarations.
 - Supply static components or a single `for` loop; conditional children and mixtures of static children and repeaters aren't supported.
-- Collection expansions directly inside `ListView`, generated views, and indexed reads of virtualized source entries aren't supported.
-  Use a model loop for virtualized delegates; each delegate can contain components that use collection slots.
+- Place collection expansions outside `ListView` itself.
+  Use a model loop for virtualized delegates.
+  Each delegate can contain components that use collection slots.
+- Generate views and read properties by index from static entries or a non-virtualized source repeater.
 - Forwarding `@children` into collections isn't supported; declare a default collection slot to forward ordinary children.
 
 `@children` remains supported separately; collection slots don't yet replace its forwarding behavior.
