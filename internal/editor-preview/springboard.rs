@@ -11,7 +11,7 @@ use std::{
 
 use i_slint_live_preview::protocol::{
     DebuggerToPreviewMessage, LspToPreviewMessage, PreviewTarget, PreviewToDebuggerMessage,
-    PreviewToLspMessage, pairing,
+    PreviewToDebuggerNotification, PreviewToLspMessage, pairing,
 };
 use slint::ModelRc;
 use tokio::sync::{mpsc, oneshot};
@@ -113,6 +113,8 @@ struct SerialIdentity {
 pub enum DebuggerEvent {
     /// The answer to the debugger's request `id`.
     Message { id: u64, message: PreviewToDebuggerMessage },
+    /// A message from the preview that answers no request.
+    Notification(PreviewToDebuggerNotification),
     /// The preview went away, so requests it hasn't answered get no answer.
     PreviewEnded,
 }
@@ -537,6 +539,10 @@ impl SpringboardTask {
             }
             ConnectionEvent::Message(PreviewToLspMessage::Debugger { id, message }) => {
                 let _ = self.to_debugger.send(DebuggerEvent::Message { id, message });
+                return;
+            }
+            ConnectionEvent::Message(PreviewToLspMessage::DebuggerNotification(notification)) => {
+                let _ = self.to_debugger.send(DebuggerEvent::Notification(notification));
                 return;
             }
             ConnectionEvent::Message(message) => {
