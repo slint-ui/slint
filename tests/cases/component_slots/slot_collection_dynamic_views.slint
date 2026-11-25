@@ -74,6 +74,19 @@ component EntryGroup inherits Rectangle {
     }
 }
 
+component ComposedEntryGroup inherits Rectangle {
+    default slot <[implements Entry]> entries;
+    EntryGroup {
+        for entry in entries: Item {
+            title: entry.title;
+            value <=> entry.value;
+            progress <=> entry.progress;
+            pinged => { entry.pinged(); }
+        }
+    }
+    Rectangle { for entry in entries: entry { } }
+}
+
 export component TestCase inherits Window {
     width: 640px;
     height: 600px;
@@ -97,9 +110,17 @@ export component LifetimeTest inherits Window {
     height: 600px;
     in-out property <[string]> names: ["A", "B"];
     in-out property <bool> show-group: true;
+    in property <bool> composed;
     callback mutate();
     out property <bool> test: root.names.length == 2 && root.show-group;
-    if root.show-group: EntryGroup {
+    if root.show-group && !root.composed: EntryGroup {
+        for name in root.names: Item {
+            title: name;
+            value: name == "B" ? 100 : 0;
+            pinged => { root.mutate(); }
+        }
+    }
+    if root.show-group && root.composed: ComposedEntryGroup {
         for name in root.names: Item {
             title: name;
             value: name == "B" ? 100 : 0;
@@ -249,9 +270,10 @@ assert(instance->get_changes() == 2);
 ```rust
 use slint::ComponentHandle;
 use slint_testing::ElementHandle;
-{
+for composed in [false, true] {
     for mode in 0..3 {
         let instance = LifetimeTest::new().unwrap();
+        instance.set_composed(composed);
         let names = std::rc::Rc::new(slint::VecModel::from(vec!["A".into(), "B".into()]));
         instance.set_names(names.clone().into());
         let weak = instance.as_weak();
@@ -335,9 +357,10 @@ assert_eq(slint::testing::ElementHandle::find_by_accessible_label(handle, "Progr
 ```cpp
 #ifndef SLINT_FEATURE_LIVE_PREVIEW
 // The live-preview wrapper does not support ElementHandle queries.
-{
+for (bool composed : {false, true}) {
     for (int mode = 0; mode < 3; ++mode) {
         auto handle = LifetimeTest::create();
+        handle->set_composed(composed);
         auto names = std::make_shared<slint::VectorModel<slint::SharedString>>(
             std::vector<slint::SharedString>{"A", "B"});
         handle->set_names(names);
