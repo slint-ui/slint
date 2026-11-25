@@ -6,10 +6,10 @@
 
 #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
 pub use crate::RecordedRasterCommands;
-pub use crate::draw_functions::{
-    PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
-};
 pub use crate::minimal_software_window::MinimalSoftwareWindow;
+pub use crate::target_pixel::{
+    Argb8888Pixel, PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
+};
 #[cfg(feature = "experimental")]
 pub use crate::target_pixel_buffer::{
     DrawRectangleArgs, DrawTextureArgs, TargetPixelBuffer, TexturePixelFormat,

@@ -1,0 +1,10 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+{
+    "edition": "1.20",
+    "main": "ui/main.slint",
+    "library-paths": {
+        "material": "../../src/slint-project.json"
+    }
+}

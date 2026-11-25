@@ -25,9 +25,10 @@ derive_more = { workspace = true, features = ["debug"], optional = true }
 tracing = { workspace = true, optional = true }
 # protocol: the pairing handshake, needed by both ends of the connection
 spake2 = { version = "0.4.0", optional = true }
+# Keep hkdf, sha2, and rand_core in sync with the versions spake2 uses
 hkdf = { version = "0.12.4", optional = true }
-chacha20poly1305 = { version = "0.10.1", optional = true }
 sha2 = { version = "0.10.9", default-features = false, optional = true }
+chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["alloc"], optional = true }
 subtle = { version = "2.6.1", default-features = false, optional = true }
 # file-watcher
 notify = { workspace = true, optional = true }
@@ -42,9 +43,9 @@ tokio = { version = "1.48.0", features = ["rt", "sync", "macros", "time"], optio
 futures-util = { version = "0.3.31", features = ["sink"], optional = true }
 postcard = { version = "1.1.3", default-features = false, features = ["alloc"], optional = true }
 # serial
-cobs = { version = "0.3", default-features = false, features = ["alloc"], optional = true }
+cobs = { version = "0.5", default-features = false, features = ["alloc"], optional = true }
 crc32fast = { version = "1.5", default-features = false, optional = true }
-miniz_oxide = { version = "0.8.9", default-features = false, features = ["with-alloc"], optional = true }
+miniz_oxide = { version = "0.9.1", default-features = false, features = ["with-alloc"], optional = true }
 base64 = { version = "0.23", optional = true }
 scopeguard = { version = "1.1.0", default-features = false, optional = true }
 hostname = { version = "0.4.1", optional = true }
@@ -54,7 +55,7 @@ anyhow = { version = "1.0.100", optional = true }
 rand = { version = "0.10.3", optional = true }
 
 [target.'cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))'.dependencies]
-mdns-sd = { version = "0.21.6", default-features = false, optional = true }
+mdns-sd = { version = "0.22.0", default-features = false, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 if-addrs = { version = "0.15.0", optional = true }

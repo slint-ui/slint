@@ -7,8 +7,8 @@ Slint releases ship two CLI binaries:
 - `slint-viewer` — render a `.slint` file standalone (live preview with
   hot-reload, or headless screenshot with `--screenshot`).
 
-Both must be on `PATH`. If a tool reports it can't find `slint-lsp` or
-`slint-viewer`, the install location is missing from `PATH`.
+The Claude Code plugin uses `slint-lsp` and provides `check_slint` for compiler diagnostics and screenshots.
+Install the CLI tools you use on `PATH`.
 
 ## Prebuilt binaries (preferred)
 

@@ -135,6 +135,7 @@ pub struct Flickable {
 impl Item for Flickable {
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
         self.data.in_bound_change_handler.init_delayed(
+            self_rc.slint_context().change_handler_queue(),
             self_rc.downgrade(),
             // Binding that returns if the Flickable is out of bounds:
             |self_weak| {

@@ -11,15 +11,24 @@ export component SpinnerBase {
     in property <length> stroke-width <=> path.stroke-width;
     in property <brush> stroke <=> path.stroke;
 
+    // Turns made by an end of the indeterminate arc: in each 1.5s cycle,
+    // the head moves 3/4 of a turn in the first half and the tail (delay 1) in the second half.
+    pure function arc-end(time: duration, delay: float) -> float {
+        let cycles = time / 1.5s;
+        let x = clamp((cycles - floor(cycles)) * 2 - delay, 0, 1);
+        0.75 * (floor(cycles) + (1 - cos(x * 180deg)) / 2)
+    }
+
     path := Path {
         private property <float> radius: min(self.viewbox-width, self.viewbox-height) / 2;
         private property <float> start-x: self.viewbox-width / 2;
         private property <float> start-y: self.viewbox-height / 2;
-        private property <float> start : !indeterminate ? 0 :
-            1 * mod(animation-tick(), 3s) / 3s;
+        // 6s is a whole number of 2s rotations and of 1.5s cycles, with four cycles advancing by 3 turns
+        private property <duration> time: root.indeterminate ? mod(animation-tick(), 6s) : 0;
+        private property <float> start: mod(time / 2s + root.arc-end(time, 1), 1);
         // min is a workaround to get filled circle by 1.0
         private property <float> progress: !root.indeterminate ? min(0.9999, root.progress) :
-            min(0.9999, max(0.20, 1 * abs(sin(360deg * animation-tick() / 1.5s))));
+            0.05 + root.arc-end(time, 0) - root.arc-end(time, 1);
 
         viewbox-width: 100;
         viewbox-height: 100;

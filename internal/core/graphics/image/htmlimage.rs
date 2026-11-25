@@ -111,6 +111,13 @@ impl HTMLImage {
         }
     }
 
+    /// The size declared by the SVG's width, height and viewBox, when created from data.
+    /// Unlike [`Self::size`], this never falls back to the browser's natural size, which
+    /// for SVGs without intrinsic dimensions doesn't reflect their aspect ratio.
+    pub fn svg_intrinsic_size(&self) -> Option<IntSize> {
+        self.svg_intrinsic_size
+    }
+
     pub fn source(&self) -> alloc::string::String {
         self.dom_element.src()
     }

@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=48x32
+// ROTATION_THRESHOLD=45  - the border radius algorithm doesn't give the same result from every rotation
+
+// The software renderer stores coordinates as `i16`, so a `clip: true` with a border radius
+// used to panic when it was more than 32767 physical pixels out of view, or taller than that,
+// and so did a child as tall as such a clip (#14998).
+//
+// FemtoVG is excluded because it renders a rounded clip into a texture as tall as the clip,
+// which exceeds the wgpu texture size limit.
+//ignore:femtovg
+
+component RoundedClip inherits Rectangle {
+    width: 12px;
+    background: blue;
+    border-width: 2px;
+    border-color: white;
+    border-radius: 6px;
+    clip: true;
+
+    Rectangle {
+        background: green;
+    }
+}
+
+export component TestCase inherits Window {
+    width: 48px;
+    height: 32px;
+    background: black;
+
+    // Far below and far above the window.
+    RoundedClip {
+        x: 4px;
+        y: 40000px;
+        height: 12px;
+    }
+
+    RoundedClip {
+        x: 4px;
+        y: -40000px;
+        height: 12px;
+    }
+
+    // Extending far below the window, far above it, and both.
+    RoundedClip {
+        x: 4px;
+        y: 4px;
+        height: 40000px;
+    }
+
+    RoundedClip {
+        x: 18px;
+        y: -40000px;
+        height: 40028px;
+    }
+
+    RoundedClip {
+        x: 32px;
+        y: -40000px;
+        height: 80000px;
+    }
+}

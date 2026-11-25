@@ -1,16 +1,24 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { PropertyEditKind } from "../../../properties.slint";
+
 import { Style, Metrics, InspectorStyle } from "../../../style.slint";
-import { InspectorComboBox, InspectorEnumOptions, InspectorSection } from "../index.slint";
+import {
+    InspectorComboBox,
+    InspectorEditableField,
+    InspectorEnumOptions,
+    InspectorPropertyRow,
+    InspectorSection,
+} from "../index.slint";
 import { InspectorContext } from "context.slint";
 
 export component InspectorTextWrapSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
 
-    title: @tr("Text Wrap");
+    title: InspectorContext.is-text-selection() ? @tr("Text Wrap") : @tr("Lines");
 
-    VerticalLayout {
+    if InspectorContext.is-text-selection(): VerticalLayout {
         padding-left: root.style.padding;
         spacing: Metrics.space-compact;
 
@@ -23,6 +31,19 @@ export component InspectorTextWrapSection inherits InspectorSection {
             wide: true;
             accepted(text) => {
                 return text != "" && InspectorContext.commit-enum("wrap", text);
+            }
+        }
+    }
+
+    InspectorPropertyRow {
+        label: @tr("Max Lines");
+
+        InspectorEditableField {
+            accessible-name: @tr("Max lines");
+            value: InspectorContext.property-number-label("max-lines", "0");
+            commit-key: InspectorContext.field-key("max-lines");
+            accepted(text) => {
+                return text.is-float() ? InspectorContext.commit-value("max-lines", { kind: PropertyEditKind.integer, integer: text.to-float() }) : InspectorContext.commit-code("max-lines", text);
             }
         }
     }

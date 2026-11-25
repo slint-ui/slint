@@ -499,7 +499,7 @@ fn process_file_source(
             Box::pin(async move { Some(Ok(contents)) })
         });
         let mut diagnostics = BuildDiagnostics::default();
-        spin_on::spin_on(i_slint_compiler::project_file::load_input(
+        i_slint_compiler::poll_ready(i_slint_compiler::project_file::load_input(
             &i_slint_compiler::source_path::SourcePath::new(path),
             Some(String::new()),
             Some(i_slint_compiler::source_path::SourcePath::new(&root)),
@@ -572,11 +572,12 @@ fn process_file_source(
             ComponentSelection::LastExported
         };
     let compile_diagnostics = if !parse_diagnostics.has_errors() {
-        let (_, build_diags, _) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
-            syntax_node.clone(),
-            parse_diagnostics,
-            compiler_config.clone(),
-        ));
+        let (_, build_diags, _) =
+            i_slint_compiler::poll_ready(i_slint_compiler::compile_syntax_node(
+                syntax_node.clone(),
+                parse_diagnostics,
+                compiler_config.clone(),
+            ));
         build_diags
     } else {
         parse_diagnostics
@@ -597,7 +598,7 @@ fn process_file_source(
 
     if has_parse_error {
         // Still try to compile to make sure it doesn't panic
-        spin_on::spin_on(i_slint_compiler::compile_syntax_node(
+        i_slint_compiler::poll_ready(i_slint_compiler::compile_syntax_node(
             syntax_node,
             compile_diagnostics,
             compiler_config,

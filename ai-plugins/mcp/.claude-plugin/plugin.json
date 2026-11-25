@@ -12,6 +12,7 @@
   "repository": "https://github.com/slint-ui/slint",
   "keywords": ["slint", "gui", "ui", "hmi", "declarative", "rust", "cpp", "javascript", "python", "embedded", "mcu", "esp32", "stm32", "desktop", "mobile", "android", "ios", "live-preview"],
   "license": "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0",
+  "skills": "./claude-skills/",
   "lspServers": {
     "slint": {
       "command": "slint-lsp",
@@ -28,7 +29,8 @@
     "slint-preview": {
       "command": "node",
       "args": [
-        "${CLAUDE_PLUGIN_ROOT}/mcp/slint-preview/server.mjs"
+        "${CLAUDE_PLUGIN_ROOT}/slint-preview/server.mjs",
+        "--headless"
       ]
     }
   }

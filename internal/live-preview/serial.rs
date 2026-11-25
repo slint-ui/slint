@@ -187,7 +187,7 @@ impl<T: DeserializeOwned> FrameDecoder<T> {
 
 fn decode_frame<T: DeserializeOwned>(encoded: &[u8], payload: &mut Vec<u8>) -> Option<T> {
     payload.resize(encoded.len(), 0);
-    let len = cobs::decode(encoded, payload).ok()?;
+    let len = cobs::decode(encoded, payload).ok()?.frame_size();
     let (body, crc) = payload[..len].split_at_checked(len.checked_sub(4)?)?;
     if crc32fast::hash(body).to_le_bytes() != crc {
         return None;
