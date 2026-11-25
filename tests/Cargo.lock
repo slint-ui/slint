@@ -5308,6 +5308,7 @@ dependencies = [
  "i-slint-renderer-anyrender",
  "i-slint-renderer-femtovg",
  "i-slint-renderer-skia",
+ "i-slint-renderer-software",
  "image",
  "kurbo",
  "peniko",
