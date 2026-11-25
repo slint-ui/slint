@@ -331,6 +331,9 @@ impl SoftwareRenderer {
     /// to rasterize later with [`RecordedRasterCommands::rasterize`],
     /// into a buffer of `num_lines` lines of `pixels_per_line` pixels.
     ///
+    /// Rasterize every recording: recording marks the changed areas as clean,
+    /// so a recording dropped without rasterizing loses that frame's changes.
+    ///
     /// Only available on targets with atomic pointers.
     #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
     pub fn record_frame(&self, pixels_per_line: usize, num_lines: usize) -> RecordedRasterCommands {

@@ -869,6 +869,9 @@ public:
     /// RecordedRasterCommands::rasterize() into a buffer of \a num_lines lines of
     /// \a pixels_per_line pixels.
     ///
+    /// Rasterize every recording: recording marks the changed areas as clean,
+    /// so a recording dropped without rasterizing loses that frame's changes.
+    ///
     /// Only usable on targets with atomic pointers, not on `thumbv6m`: elsewhere it fails to link.
     ///
     /// **Note**: This function is still experimental - its API is subject to changes and not
