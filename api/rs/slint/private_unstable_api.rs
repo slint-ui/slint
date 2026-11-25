@@ -184,6 +184,14 @@ pub fn unwrap<T>(option: Option<T>) -> T {
     option.unwrap()
 }
 
+/// Returns the entry at `index` of `cache`, a layout cache of the generated code.
+#[inline]
+pub fn layout_cache_entry<T: Copy>(cache: &[T], index: usize) -> T {
+    // Indexing here, rather than in the generated code,
+    // gives all reads one panic location in the binary.
+    cache[index]
+}
+
 /// Panics because `dyn_index` doesn't refer to a repeater of the item tree.
 #[cold]
 #[inline(never)]
@@ -193,7 +201,7 @@ pub fn invalid_dyn_index(dyn_index: u32) -> ! {
 
 /// internal re_exports used by the macro generated
 pub mod re_exports {
-    pub use super::{invalid_dyn_index, unwrap};
+    pub use super::{invalid_dyn_index, layout_cache_entry, unwrap};
     pub use alloc::boxed::Box;
     pub use alloc::rc::{Rc, Weak};
     pub use alloc::string::String;

@@ -4092,7 +4092,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     let info = compile_expression(info, ctx);
                     quote!(
                         {
-                            let #known_size_ident = box_ortho_solved.as_slice()[cursor * 2 + 1] as f32;
+                            let #known_size_ident = sp::layout_cache_entry(&box_ortho_solved, cursor * 2 + 1) as f32;
                             let _ = #known_size_ident;
                             cells_vec.push(sp::LayoutItemInfo { constraint: { #info }, ..::core::default::Default::default() });
                             cursor += 1;
@@ -4106,7 +4106,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                         for i in 0.._self.#repeater_id.len() {
                             if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                                 cells_vec.push(sub_comp.as_pin_ref().layout_item_info_at_cross_width(
-                                    box_ortho_solved.as_slice()[cursor * 2 + 1] as f32,
+                                    sp::layout_cache_entry(&box_ortho_solved, cursor * 2 + 1) as f32,
                                 ));
                             } else {
                                 cells_vec.push(::core::default::Default::default());
@@ -4720,10 +4720,10 @@ fn compile_layout_cache_access(expr: &Expression, ctx: &EvaluationContext) -> To
             let offset = compile_expression(ri, ctx);
             quote!({
                 let cache = #cache.get();
-                *cache.get((cache[#index] as usize) + #offset as usize * #entries_per_item).unwrap_or(&(0 as _))
+                *cache.get((sp::layout_cache_entry(&cache, #index) as usize) + #offset as usize * #entries_per_item).unwrap_or(&(0 as _))
             })
         } else {
-            quote!(#cache.get()[#index])
+            quote!(sp::layout_cache_entry(&#cache.get(), #index))
         }
     })
 }
