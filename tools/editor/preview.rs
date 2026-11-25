@@ -36,7 +36,7 @@ use slint::{LogicalPosition, LogicalSize, PlatformError, SharedString, ToSharedS
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -2828,7 +2828,7 @@ pub fn get_component_info(component_type: &str) -> Option<ComponentInformation> 
 fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
     file_versions: &i_slint_editor_preview::document_cache::SourceFileVersionMap,
-) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
+) -> BTreeMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
     PREVIEW_STATE.with_borrow(|preview_state| {
         let mut result = i_slint_live_preview::protocol::diagnostics_by_url(
             diagnostics,
