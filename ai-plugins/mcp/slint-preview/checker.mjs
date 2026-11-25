@@ -10,6 +10,10 @@ import { crc32, deflateSync } from "node:zlib";
 
 const require = createRequire(import.meta.url);
 const CHECKER_MODULE = "./checker/slint_wasm_interpreter.js";
+// A conservative transport budget based on the previously observed host truncation.
+export const PREVIEW_RESPONSE_BUDGET_BYTES = 64 * 1024;
+// Leave one quarter for the response envelope and host overhead.
+export const MAX_SOURCE_BATCH_BYTES = PREVIEW_RESPONSE_BUDGET_BYTES * 3 / 4;
 let checker;
 
 function loadChecker() {
@@ -82,10 +86,22 @@ function encodePng(frame) {
 export async function checkSlint(previewInput) {
     const checkerInstance = loadChecker();
     const { interpreter, runtime } = checkerInstance;
+    const sourceFiles = {};
+    let estimatedBatchBytes = 0;
+    const readSourceFile = (path) => {
+        const source = readFileSync(path, "utf8");
+        // Double the character count to allow for UTF-8 and JSON escaping.
+        const estimatedBytes = 2 * (path.length + source.length);
+        if (previewInput.prepare_preview && estimatedBatchBytes + estimatedBytes <= MAX_SOURCE_BATCH_BYTES) {
+            sourceFiles[path] = source;
+            estimatedBatchBytes += estimatedBytes;
+        }
+        return source;
+    };
     const readSource = async (value) => {
         const path = localPath(value);
         try {
-            return readFileSync(path, "utf8");
+            return readSourceFile(path);
         } catch (error) {
             if (error.code === "ENOENT" || error.code === "ENOTDIR")
                 return null;
@@ -102,6 +118,7 @@ export async function checkSlint(previewInput) {
         status: "compile-error",
         diagnostics: [],
         runtime,
+        sourceFiles,
     };
     const baseUrl = previewInput.path
         ? pathToFileURL(previewInput.path).href
@@ -112,7 +129,7 @@ export async function checkSlint(previewInput) {
     let trapped = false;
     try {
         const source = previewInput.path
-            ? readFileSync(previewInput.path, "utf8")
+            ? readSourceFile(localPath(previewInput.path))
             : previewInput.source;
         compilation = await interpreter.compile_from_string_with_style(
             source,
