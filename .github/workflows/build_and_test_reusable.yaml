@@ -105,6 +105,13 @@ jobs:
         runs-on: ${{ inputs.os }}
 
         steps:
+            - name: Record runner capacity
+              if: inputs.os == 'blacksmith-8vcpu-windows-2025'
+              shell: pwsh
+              run: |
+                  $computer = Get-CimInstance Win32_ComputerSystem
+                  Write-Output "Logical processors: $([Environment]::ProcessorCount)"
+                  Write-Output "Windows reports $($computer.NumberOfLogicalProcessors) logical processors and $([math]::Round($computer.TotalPhysicalMemory / 1GB, 1)) GiB of RAM."
             - name: Maximize build space
               if: runner.os == 'Linux'
               run: |
