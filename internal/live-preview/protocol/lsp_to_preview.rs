@@ -93,6 +93,13 @@ pub enum LspToPreviewMessage {
         element: super::pairing::Element,
         confirmation: super::pairing::Confirmation,
     },
+    /// A message from the debugger, passed on by the Springboard.
+    /// The preview's answer carries the same `id`.
+    /// The debugger picks the `id`, unique among its unanswered requests.
+    Debugger {
+        id: u64,
+        message: super::DebuggerToPreviewMessage,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]

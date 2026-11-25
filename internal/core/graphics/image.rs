@@ -597,7 +597,7 @@ pub enum ImageInner {
     WGPUTexture(vtable::VRc<OpaqueImageVTable, WGPUTexture>) = 8,
     AnimatedImage(vtable::VRc<OpaqueImageVTable, AnimatedImage>) = 9,
     #[cfg(feature = "owned-pre-rendered-resources")]
-    OwnedTextures(crate::shared_pointer::SharedPtr<StaticTextures<OwnedStorage>>) = 10,
+    OwnedTextures(alloc::sync::Arc<StaticTextures<OwnedStorage>>) = 10,
     StaticTextures(&'static StaticTextures<StaticStorage>) = 11,
 }
 
@@ -866,9 +866,7 @@ impl PartialEq for ImageInner {
             (Self::Svg(l0), Self::Svg(r0)) => vtable::VRc::ptr_eq(l0, r0),
             (Self::StaticTextures(l0), Self::StaticTextures(r0)) => core::ptr::eq(*l0, *r0),
             #[cfg(feature = "owned-pre-rendered-resources")]
-            (Self::OwnedTextures(l0), Self::OwnedTextures(r0)) => {
-                crate::shared_pointer::SharedPtr::ptr_eq(l0, r0)
-            }
+            (Self::OwnedTextures(l0), Self::OwnedTextures(r0)) => alloc::sync::Arc::ptr_eq(l0, r0),
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             (Self::HTMLImage(l0), Self::HTMLImage(r0)) => vtable::VRc::ptr_eq(l0, r0),
             (Self::BackendStorage(l0), Self::BackendStorage(r0)) => vtable::VRc::ptr_eq(l0, r0),
