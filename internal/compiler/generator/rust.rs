@@ -950,9 +950,9 @@ fn generate_model_two_way_binding(
     let item_tree_weak = if info.parent_level == 0 {
         quote!(sp::VRcMapped::downgrade(&self_rc))
     } else {
-        let mut e = quote!(_self.parent.clone());
+        let mut e = quote!(_self.parent().clone());
         for _ in 1..info.parent_level {
-            e = quote!(sp::unwrap(#e.upgrade()).parent.clone());
+            e = quote!(sp::unwrap(#e.upgrade()).parent().clone());
         }
         e
     };
@@ -981,7 +981,7 @@ fn generate_model_two_way_binding(
         |item_tree_weak| item_tree_weak.upgrade().map(|x| #getter_value),
         |item_tree_weak, value| {
             if let Some(x) = item_tree_weak.upgrade() {
-                if let Some(parent) = x.parent.upgrade() {
+                if let Some(parent) = x.parent().upgrade() {
                     let index = #index_f.apply_pin(x.as_pin_ref()).get();
                     #access_model
                     #repeater.apply_pin(parent.as_pin_ref()).model_set_row_data(index as usize, data);
@@ -1149,13 +1149,13 @@ fn option_map(opt: TokenStream, body: TokenStream) -> TokenStream {
     quote!(match #opt { Some(x) => Some(#body), None => None })
 }
 
-/// Token stream that walks up `parent_level` parent pointers (`_self.parent.upgrade()...`),
+/// Token stream that walks up `parent_level` parent pointers (`_self.parent().upgrade()...`),
 /// or `None` when `parent_level` is 0 (the member lives on the current component).
 fn parent_access_path(parent_level: usize) -> Option<TokenStream> {
     (parent_level != 0).then(|| {
-        let mut path = quote!(_self.parent.upgrade());
+        let mut path = quote!(_self.parent().upgrade());
         for _ in 1..parent_level {
-            path = quote!(match #path { Some(x) => x.parent.upgrade(), None => None });
+            path = quote!(match #path { Some(x) => x.parent().upgrade(), None => None });
         }
         path
     })
@@ -1472,7 +1472,8 @@ fn generate_sub_component_body(
         .change_callbacks
         .iter()
         .enumerate()
-        .map(|(idx, _)| format_ident!("change_tracker{idx}"));
+        .map(|(idx, _)| format_ident!("change_tracker{idx}"))
+        .collect::<Vec<_>>();
 
     let declared_functions = generate_functions(component.functions.as_ref(), &ctx);
 
@@ -1509,7 +1510,8 @@ fn generate_sub_component_body(
     }
 
     let mut repeated_visit_branch: Vec<TokenStream> = Vec::new();
-    let mut repeated_element_components: Vec<TokenStream> = Vec::new();
+    let mut repeater_names: Vec<Ident> = Vec::new();
+    let mut repeater_types: Vec<TokenStream> = Vec::new();
     let mut repeated_subtree_ranges: Vec<TokenStream> = Vec::new();
     let mut repeated_subtree_components: Vec<TokenStream> = Vec::new();
     let mut ensure_instantiated_stmts: Vec<TokenStream> = Vec::new();
@@ -1622,10 +1624,11 @@ fn generate_sub_component_body(
                     }
                 }
             ));
-            repeated_element_components.push(if repeated.index_prop.is_some() {
-                quote!(#repeater_id: sp::Repeater<#rep_inner_component_id>)
+            repeater_names.push(repeater_id.clone());
+            repeater_types.push(if repeated.index_prop.is_some() {
+                quote!(sp::Repeater<#rep_inner_component_id>)
             } else {
-                quote!(#repeater_id: sp::Conditional<#rep_inner_component_id>)
+                quote!(sp::Conditional<#rep_inner_component_id>)
             });
         }
     }
@@ -1822,8 +1825,12 @@ fn generate_sub_component_body(
         sub_component_types.push(sub_component_id);
     }
 
-    let popup_id_names =
-        component.popup_windows.iter().enumerate().map(|(i, _)| internal_popup_id(i));
+    let popup_id_names = component
+        .popup_windows
+        .iter()
+        .enumerate()
+        .map(|(i, _)| internal_popup_id(i))
+        .collect::<Vec<_>>();
 
     for twb in &component.two_way_bindings {
         let p1 = access_local_member(&twb.prop1, &ctx);
@@ -1895,11 +1902,15 @@ fn generate_sub_component_body(
         });));
     }
 
-    let parent_component_type = parent_ctx.iter().map(|parent| {
-        let parent_component_id =
-            self::inner_component_id(&ctx.compilation_unit.sub_components[parent.sub_component]);
-        quote!(sp::VWeakMapped::<sp::ItemTreeVTable, #parent_component_id>)
-    });
+    let parent_component_type = parent_ctx
+        .iter()
+        .map(|parent| {
+            let parent_component_id = self::inner_component_id(
+                &ctx.compilation_unit.sub_components[parent.sub_component],
+            );
+            quote!(sp::VWeakMapped::<sp::ItemTreeVTable, #parent_component_id>)
+        })
+        .collect::<Vec<_>>();
 
     change_trackers_init_code.extend(component.change_callbacks.iter().enumerate().map(
         |(idx, (p, e))| {
@@ -1995,8 +2006,12 @@ fn generate_sub_component_body(
         )
     });
 
-    let timer_names =
-        component.timers.iter().enumerate().map(|(idx, _)| format_ident!("timer{idx}"));
+    let timer_names = component
+        .timers
+        .iter()
+        .enumerate()
+        .map(|(idx, _)| format_ident!("timer{idx}"))
+        .collect::<Vec<_>>();
     let update_timers = (!component.timers.is_empty()).then(|| {
         let updt = component.timers.iter().enumerate().map(|(idx, tmr)| {
             let ident = format_ident!("timer{idx}");
@@ -2235,8 +2250,34 @@ fn generate_sub_component_body(
         )
     });
 
+    let default = quote!(::core::default::Default::default());
+    let parent_init = parent_ctx.map(|_| quote!(parent: #default,));
     quote!(
-        #[derive(sp::FieldOffsets, Default)]
+        impl ::core::default::Default for #inner_component_id {
+            // Not inlined, so the optimizer can build each nested sub-component in place
+            // instead of in a stack temporary that is then moved.
+            #[inline(never)]
+            fn default() -> Self {
+                Self {
+                    #(#item_names: #default,)*
+                    #(#sub_component_names: #default,)*
+                    #(#popup_id_names: #default,)*
+                    #(#declared_property_vars: #default,)*
+                    #(#declared_callbacks: #default,)*
+                    #(#callback_tracker_names: #default,)*
+                    #(#repeater_names: #default,)*
+                    #(#change_tracker_names: #default,)*
+                    #(#timer_names: #default,)*
+                    self_weak: #default,
+                    #parent_init
+                    globals: #default,
+                    tree_index: #default,
+                    tree_index_of_first_child: #default,
+                }
+            }
+        }
+
+        #[derive(sp::FieldOffsets)]
         #[const_field_offset(sp::const_field_offset)]
         #[repr(C)]
         #pin_macro
@@ -2247,11 +2288,11 @@ fn generate_sub_component_body(
             #(pub(super) #declared_property_vars : sp::Property<#declared_property_types>,)*
             #(pub(super) #declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
             #(pub(super) #callback_tracker_names : sp::Property<()>,)*
-            #(pub(super) #repeated_element_components,)*
+            #(pub(super) #repeater_names : #repeater_types,)*
             #(pub(super) #change_tracker_names : sp::ChangeTracker,)*
             #(pub(super) #timer_names : sp::Timer,)*
             pub(super) self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,
-            #(pub(super) parent : #parent_component_type,)*
+            #(pub(super) parent : sp::OnceCell<#parent_component_type>,)*
             pub(super) globals: sp::OnceCell<sp::Rc<SharedGlobals>>,
             pub(super) tree_index: ::core::cell::Cell<u32>,
             pub(super) tree_index_of_first_child: ::core::cell::Cell<u32>,
@@ -2263,6 +2304,10 @@ fn generate_sub_component_body(
             pub(super) fn globals(&self) -> &sp::Rc<SharedGlobals> {
                 sp::unwrap(self.globals.get())
             }
+
+            #(pub(super) fn parent(&self) -> &#parent_component_type {
+                sp::unwrap(self.parent.get())
+            })*
 
             pub(super) fn origin_rc(&self) -> sp::ItemTreeRc {
                 sp::VRcMapped::origin(&sp::unwrap(sp::unwrap(self.self_weak.get()).upgrade()))
@@ -2625,7 +2670,7 @@ fn generate_item_tree_body(
     let parent_item_expression = parent_ctx.map(|parent| parent.repeater_index.map_or_else(|| {
         // No repeater index, this could be a PopupWindow
         quote!{
-            if let Some(parent_rc) = self.parent.clone().upgrade() {
+            if let Some(parent_rc) = self.parent().upgrade() {
                 let parent_origin = sp::VRcMapped::origin(&parent_rc);
                 // TODO: store popup index in ctx and set it here instead of 0?
                 *_result = sp::ItemRc::new_root(parent_origin).downgrade();
@@ -2637,8 +2682,7 @@ fn generate_item_tree_body(
 
         quote!{
             if let Some((parent_component, parent_index)) = self
-                .parent
-                .clone()
+                .parent()
                 .upgrade()
                 .map(|sc| (sp::VRcMapped::origin(&sc), sc.tree_index_of_first_child.get()))
             {
@@ -2859,7 +2903,7 @@ fn generate_item_tree_body(
 
     let new_body = if is_root_component {
         quote!(
-            let self_rc = sp::VRc::new(Self::default());
+            let self_rc = sp::VRc::new_with(Self::default);
             let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
             let globals = #globals;
             let _ = sp::VRc::map(self_rc.clone(), |x| x).as_pin_ref().globals.set(globals.clone());
@@ -2871,10 +2915,10 @@ fn generate_item_tree_body(
     } else {
         quote!(
             let globals = #globals;
-            let mut _self = Self::default();
-            #(_self.parent = parent as #parent_component_type;)*
-            let _ = _self.globals.set(globals.clone());
-            slint::private_unstable_api::new_item_tree(_self, #register_window_adapter_arg, globals, Self::init)
+            let self_rc = sp::VRc::<sp::ItemTreeVTable, Self>::new_with(Self::default);
+            #(let _ = self_rc.parent.set(parent as #parent_component_type);)*
+            let _ = self_rc.globals.set(globals.clone());
+            slint::private_unstable_api::new_item_tree(self_rc, #register_window_adapter_arg, globals, Self::init)
         )
     };
 
