@@ -29,7 +29,7 @@ use crate::renderer::Renderer;
 use crate::{Callback, Coord, SharedString, SharedVector};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
-use alloc::vec::{self, Vec};
+use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::num::NonZeroU32;
 use core::pin::Pin;
@@ -2617,8 +2617,8 @@ impl WindowInner {
         }
     }
 
-    /// Find most top popup which has `NoAutoClose` policy set. So only all children of that
-    /// popup can be closed but not its parent and so on
+    /// returns the outermost popup that can auto-close and sits above the
+    /// topmost no-auto-close popup in the chain of native popups
     fn find_top_popup_without_autoclose(&self) -> Option<(WindowAdapterRc, NonZeroU32)> {
         let mut to_close = None;
         let mut window_adapter = self.window_adapter();
