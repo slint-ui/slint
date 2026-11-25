@@ -5317,7 +5317,6 @@ dependencies = [
  "slint",
  "slint-interpreter",
  "test_driver_lib",
- "vello_cpu",
  "walkdir",
  "wgpu",
 ]
@@ -5787,7 +5786,6 @@ dependencies = [
  "fearless_simd_macros",
  "glifo",
  "hashbrown 0.17.1",
- "png",
  "vello_common",
 ]
 
