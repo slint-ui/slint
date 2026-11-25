@@ -1595,7 +1595,7 @@ fn generate_sub_component_body(
                 ));
                 ensure_instantiated_stmts.push(quote!({
                     _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
-                        || { #rep_inner_component_id::new(sp::unwrap(_self.self_weak.get()).clone()).unwrap().into() },
+                        || { #rep_inner_component_id::new(sp::unwrap(_self.self_weak.get()).clone()).into() },
                         #content_w, #content_h, #content_y, #lv_w.get(), #lv_h
                     );
                 }));
@@ -1607,7 +1607,7 @@ fn generate_sub_component_body(
                 ));
                 ensure_instantiated_stmts.push(quote!({
                     _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated(
-                        || #rep_inner_component_id::new(sp::unwrap(_self.self_weak.get()).clone()).unwrap().into()
+                        || #rep_inner_component_id::new(sp::unwrap(_self.self_weak.get()).clone()).into()
                     );
                 }));
             }
@@ -2982,9 +2982,14 @@ fn generate_item_tree_body(
         }
     );
 
+    let new_result = if is_root_component {
+        quote!(::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError>)
+    } else {
+        quote!(sp::VRc<sp::ItemTreeVTable, Self>)
+    };
     let item_tree_body = quote!(
         impl #inner_component_id {
-            pub(super) fn new(#(parent: #parent_component_type,)* #globals_arg #context_arg) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
+            pub(super) fn new(#(parent: #parent_component_type,)* #globals_arg #context_arg) -> #new_result {
                 #new_body
             }
 
@@ -4971,7 +4976,7 @@ fn compile_builtin_function_call(
                         let window = sp::WindowInner::from_pub(window_adapter.window());
                         let globals = #globals_init;
 
-                        let popup_instance = #popup_window_id::new(sp::unwrap(#compo.self_weak.get()).clone(), globals).unwrap();
+                        let popup_instance = #popup_window_id::new(sp::unwrap(#compo.self_weak.get()).clone(), globals);
                         let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                         if let Some(current_id) = #compo.#popup_id_name.take() {
                             window.close_popup(current_id);
@@ -5102,7 +5107,7 @@ fn compile_builtin_function_call(
                     let window_adapter = #window_adapter_tokens;
                     let shared_global = sp::unwrap(_self.globals.get());
                     let globals = #menu_globals;
-                    let popup_instance = #popup_id::new(globals).unwrap();
+                    let popup_instance = #popup_id::new(globals);
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                     let parent_weak = sp::unwrap(_self.self_weak.get()).clone();
                 };
@@ -5116,7 +5121,7 @@ fn compile_builtin_function_call(
                     );
                     quote! {{
                         #common_init
-                        let menu_item_tree_instance = #item_tree_id::new(sp::unwrap(_self.self_weak.get()).clone()).unwrap();
+                        let menu_item_tree_instance = #item_tree_id::new(sp::unwrap(_self.self_weak.get()).clone());
                         let context_menu_item_tree = sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)));
                         let context_menu_item_tree_ = context_menu_item_tree.clone();
                         {
@@ -5392,7 +5397,7 @@ fn compile_builtin_function_call(
             };
 
             quote!({
-                let menu_item_tree_instance = #item_tree_id::new(sp::unwrap(_self.self_weak.get()).clone()).unwrap();
+                let menu_item_tree_instance = #item_tree_id::new(sp::unwrap(_self.self_weak.get()).clone());
                 #native_impl
                 // These handlers keep the menu item tree alive on the component; the native menu bar
                 // holds only a weak reference to it.
@@ -5460,7 +5465,7 @@ fn compile_builtin_function_call(
             ));
 
             quote!({
-                let menu_item_tree_instance = #item_tree_id::new(sp::unwrap(_self.self_weak.get()).clone()).unwrap();
+                let menu_item_tree_instance = #item_tree_id::new(sp::unwrap(_self.self_weak.get()).clone());
                 let menu_vrc = sp::VRc::into_dyn(sp::VRc::new(#menu_from_item_tree));
                 #system_tray.set_menu(&#system_tray_rc, menu_vrc);
             })

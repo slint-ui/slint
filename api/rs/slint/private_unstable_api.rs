@@ -111,15 +111,17 @@ pub fn ensure_context() -> Result<i_slint_core::SlintContext, crate::PlatformErr
 
 /// Create a repeated component or a popup of the generated code:
 /// register the items of `self_rc` with `window_adapter` and run `init`.
+///
+/// Panics if `init` fails.
 pub fn new_item_tree<T: vtable::HasStaticVTable<ItemTreeVTable> + 'static, Globals>(
     self_rc: VRc<ItemTreeVTable, T>,
     window_adapter: Option<WindowAdapterRc>,
     globals: Globals,
     init: fn(VRcMapped<ItemTreeVTable, T>, Globals, u32, u32) -> Result<(), crate::PlatformError>,
-) -> Result<VRc<ItemTreeVTable, T>, crate::PlatformError> {
+) -> VRc<ItemTreeVTable, T> {
     register_item_tree(&VRc::into_dyn(self_rc.clone()), window_adapter);
-    init(VRc::map(self_rc.clone(), |x| x), globals, 0, 1)?;
-    Ok(self_rc)
+    init(VRc::map(self_rc.clone(), |x| x), globals, 0, 1).unwrap();
+    self_rc
 }
 
 /// The `visit_dynamic` argument of `visit_item_tree` for an item tree without repeaters.
