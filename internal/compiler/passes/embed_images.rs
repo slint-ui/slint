@@ -1,11 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore Lanczos
+
 use crate::EmbedResourcesKind;
 use crate::diagnostics::BuildDiagnostics;
 use crate::embedded_resources::*;
 use crate::expression_tree::Expression;
 use crate::expression_types::ImageReference;
+#[cfg(feature = "renderer-software")]
+use crate::expression_types::Unit;
 use crate::object_tree::*;
 use crate::source_path::SourcePath;
 #[cfg(feature = "renderer-software")]
@@ -69,6 +73,20 @@ pub async fn embed_images(
         urls
     };
 
+    #[cfg(feature = "renderer-software")]
+    if embed_files == EmbedResourcesKind::EmbedTextures && resource_url_mapper.is_none() {
+        for component in &all_components {
+            embed_images_at_drawn_size(
+                component,
+                global_embedded_resources,
+                &mut resource_ids,
+                scale_factor,
+                diag,
+                font_collection,
+            );
+        }
+    }
+
     // Use URLs (sync!):
     for component in &all_components {
         visit_all_expressions(component, |e, _| {
@@ -89,7 +107,8 @@ pub async fn embed_images(
 /// The resources already embedded, so that each is embedded once.
 #[derive(Default)]
 struct ResourceIds {
-    by_path: HashMap<SourcePath, EmbeddedResourcesIdx>,
+    /// The size in physical pixels of an image that is embedded at the size it's drawn at.
+    by_path: HashMap<(SourcePath, Option<(u32, u32)>), EmbeddedResourcesIdx>,
     by_data_uri: HashMap<SmolStr, EmbeddedResourcesIdx>,
     #[cfg(feature = "renderer-software")]
     animated: std::collections::HashSet<EmbeddedResourcesIdx>,
@@ -192,6 +211,7 @@ fn embed_images_from_expression(
                         embed_files,
                         path,
                         scale_factor,
+                        None,
                         diag,
                         source_location,
                         font_collection,
@@ -221,19 +241,141 @@ fn embed_images_from_expression(
     });
 }
 
+/// Embeds the image of each `Image` element with a constant size at that size,
+/// so that the renderer draws it without scaling.
+#[cfg(feature = "renderer-software")]
+fn embed_images_at_drawn_size(
+    component: &Component,
+    global_embedded_resources: &RefCell<TiVec<EmbeddedResourcesIdx, EmbeddedResources>>,
+    resource_ids: &mut ResourceIds,
+    scale_factor: f32,
+    diag: &mut BuildDiagnostics,
+    font_collection: Option<&SharedFontCollection>,
+) {
+    // A transform magnifies the image, and the renderer rasterizes an SVG at the magnified size.
+    recurse_elem_including_sub_components_no_borrow(component, &false, &mut |elem, transformed| {
+        let element = elem.borrow();
+        let transformed = *transformed || has_transform(&element);
+        if !transformed {
+            embed_plain_image(
+                &element,
+                global_embedded_resources,
+                resource_ids,
+                scale_factor,
+                diag,
+                font_collection,
+            );
+        }
+        transformed
+    });
+}
+
+#[cfg(feature = "renderer-software")]
+fn has_transform(element: &Element) -> bool {
+    ["transform-rotation", "transform-scale", "transform-scale-x", "transform-scale-y"]
+        .iter()
+        .any(|name| element.binding_cell_including_synthetic(name).is_some())
+}
+
+#[cfg(feature = "renderer-software")]
+fn embed_plain_image(
+    element: &Element,
+    global_embedded_resources: &RefCell<TiVec<EmbeddedResourcesIdx, EmbeddedResources>>,
+    resource_ids: &mut ResourceIds,
+    scale_factor: f32,
+    diag: &mut BuildDiagnostics,
+    font_collection: Option<&SharedFontCollection>,
+) {
+    let Some((width, height)) = constant_size_of_plain_image(element) else { return };
+    let Some(source) = element.binding_cell_including_synthetic("source") else { return };
+    let mut source = source.borrow_mut();
+    let Expression::ImageReference { resource_ref, source_location, nine_slice: None } =
+        &mut source.expression
+    else {
+        return;
+    };
+    let ImageReference::Source(path) = &*resource_ref else { return };
+    let path = path.clone();
+    let drawn_size = (
+        (width * scale_factor as f64).round().max(1.) as u32,
+        (height * scale_factor as f64).round().max(1.) as u32,
+    );
+    *resource_ref = embed_image(
+        global_embedded_resources,
+        resource_ids,
+        EmbedResourcesKind::EmbedTextures,
+        &path,
+        scale_factor,
+        Some(drawn_size),
+        diag,
+        source_location,
+        font_collection,
+    );
+}
+
+/// The width and height in logical pixels of an `Image` that the renderer draws
+/// stretched to its constant size, and with nothing but its source and colorize.
+#[cfg(feature = "renderer-software")]
+fn constant_size_of_plain_image(element: &Element) -> Option<(f64, f64)> {
+    if element.repeated.is_some() || !element.builtin_type().is_some_and(|b| b.name == "Image") {
+        return None;
+    }
+    const NOT_PLAIN: [&str; 9] = [
+        "image-rendering",
+        "source-clip-x",
+        "source-clip-y",
+        "source-clip-width",
+        "source-clip-height",
+        "horizontal-alignment",
+        "vertical-alignment",
+        "horizontal-tiling",
+        "vertical-tiling",
+    ];
+    if NOT_PLAIN.iter().any(|name| element.binding_cell_including_synthetic(name).is_some()) {
+        return None;
+    }
+    if let Some(fit) = element.binding_cell_including_synthetic("image-fit")
+        && !matches!(&fit.borrow().expression,
+            Expression::EnumerationValue(value) if value.to_string() == "fill")
+    {
+        return None;
+    }
+    let length = |name: &str| {
+        let binding = element.binding_cell_including_synthetic(name)?.borrow();
+        if binding.from_state || binding.animation.is_some() {
+            return None;
+        }
+        match &binding.expression {
+            Expression::NumberLiteral(value, Unit::Px) if *value > 0. => Some(*value),
+            _ => None,
+        }
+    };
+    Some((length("width")?, length("height")?))
+}
+
+/// The size to embed an image at, which is its drawn size if that's smaller than the image.
+#[cfg(feature = "renderer-software")]
+fn shrink_to(drawn_size: Option<(u32, u32)>, natural: (u32, u32)) -> (u32, u32) {
+    match drawn_size {
+        Some((width, height)) if width <= natural.0 && height <= natural.1 => (width, height),
+        _ => natural,
+    }
+}
+
 fn embed_image(
     global_embedded_resources: &RefCell<TiVec<EmbeddedResourcesIdx, EmbeddedResources>>,
     resource_ids: &mut ResourceIds,
     embed_files: EmbedResourcesKind,
     path: &SourcePath,
     _scale_factor: f32,
+    _drawn_size: Option<(u32, u32)>,
     diag: &mut BuildDiagnostics,
     source_location: &Option<crate::diagnostics::SourceLocation>,
     _font_collection: Option<&SharedFontCollection>,
 ) -> ImageReference {
     let extension = || path.extension().unwrap_or_default().to_string();
 
-    if let Some(&resource_id) = resource_ids.by_path.get(path) {
+    if let Some(&resource_id) = resource_ids.by_path.get(&(path.clone(), _drawn_size)) {
         #[cfg(feature = "renderer-software")]
         resource_ids.warn_if_animated(resource_id, diag, source_location);
         return match global_embedded_resources.borrow()[resource_id].kind {
@@ -252,7 +394,7 @@ fn embed_image(
     let mut resources = global_embedded_resources.borrow_mut();
     let mut push = |kind| {
         let id = resources.push_and_get_key(EmbeddedResources { path: Some(path.clone()), kind });
-        resource_ids.by_path.insert(path.clone(), id);
+        resource_ids.by_path.insert((path.clone(), _drawn_size), id);
         id
     };
 
@@ -290,8 +432,14 @@ fn embed_image(
     #[cfg(feature = "renderer-software")]
     if embed_files == EmbedResourcesKind::EmbedTextures {
         let loaded = _file.read().map_err(image::ImageError::IoError).and_then(|data| {
-            load_image_from_bytes(&data, _file.extension(), _scale_factor, _font_collection)
-                .map(|loaded| (loaded, is_animated(&data)))
+            load_image_from_bytes(
+                &data,
+                _file.extension(),
+                _scale_factor,
+                _drawn_size,
+                _font_collection,
+            )
+            .map(|loaded| (loaded, is_animated(&data)))
         });
         return match loaded {
             Ok(((img, source_format, original_size), animated)) => {
@@ -527,6 +675,7 @@ fn load_image_from_bytes(
     data: &[u8],
     extension: Option<&str>,
     scale_factor: f32,
+    drawn_size: Option<(u32, u32)>,
     font_collection: Option<&SharedFontCollection>,
 ) -> image::ImageResult<(image::RgbaImage, SourceFormat, IntSize)> {
     use resvg::{tiny_skia, usvg};
@@ -544,8 +693,17 @@ fn load_image_from_bytes(
         };
 
         let original_size = tree.size();
-        let width = (original_size.width() * scale_factor) as u32;
-        let height = (original_size.height() * scale_factor) as u32;
+        let natural = (
+            (original_size.width() * scale_factor) as u32,
+            (original_size.height() * scale_factor) as u32,
+        );
+        let (width, height) = shrink_to(drawn_size, natural);
+        let (scale_x, scale_y) = match drawn_size {
+            Some(_) => {
+                (width as f32 / original_size.width(), height as f32 / original_size.height())
+            }
+            None => (scale_factor, scale_factor),
+        };
 
         let mut buffer = vec![0u8; width as usize * height as usize * 4];
 
@@ -559,11 +717,7 @@ fn load_image_from_bytes(
             tiny_skia::PixmapMut::from_bytes(buffer.as_mut_slice(), width, height)
                 .ok_or_else(size_error)?;
 
-        resvg::render(
-            &tree,
-            tiny_skia::Transform::from_scale(scale_factor, scale_factor),
-            &mut skia_buffer,
-        );
+        resvg::render(&tree, tiny_skia::Transform::from_scale(scale_x, scale_y), &mut skia_buffer);
 
         return image::RgbaImage::from_raw(width, height, buffer).ok_or_else(size_error).map(
             |img| {
@@ -578,6 +732,29 @@ fn load_image_from_bytes(
 
     image::load_from_memory(data).map(|mut image| {
         let (original_width, original_height) = image.dimensions();
+
+        let (width, height) = shrink_to(drawn_size, (original_width, original_height));
+        if drawn_size.is_some() && (width, height) != (original_width, original_height) {
+            // Resize premultiplied, so that the color of transparent pixels doesn't bleed in.
+            let mut rgba = image.to_rgba8();
+            for pixel in rgba.pixels_mut() {
+                let alpha = pixel[3] as u32;
+                for channel in &mut pixel.0[..3] {
+                    *channel = ((*channel as u32 * alpha + 127) / 255) as u8;
+                }
+            }
+            let resized = image::imageops::resize(
+                &rgba,
+                width,
+                height,
+                image::imageops::FilterType::Lanczos3,
+            );
+            return (
+                resized,
+                SourceFormat::RgbaPremultiplied,
+                IntSize::new(original_width, original_height),
+            );
+        }
 
         if scale_factor < 1.0 {
             image = image.resize_exact(
@@ -677,6 +854,7 @@ fn embed_data_uri(
             &decoded_data,
             Some(&extension),
             _scale_factor,
+            None,
             _font_collection,
         )
         .map(|loaded| (loaded, is_animated(&decoded_data)))
