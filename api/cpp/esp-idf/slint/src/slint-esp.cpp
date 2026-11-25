@@ -18,6 +18,10 @@
 #endif
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#ifdef SLINT_ESP_CPU_TEXTURES
+#    include <type_traits>
+#    include "slint-esp-cpu-texture-buffer.h"
+#endif
 
 static const char *TAG = "slint_platform";
 
@@ -62,6 +66,10 @@ struct EspPlatform : public slint::platform::Platform
         rasterize_in_separate_task = config.rasterize_in_separate_task;
         raster_task_stack_size = config.raster_task_stack_size;
 #endif
+#ifdef SLINT_ESP_CPU_TEXTURES
+        use_cpu_textures = config.use_cpu_textures;
+        prepared_textures_kib = config.prepared_textures_kib;
+#endif
     }
 
     std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override;
@@ -88,6 +96,10 @@ private:
 #ifdef SLINT_ESP_RASTERIZE_IN_SEPARATE_TASK
     bool rasterize_in_separate_task = false;
     uint32_t raster_task_stack_size = 8192;
+#endif
+#ifdef SLINT_ESP_CPU_TEXTURES
+    bool use_cpu_textures = false;
+    uint32_t prepared_textures_kib = 8192;
 #endif
     class EspWindowAdapter *m_window = nullptr;
 
@@ -302,6 +314,13 @@ void EspPlatform<PixelType>::run_event_loop()
 {
     esp_lcd_panel_disp_on_off(panel_handle, true);
 
+#ifdef SLINT_ESP_CPU_TEXTURES
+    CpuTextureFrameBuffer cpu_textures;
+    // Used only by the thread that rasterizes.
+    slint::platform::SoftwareRenderer::PreparedTextures prepared_textures;
+    prepared_textures.set_max_bytes(std::size_t(prepared_textures_kib) * 1024);
+#endif
+
     TickType_t max_ticks_to_wait = portMAX_DELAY;
 
     if (touch_handle) {
@@ -368,13 +387,32 @@ void EspPlatform<PixelType>::run_event_loop()
     SemaphoreHandle_t frame_recorded = xSemaphoreCreateBinary();
     SemaphoreHandle_t frame_presented = xSemaphoreCreateBinary();
     xSemaphoreGive(frame_presented);
-    auto raster_task = [this, &recorded, frame_recorded, frame_presented] {
+    auto raster_task = [this, &recorded, frame_recorded, frame_presented
+#    ifdef SLINT_ESP_CPU_TEXTURES
+                        ,
+                        stride, &cpu_textures, &prepared_textures
+#    endif
+    ] {
         SLINT_TRACE_REGISTER_CORE();
         while (true) {
             xSemaphoreTake(frame_recorded, portMAX_DELAY);
             {
                 SLINT_TRACE_SPAN("redraw");
-                render_and_present([&recorded](std::span<PixelType> buffer) {
+                render_and_present([&recorded
+#    ifdef SLINT_ESP_CPU_TEXTURES
+                                    ,
+                                    stride, this, &cpu_textures, &prepared_textures
+#    endif
+                ](std::span<PixelType> buffer) {
+#    ifdef SLINT_ESP_CPU_TEXTURES
+                    if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
+                        if (use_cpu_textures) {
+                            cpu_textures.set_target(buffer, stride);
+                            return recorded->rasterize_into_buffer(&cpu_textures,
+                                                                   prepared_textures);
+                        }
+                    }
+#    endif
                     return recorded->rasterize(buffer);
                 });
             }
@@ -480,6 +518,15 @@ void EspPlatform<PixelType>::run_event_loop()
                 if (buffer1) {
                     SLINT_TRACE_SPAN("redraw");
                     waited_for_refresh = render_and_present([&](std::span<PixelType> buffer) {
+#ifdef SLINT_ESP_CPU_TEXTURES
+                        if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
+                            if (use_cpu_textures) {
+                                cpu_textures.set_target(buffer, stride);
+                                return m_window->m_renderer.render(&cpu_textures,
+                                                                   prepared_textures);
+                            }
+                        }
+#endif
                         return m_window->m_renderer.render(buffer, stride);
                     });
                 } else {
