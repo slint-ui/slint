@@ -53,6 +53,10 @@ on:
                 required: false
                 type: boolean
                 default: true
+            windows_test_phase:
+                description: 'Run all selected tests or one phase of the Windows runner probe'
+                type: string
+                default: all
             require_wgpu:
                 description: 'Fail the FemtoVG screenshot tests instead of skipping them without a WGPU adapter'
                 required: false
@@ -106,7 +110,7 @@ jobs:
 
         steps:
             - name: Record runner capacity
-              if: inputs.os == 'blacksmith-8vcpu-windows-2025'
+              if: inputs.windows_test_phase != 'all' || inputs.os == 'blacksmith-8vcpu-windows-2025'
               shell: pwsh
               run: |
                   $computer = Get-CimInstance Win32_ComputerSystem
@@ -169,7 +173,7 @@ jobs:
               # Ignore rust_version for stable/nightly to test with latest dependencies
               run: cargo update ${{ (inputs.rust_version == 'stable' || inputs.rust_version == 'nightly') && '--ignore-rust-version' || '' }}
             - name: Run tests
-              if: inputs.test_workspace
+              if: inputs.test_workspace && (inputs.windows_test_phase == 'all' || inputs.windows_test_phase == 'workspace')
               # The excluded root-workspace crates have dedicated CI test jobs.
               # Node, Python, and C++ also need their own toolchains.
               # Crates moved into the examples/demos/tests workspaces
@@ -186,7 +190,7 @@ jobs:
             # The C++/Node/Python/TypeScript drivers and doctests are run by dedicated jobs in
             # ci.yaml; they need a toolchain this job doesn't install.
             - name: Run integration tests
-              if: inputs.test_integration
+              if: inputs.test_integration && (inputs.windows_test_phase == 'all' || inputs.windows_test_phase == 'integration')
               run: |
                   if ${{ inputs.require_wgpu }}; then export SLINT_TEST_REQUIRE_WGPU=1; fi
                   cargo test --locked --verbose --all-features --workspace --timings --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} ${{ !inputs.test_rust_driver && '--exclude test-driver-rust' || '' }} --exclude doctests --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude test-driver-typescript -- --skip=qt
@@ -214,7 +218,7 @@ jobs:
             # One platform is enough for live-preview; Windows because the
             # macOS job is the slower of the two.
             - name: live-preview for rust test
-              if: runner.os == 'Windows' && inputs.test_integration
+              if: runner.os == 'Windows' && inputs.test_integration && (inputs.windows_test_phase == 'all' || inputs.windows_test_phase == 'live-preview')
               env:
                 SLINT_LIVE_PREVIEW: 1
               run: cargo test --locked --verbose --all-features --manifest-path tests/Cargo.toml --features slint/live-preview -p test-driver-rust -- --skip=_qt::t
@@ -244,14 +248,14 @@ jobs:
                   # target/ directory, so cargo drops a timestamped report per run
                   # here. Upload the whole directory to keep all of them (the plain
                   # cargo-timing.html is overwritten by each successive build).
-                  name: cargo-timings-${{ inputs.os }}-${{ inputs.rust_version }}
+                  name: cargo-timings-${{ inputs.os }}-${{ inputs.rust_version }}${{ inputs.windows_test_phase != 'all' && format('-{0}', inputs.windows_test_phase) || '' }}
                   path: ${{ env.CARGO_TARGET_DIR || 'target' }}/cargo-timings/
                   if-no-files-found: ignore
             - name: Archive screenshots after failed tests
               if: ${{ failure() }}
               uses: actions/upload-artifact@v7
               with:
-                  name: screenshots-${{ inputs.os }}
+                  name: screenshots-${{ inputs.os }}${{ inputs.windows_test_phase != 'all' && format('-{0}', inputs.windows_test_phase) || '' }}
                   path: |
                       tests/screenshots/references
             - name: Print Disk Usage
