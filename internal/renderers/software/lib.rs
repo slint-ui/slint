@@ -2592,8 +2592,6 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
                         RasterCommand::TargetTexture { texture: t, clip: clipped_target.cast() },
                         &self.rounded_clips,
                     );
-                } else {
-                    unimplemented!("The image cannot be rendered")
                 }
             }
         };
