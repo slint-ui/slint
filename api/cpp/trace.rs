@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore callsite
+
 //! Forwards the runtime's `tracing` spans to the recorder of the platform, which stores them in
 //! a capture and sends it afterwards. On ESP-IDF that is `slint-esp-trace.cpp`, which also
 //! describes the capture. The recorder needs the platform's headers, so it isn't written here.
