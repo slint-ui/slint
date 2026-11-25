@@ -11,7 +11,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 use crate::{
-    Cli, Error, Result, extract_component, init_compiler, poll_ready, reject_non_window_component,
+    Cli, Error, Result, extract_component, init_compiler, reject_non_window_component,
     setup_instance,
 };
 
@@ -43,7 +43,7 @@ pub fn take_screenshot(args: &Cli) -> Result<()> {
     }
 
     let compiler = init_compiler(args);
-    let result = poll_ready(compiler.build_from_path(args.path()));
+    let result = i_slint_compiler::poll_ready(compiler.build_from_path(args.path()));
     result.print_diagnostics();
     if result.has_errors() {
         std::process::exit(1);

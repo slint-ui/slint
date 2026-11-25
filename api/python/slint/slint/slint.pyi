@@ -1,6 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore fromarray
+
 # Hand-maintained type stubs for the native module; keep in sync with the
 # pyo3 classes and functions when changing the Rust API surface.
 # ruff: noqa: F401
@@ -245,6 +247,23 @@ class Image:
     r"""
     Image objects can be set on Slint Image elements for display. Construct Image objects from a path to an
     image file on disk, using `Image.load_from_path`.
+
+    Images implement the [Buffer Protocol](https://docs.python.org/3/c-api/buffer.html).
+    To pass an image to third-party modules such as NumPy or Pillow, read its pixels through a buffer.
+    A buffer gives you read-only access to the pixels as an array of unsigned bytes with the shape `(height, width, 4)`.
+    Each pixel is encoded as RGBA, without premultiplied alpha.
+    The buffers of an image share their memory, and stay valid after the image is gone.
+    If the pixels can't be obtained, the image raises `BufferError`.
+
+    Example of saving an image with Pillow:
+    ```python
+    import slint
+    from PIL import Image
+    import numpy as np
+
+    img = slint.Image.load_from_path("hello.jpeg")
+    Image.fromarray(np.asarray(img)).save("hello.png")
+    ```
     """
 
     size: tuple[int, int]
@@ -255,6 +274,7 @@ class Image:
     r"""The height of the image in pixels."""
     path: pathlib.Path | None
     r"""The path of the image if it was loaded from disk, or `None`."""
+    def __buffer__(self, flags: int, /) -> memoryview: ...
     def __new__(
         cls,
     ) -> Self: ...
@@ -313,6 +333,36 @@ class Image:
         pil_img = Image.open("hello.jpeg")
         array = np.array(pil_img)
         img = slint.Image.load_from_array(array)
+        ```
+        """
+
+class Window:
+    r"""
+    A window that renders the scene of a component on the screen.
+    To get the window of a component, use `Component.window`.
+    """
+
+    def take_snapshot(self) -> Image:
+        r"""
+        Takes a snapshot of the window contents and returns it as an image.
+        To get a snapshot in the size of your component, show the window first.
+
+        Raises `RuntimeError` if the backend or renderer can't take snapshots,
+        or if the component of the window no longer exists.
+
+        **Note:** This function can be slow, because it re-renders the scene when needed.
+
+        Example of saving a screenshot with Pillow:
+        ```python
+        import slint
+        from PIL import Image
+        import numpy as np
+
+        main_window = slint.loader.app.MainWindow()
+        main_window.show()
+
+        snapshot = main_window.window.take_snapshot()
+        Image.fromarray(np.asarray(snapshot)).save("screenshot.png")
         ```
         """
 
@@ -480,6 +530,8 @@ class PyDiagnostic:
 
 class ComponentInstance:
     def _process_pending_events(self) -> None: ...
+    @property
+    def window(self) -> Window | None: ...
     def show(self) -> None: ...
     def hide(self) -> None: ...
     def invoke(self, callback_name: str, *args: Any) -> Any: ...

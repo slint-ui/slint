@@ -66,6 +66,10 @@ struct VOffset
     std::uintptr_t offset;
 };
 
+struct Dyn
+{
+};
+
 template<typename VTable, typename X>
 struct VRcInner
 {
@@ -86,11 +90,16 @@ private:
     };
 
     void *data_ptr() { return reinterpret_cast<char *>(this) + data_offset; }
+    Layout &stored_layout() { return *reinterpret_cast<Layout *>(data_ptr()); }
     ~VRcInner() = delete;
-};
 
-struct Dyn
-{
+    /// The layout of the allocation for data of layout `data` at `data_offset`.
+    static constexpr Layout allocation_layout(std::size_t data_offset, Layout data)
+    {
+        std::size_t align = std::max(data.align, alignof(VRcInner<VTable, Dyn>));
+        std::size_t size = data_offset + std::max(data.size, sizeof(Layout));
+        return { (size + align - 1) & ~(align - 1), align };
+    }
 };
 
 template<typename VTable, typename X = Dyn>
@@ -105,11 +114,10 @@ public:
     ~VRc()
     {
         if (!--inner->strong_ref) {
-            Layout layout = inner->vtable->drop_in_place({ inner->vtable, &inner->data });
-            layout.size = std::max<size_t>(layout.size, sizeof(Layout)); // because of the union
-            layout.size += inner->data_offset;
-            layout.align = std::max<size_t>(layout.align, alignof(VRcInner<VTable, Dyn>));
-            inner->layout = layout;
+            Layout layout = VRcInner<VTable, X>::allocation_layout(
+                    inner->data_offset,
+                    inner->vtable->drop_in_place({ inner->vtable, inner->data_ptr() }));
+            inner->stored_layout() = layout;
             if (!--inner->weak_ref) {
                 inner->vtable->dealloc(inner->vtable, reinterpret_cast<uint8_t *>(inner), layout);
             }
@@ -130,6 +138,10 @@ public:
     template<typename... Args>
     static VRc make(Args... args)
     {
+        using Inner = VRcInner<VTable, X>;
+        constexpr Layout layout =
+                Inner::allocation_layout(offsetof(Inner, data), { sizeof(X), alignof(X) });
+        static_assert(layout.size == sizeof(Inner) && layout.align == alignof(Inner));
 #if !defined(__APPLE__) || MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_14
         auto mem = ::operator new(sizeof(VRcInner<VTable, X>),
                                   static_cast<std::align_val_t>(alignof(VRcInner<VTable, X>)));
@@ -169,7 +181,7 @@ public:
     {
         if (inner && !--inner->weak_ref) {
             inner->vtable->dealloc(inner->vtable, reinterpret_cast<uint8_t *>(inner),
-                                   inner->layout);
+                                   inner->stored_layout());
         }
     }
     VWeak(const VWeak &other) : inner(other.inner) { inner && inner->weak_ref++; }

@@ -166,11 +166,14 @@ impl SkiaRendererAdapter {
                 Some(&|config| display.filter_gl_config(config)),
             )?;
 
+        let mut skia_renderer = SkiaRenderer::new_with_surface(
+            &SkiaSharedContext::default(),
+            Box::new(skia_gl_surface),
+        );
+        skia_renderer.enable_partial_rendering();
+
         let renderer = Box::new(Self {
-            renderer: SkiaRenderer::new_with_surface(
-                &SkiaSharedContext::default(),
-                Box::new(skia_gl_surface),
-            ),
+            renderer: skia_renderer,
             presenter: display.clone(),
             size,
             _drm_output: None,

@@ -177,8 +177,24 @@ pub fn build_array_chunk(chunk: impl FnOnce()) {
     chunk()
 }
 
+/// [`Option::unwrap`] for the generated code.
+#[inline]
+pub fn unwrap<T>(option: Option<T>) -> T {
+    // Unlike `Option::unwrap`, this function isn't `#[track_caller]`,
+    // so its callers don't each store a panic location in the binary.
+    option.unwrap()
+}
+
+/// Panics because `dyn_index` doesn't refer to a repeater of the item tree.
+#[cold]
+#[inline(never)]
+pub fn invalid_dyn_index(dyn_index: u32) -> ! {
+    panic!("invalid dyn_index {dyn_index}")
+}
+
 /// internal re_exports used by the macro generated
 pub mod re_exports {
+    pub use super::{invalid_dyn_index, unwrap};
     pub use alloc::boxed::Box;
     pub use alloc::rc::{Rc, Weak};
     pub use alloc::string::String;
@@ -233,7 +249,7 @@ pub mod re_exports {
     };
     pub use i_slint_core::slice::Slice;
     pub use i_slint_core::timers::{Timer, TimerMode};
-    pub use i_slint_core::translations::TranslationsBundled;
+    pub use i_slint_core::translations::{BundledPlurals, BundledStrings, TranslationsBundled};
     pub use i_slint_core::window::{
         InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, WindowKind,
     };

@@ -1356,7 +1356,7 @@ pub fn collect_diagnostics(
 #[cfg(all(test, any(feature = "preview-external", feature = "preview-engine")))]
 mod preview_tests {
     use super::*;
-    use i_slint_compiler::{ExperimentalFeature, ExperimentalFeatures};
+    use i_slint_compiler::{ExperimentalFeature, ExperimentalFeatures, poll_ready};
 
     #[test]
     fn initial_preview_configuration_sends_no_implicit_overrides() {
@@ -1411,7 +1411,7 @@ mod preview_tests {
         let url = Url::from_file_path(&path).unwrap();
         std::fs::write(&path, r#"{"edition":"1.20"}"#).unwrap();
         let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
-        spin_on::spin_on(session.maybe_update_active_project(&document_url)).unwrap();
+        poll_ready(session.maybe_update_active_project(&document_url)).unwrap();
         for messages in &messages {
             assert!(messages.borrow().iter().any(|message| matches!(message,
                 LspToPreviewMessage::SetContents { url: sent, contents } if sent.url() == &url && contents == br#"{"edition":"1.20"}"#
@@ -1428,7 +1428,7 @@ mod preview_tests {
                 messages.borrow_mut().clear();
             }
             std::fs::write(&path, source).unwrap();
-            spin_on::spin_on(
+            poll_ready(
                 session.reload_active_project_file(SourcePath::new(&path), FileChangeKind::Changed),
             )
             .unwrap();
@@ -1449,7 +1449,7 @@ mod preview_tests {
         for messages in &messages {
             messages.borrow_mut().clear();
         }
-        spin_on::spin_on(
+        poll_ready(
             session.reload_active_project_file(SourcePath::new(&path), FileChangeKind::Deleted),
         )
         .unwrap();
@@ -1476,7 +1476,7 @@ mod preview_tests {
             for messages in &messages {
                 messages.borrow_mut().clear();
             }
-            spin_on::spin_on(session.load_document(
+            poll_ready(session.load_document(
                 "export component Main {}".into(),
                 document_url.clone(),
                 Some(version),
@@ -1505,7 +1505,7 @@ mod preview_tests {
             hide_ui: Some(true),
             ..Default::default()
         });
-        spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+        poll_ready(session.set_workspace_config_overrides(SessionConfigOverrides {
             compiler: Overrides {
                 const_scale_factor: Some(2.),
                 project: ProjectFileData { include_paths: Some(Vec::new()), ..Default::default() },
@@ -1515,7 +1515,7 @@ mod preview_tests {
         }))
         .unwrap();
         let url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
-        spin_on::spin_on(session.load_document(
+        poll_ready(session.load_document(
             "export component Main inherits Window {}".into(),
             url,
             None,
@@ -1566,11 +1566,9 @@ mod preview_tests {
             }
             let version = Some(index as i32 + 7);
             let diagnostics = if index == 0 {
-                spin_on::spin_on(session.open_document(source.into(), url.clone(), version))
-                    .unwrap()
+                poll_ready(session.open_document(source.into(), url.clone(), version)).unwrap()
             } else {
-                spin_on::spin_on(session.load_document(source.into(), url.clone(), version))
-                    .unwrap()
+                poll_ready(session.load_document(source.into(), url.clone(), version)).unwrap()
             };
             if let Some((_, actual_version, project_diagnostics)) =
                 diagnostics.iter().find(|(diagnostic_url, _, _)| diagnostic_url == &url)
@@ -1610,9 +1608,9 @@ mod preview_tests {
         assert!(!path.exists());
         assert!(SourcePath::from_url(&url).as_native_path().is_some());
         let contents = r#"{"edition":"1.20","experimental-features":["match"]}"#;
-        spin_on::spin_on(session.open_document(contents.into(), url.clone(), Some(9))).unwrap();
+        poll_ready(session.open_document(contents.into(), url.clone(), Some(9))).unwrap();
         let source = Url::from_file_path(directory.path().join("main.slint")).unwrap();
-        spin_on::spin_on(session.load_document("export component Main {}".into(), source, Some(1)))
+        poll_ready(session.load_document("export component Main {}".into(), source, Some(1)))
             .unwrap();
         assert!(!path.exists());
         assert_eq!(session.active_projects[&SourcePath::new(&path)].version, Some(9));
@@ -1636,7 +1634,7 @@ mod preview_tests {
         std::fs::create_dir(&path).unwrap();
         let project_url = Url::from_file_path(&path).unwrap();
         let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
-        let diagnostics = spin_on::spin_on(session.load_document(
+        let diagnostics = poll_ready(session.load_document(
             "export component Main {}".into(),
             document_url.clone(),
             None,
@@ -1661,7 +1659,7 @@ mod preview_tests {
             default_edition: Some(default_edition),
             ..Default::default()
         });
-        spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+        poll_ready(session.reapply_effective_configuration()).unwrap();
         let include_paths = |session: &EditorSession| {
             session.document_cache.compiler_configuration().compiler_config.include_paths
         };
@@ -1677,7 +1675,7 @@ mod preview_tests {
             let project = SourcePath::from_url(&url);
             let document = SourcePath::from_url(&url.join("nested/main.slint").unwrap());
             session.set_workspace_roots(vec![SourcePath::from_url(&url.join("/").unwrap())]);
-            spin_on::spin_on(session.open_document(
+            poll_ready(session.open_document(
                 r#"{"edition":"1.19","include-paths":["lib"]}"#.into(),
                 url.clone(),
                 Some(1),
@@ -1692,8 +1690,8 @@ mod preview_tests {
                 assert!(messages.borrow().iter().any(|message| matches!(message, LspToPreviewMessage::SetContents { url: sent, .. } if sent.url() == &url)));
             }
 
-            spin_on::spin_on(session.close_document(url.clone())).unwrap();
-            assert!(spin_on::spin_on(session.reload_document(url.clone())).unwrap().is_empty());
+            poll_ready(session.close_document(url.clone())).unwrap();
+            assert!(poll_ready(session.reload_document(url.clone())).unwrap().is_empty());
             assert_eq!(session.find_project_file_for(&document).unwrap(), None);
             assert_eq!(include_paths(&session), default_include_paths);
             assert_eq!(edition(&session), Some(default_edition));
@@ -1714,7 +1712,7 @@ mod preview_tests {
         let url = Url::from_file_path(&path).unwrap();
         let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
         std::fs::write(&path, r#"{"edition":"1.20","experimental-features":["match"]}"#).unwrap();
-        spin_on::spin_on(session.load_document(
+        poll_ready(session.load_document(
             "export component Main {}".into(),
             document_url.clone(),
             Some(1),
@@ -1729,12 +1727,8 @@ mod preview_tests {
         for messages in &messages {
             messages.borrow_mut().clear();
         }
-        spin_on::spin_on(session.load_document(
-            "export component Main {}".into(),
-            document_url,
-            Some(2),
-        ))
-        .unwrap();
+        poll_ready(session.load_document("export component Main {}".into(), document_url, Some(2)))
+            .unwrap();
         assert!(session.active_projects[&SourcePath::new(&path)].parsed.is_err());
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.experimental_features,
@@ -1758,7 +1752,7 @@ mod preview_tests {
         let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
         std::fs::write(&path, r#"{"edition":"1.20"}"#).unwrap();
         let buffer = r#"{"edition":"1.20","experimental-features":["match"]}"#;
-        spin_on::spin_on(session.open_document(buffer.into(), url.clone(), Some(4))).unwrap();
+        poll_ready(session.open_document(buffer.into(), url.clone(), Some(4))).unwrap();
         for change in [FileChangeKind::Created, FileChangeKind::Changed, FileChangeKind::Deleted] {
             if !matches!(change, FileChangeKind::Deleted) {
                 std::fs::write(&path, r#"{"edition":"1.20","experimental-features":[]}"#).unwrap();
@@ -1768,9 +1762,9 @@ mod preview_tests {
             for messages in &messages {
                 messages.borrow_mut().clear();
             }
-            spin_on::spin_on(session.trigger_file_watcher(url.clone(), change)).unwrap();
+            poll_ready(session.trigger_file_watcher(url.clone(), change)).unwrap();
             assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
-            spin_on::spin_on(session.load_document(
+            poll_ready(session.load_document(
                 "export component Main {}".into(),
                 document_url.clone(),
                 Some(1),
@@ -1795,7 +1789,7 @@ mod preview_tests {
         for messages in &messages {
             messages.borrow_mut().clear();
         }
-        spin_on::spin_on(session.close_document(url.clone())).unwrap();
+        poll_ready(session.close_document(url.clone())).unwrap();
         assert!(!session.document_is_open(&url));
         assert_eq!(session.active_projects[&SourcePath::new(&path)].version, None);
         assert_eq!(
@@ -1814,7 +1808,7 @@ mod preview_tests {
         let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
         let url = Url::from_file_path(&path).unwrap();
         std::fs::write(&path, r#"{"edition":"1.20"}"#).unwrap();
-        spin_on::spin_on(session.open_document(
+        poll_ready(session.open_document(
             r#"{"edition":"1.20","experimental-features":["match"]}"#.into(),
             url.clone(),
             Some(3),
@@ -1825,7 +1819,7 @@ mod preview_tests {
         }
         std::fs::remove_file(&path).unwrap();
         assert!(
-            spin_on::spin_on(session.trigger_file_watcher(url.clone(), FileChangeKind::Deleted))
+            poll_ready(session.trigger_file_watcher(url.clone(), FileChangeKind::Deleted))
                 .unwrap()
                 .is_empty()
         );
@@ -1835,7 +1829,7 @@ mod preview_tests {
             [&SourcePath::new(&path)]
         );
         assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
-        let diagnostics = spin_on::spin_on(session.close_document(url.clone())).unwrap();
+        let diagnostics = poll_ready(session.close_document(url.clone())).unwrap();
         assert!(!session.document_is_open(&url));
         assert!(!session.active_projects.contains_key(&SourcePath::new(&path)));
         assert!(session.active_project_file_paths().next().is_none());
@@ -1849,12 +1843,9 @@ mod preview_tests {
         }
         std::fs::write(&path, "{invalid").unwrap();
         let source = Url::from_file_path(directory.path().join("main.slint")).unwrap();
-        let diagnostics = spin_on::spin_on(session.load_document(
-            "export component Main {}".into(),
-            source,
-            Some(1),
-        ))
-        .unwrap();
+        let diagnostics =
+            poll_ready(session.load_document("export component Main {}".into(), source, Some(1)))
+                .unwrap();
         assert!(diagnostics.iter().any(|(diagnostic_url, _, diagnostics)| diagnostic_url == &url
             && diagnostics.iter().any(
                 |diagnostic| diagnostic.severity == Some(lsp_types::DiagnosticSeverity::ERROR)
@@ -1872,7 +1863,7 @@ mod preview_tests {
             let path = project.join(i_slint_compiler::project_file::FILE_NAME);
             std::fs::write(&path, r#"{"edition":"1.20","experimental-features":[]}"#).unwrap();
             let document_url = Url::from_file_path(project.join("main.slint")).unwrap();
-            spin_on::spin_on(session.load_document(
+            poll_ready(session.load_document(
                 "export component Main {}".into(),
                 document_url,
                 Some(1),
@@ -1880,7 +1871,7 @@ mod preview_tests {
             .unwrap();
             manifests.push(Url::from_file_path(path).unwrap());
         }
-        let changed = spin_on::spin_on(session.open_document(
+        let changed = poll_ready(session.open_document(
             r#"{"edition":"1.20","experimental-features":["match"]}"#.into(),
             manifests[0].clone(),
             Some(7),
@@ -1892,7 +1883,7 @@ mod preview_tests {
                     .iter()
                     .any(|diagnostic| diagnostic.message.contains("experimental features"))
         }));
-        let closed = spin_on::spin_on(session.close_document(manifests[0].clone())).unwrap();
+        let closed = poll_ready(session.close_document(manifests[0].clone())).unwrap();
         for manifest in &manifests {
             assert!(closed.iter().any(|(url, version, diagnostics)| url == manifest
                 && version.is_none()
@@ -1917,10 +1908,9 @@ mod preview_tests {
                 matches!(messages.borrow().as_slice(), [LspToPreviewMessage::ForgetFile { url: sent }] if sent == &url)
             );
         }
-        spin_on::spin_on(session.maybe_update_active_project(&url)).unwrap();
+        poll_ready(session.maybe_update_active_project(&url)).unwrap();
         std::fs::remove_file(&path).unwrap();
-        spin_on::spin_on(session.trigger_file_watcher(url.clone(), FileChangeKind::Changed))
-            .unwrap();
+        poll_ready(session.trigger_file_watcher(url.clone(), FileChangeKind::Changed)).unwrap();
         assert!(!session.active_projects.contains_key(&SourcePath::new(&path)));
         assert_eq!(
             session.active_project_file_paths().collect::<Vec<_>>(),
@@ -1937,10 +1927,9 @@ mod preview_tests {
                 matches!(messages.borrow().as_slice(), [LspToPreviewMessage::ForgetFile { url: sent }] if sent == &url)
             );
         }
-        spin_on::spin_on(session.trigger_file_watcher(url.clone(), FileChangeKind::Created))
-            .unwrap();
+        poll_ready(session.trigger_file_watcher(url.clone(), FileChangeKind::Created)).unwrap();
         assert!(session.active_projects.contains_key(&SourcePath::new(&path)));
-        spin_on::spin_on(session.trigger_file_watcher(url, FileChangeKind::Deleted)).unwrap();
+        poll_ready(session.trigger_file_watcher(url, FileChangeKind::Deleted)).unwrap();
         assert!(!session.active_projects.contains_key(&SourcePath::new(&path)));
         assert!(session.active_project_file_paths().next().is_none());
     }
@@ -2037,7 +2026,7 @@ mod preview_tests {
             .open_import_callback
             .unwrap();
 
-        let result = spin_on::spin_on(callback(SourcePath::File(versioned_path.clone())));
+        let result = poll_ready(callback(SourcePath::File(versioned_path.clone())));
         assert!(matches!(result, Some(Ok((Some(7), contents))) if contents == expected_contents));
         assert!(matches!(messages.borrow().as_slice(),
             [LspToPreviewMessage::SetContents { url, contents }]
@@ -2047,7 +2036,7 @@ mod preview_tests {
         ));
 
         messages.borrow_mut().clear();
-        assert!(spin_on::spin_on(callback(SourcePath::File(fallback_path))).is_none());
+        assert!(poll_ready(callback(SourcePath::File(fallback_path))).is_none());
         assert!(messages.borrow().is_empty());
     }
 
@@ -2076,12 +2065,12 @@ mod preview_tests {
         let invalidated_url = crate::test::test_file_name("invalidated.slint").to_url().unwrap();
         let deleted_url = crate::test::test_file_name("deleted.slint").to_url().unwrap();
 
-        spin_on::spin_on(session.load_document_impl(
+        poll_ready(session.load_document_impl(
             "export component Shared {}".into(),
             invalidated_url.clone(),
             Some(1),
         ));
-        spin_on::spin_on(session.load_document_impl(
+        poll_ready(session.load_document_impl(
             "export component Deleted {}".into(),
             deleted_url.clone(),
             Some(1),
@@ -2089,8 +2078,8 @@ mod preview_tests {
         session.send_to_previews(&LspToPreviewMessage::SetConfiguration {
             config: PreviewConfig::default(),
         });
-        spin_on::spin_on(session.drop_document(invalidated_url)).unwrap();
-        spin_on::spin_on(session.delete_document(deleted_url)).unwrap();
+        poll_ready(session.drop_document(invalidated_url)).unwrap();
+        poll_ready(session.delete_document(deleted_url)).unwrap();
 
         for messages in messages {
             let messages = messages.borrow();
@@ -2174,13 +2163,13 @@ mod preview_tests {
             component: Some("Main".into()),
         };
         let (mut session, messages) = session_with_recording_previews();
-        spin_on::spin_on(session.load_document(
+        poll_ready(session.load_document(
             "export component Root inherits Window {}".into(),
             Url::from_file_path(directory.path().join("root.slint")).unwrap(),
             None,
         ))
         .unwrap();
-        spin_on::spin_on(session.load_document(
+        poll_ready(session.load_document(
             "export component Main inherits Window {}".into(),
             component.url.clone(),
             None,
@@ -2298,8 +2287,8 @@ mod preview_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use i_slint_compiler::ExperimentalFeatures;
     use i_slint_compiler::project_file::FILE_NAME;
+    use i_slint_compiler::{ExperimentalFeatures, poll_ready};
     use tempfile::TempDir;
 
     #[test]
@@ -2340,12 +2329,12 @@ mod tests {
         let url = Url::from_file_path(&manifest).unwrap();
         let mut editor_session = session();
         assert_eq!(editor_session.find_project_file_for(&source).unwrap(), None);
-        spin_on::spin_on(editor_session.open_document("{}".into(), url.clone(), Some(1))).unwrap();
+        poll_ready(editor_session.open_document("{}".into(), url.clone(), Some(1))).unwrap();
         assert_eq!(
             editor_session.find_project_file_for(&source).unwrap(),
             Some(SourcePath::new(&manifest))
         );
-        spin_on::spin_on(editor_session.close_document(url)).unwrap();
+        poll_ready(editor_session.close_document(url)).unwrap();
         assert_eq!(editor_session.find_project_file_for(&source).unwrap(), None);
     }
 
@@ -2362,8 +2351,7 @@ mod tests {
     /// Makes the project file at `path` active, as if a document under it had been loaded.
     fn add_project_file(session: &mut EditorSession, path: &std::path::Path) {
         let source = SourcePath::new(path);
-        let state =
-            spin_on::spin_on(ProjectFileState::load(&source, session.document_cache.format));
+        let state = poll_ready(ProjectFileState::load(&source, session.document_cache.format));
         session.project_file_paths.push(source.clone());
         session.active_projects.insert(source, state);
     }
@@ -2394,13 +2382,13 @@ mod tests {
     fn load_document(session: &mut EditorSession, path: &std::path::Path) -> crate::Result<()> {
         let url = Url::from_file_path(path).unwrap();
         let content = std::fs::read_to_string(path).unwrap();
-        spin_on::spin_on(session.load_document(content, url, None)).map(|_| ())
+        poll_ready(session.load_document(content, url, None)).map(|_| ())
     }
 
     fn open_document(session: &mut EditorSession, path: &std::path::Path) -> crate::Result<()> {
         let url = Url::from_file_path(path).unwrap();
         let content = std::fs::read_to_string(path).unwrap();
-        spin_on::spin_on(session.open_document(content, url, None)).map(|_| ())
+        poll_ready(session.open_document(content, url, None)).map(|_| ())
     }
 
     fn cached_text(session: &EditorSession, path: &std::path::Path) -> Option<String> {
@@ -2422,17 +2410,17 @@ mod tests {
                 .unwrap();
         assert_ne!(encoded_url, normalized_url);
         let mut session = session();
-        spin_on::spin_on(session.open_document(
+        poll_ready(session.open_document(
             "export component Unsaved {}".into(),
             encoded_url.clone(),
             Some(7),
         ))
         .unwrap();
-        spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+        poll_ready(session.reapply_effective_configuration()).unwrap();
         assert!(cached_text(&session, &document).unwrap().contains("Unsaved"));
         assert_eq!(session.document_cache.document_version(&encoded_url), Some(7));
         assert_eq!(session.document_roots(), HashSet::from([normalized_url]));
-        spin_on::spin_on(session.trigger_file_watcher(
+        poll_ready(session.trigger_file_watcher(
             Url::from_file_path(&document).unwrap(),
             FileChangeKind::Changed,
         ))
@@ -2450,7 +2438,7 @@ mod tests {
         std::fs::write(&disk_dependency, "export component DiskOnly inherits DoesNotExist {}")
             .unwrap();
         let mut session = session();
-        let diagnostics = spin_on::spin_on(session.open_document(
+        let diagnostics = poll_ready(session.open_document(
             "export component Unsaved {}".into(),
             Url::from_file_path(&document).unwrap(),
             Some(7),
@@ -2472,15 +2460,14 @@ mod tests {
         let dependent = temp.path().join("dependent.slint");
         let dependent_url = Url::from_file_path(&dependent).unwrap();
         let mut session = session();
-        spin_on::spin_on(session.load_document_impl(
+        poll_ready(session.load_document_impl(
             r#"import { New } from "new.slint"; export component Main inherits New {}"#.into(),
             dependent_url.clone(),
             None,
         ));
         write_document(&dependency);
         let diagnostics =
-            spin_on::spin_on(session.reload_document(Url::from_file_path(&dependency).unwrap()))
-                .unwrap();
+            poll_ready(session.reload_document(Url::from_file_path(&dependency).unwrap())).unwrap();
         assert!(
             diagnostics
                 .iter()
@@ -2514,7 +2501,7 @@ mod tests {
         );
 
         std::fs::write(&dependency, "export component Changed {}").unwrap();
-        spin_on::spin_on(session.trigger_file_watcher(
+        poll_ready(session.trigger_file_watcher(
             Url::from_file_path(&dependency).unwrap(),
             FileChangeKind::Changed,
         ))
@@ -2523,7 +2510,7 @@ mod tests {
         assert!(session.pending_recompile.contains(&entry_url));
         let encoded_url =
             Url::parse(&entry_url.as_str().replace("main.slint", "main.%73lint")).unwrap();
-        let diagnostics = spin_on::spin_on(session.reload_document(encoded_url)).unwrap();
+        let diagnostics = poll_ready(session.reload_document(encoded_url)).unwrap();
         assert!(diagnostics.iter().any(|(_, _, diagnostics)| {
             diagnostics.iter().any(|diagnostic| diagnostic.message.contains("Dependency"))
         }));
@@ -2549,15 +2536,15 @@ mod tests {
         let mut session = session();
         open_document(&mut session, &document).unwrap();
         let entry_url = Url::from_file_path(&entry).unwrap();
-        spin_on::spin_on(session.open_document(
+        poll_ready(session.open_document(
             "export component Unsaved {}".into(),
             entry_url.clone(),
             Some(42),
         ))
         .unwrap();
-        spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+        poll_ready(session.reapply_effective_configuration()).unwrap();
         assert!(cached_text(&session, &entry).unwrap().contains("Unsaved"));
-        spin_on::spin_on(session.close_document(entry_url.clone())).unwrap();
+        poll_ready(session.close_document(entry_url.clone())).unwrap();
         assert!(cached_text(&session, &entry).unwrap().contains("Main"));
         assert_eq!(session.document_cache.document_version(&entry_url), None);
         assert!(!session.open_urls.contains(&entry_url));
@@ -2575,16 +2562,16 @@ mod tests {
         std::fs::write(&entry, "export component Main inherits DoesNotExist {}").unwrap();
         let entry_url = Url::from_file_path(&entry).unwrap();
         let mut session = session();
-        spin_on::spin_on(session.open_document(
+        poll_ready(session.open_document(
             "export component Unsaved {}".into(),
             entry_url.clone(),
             Some(3),
         ))
         .unwrap();
-        spin_on::spin_on(session.close_document(entry_url.clone())).unwrap();
+        poll_ready(session.close_document(entry_url.clone())).unwrap();
         assert!(session.pending_recompile.contains(&entry_url));
         for _ in 0..2 {
-            let diagnostics = spin_on::spin_on(session.reload_document(entry_url.clone())).unwrap();
+            let diagnostics = poll_ready(session.reload_document(entry_url.clone())).unwrap();
             assert!(diagnostics.iter().any(|(url, _, diagnostics)| {
                 url == &entry_url
                     && diagnostics
@@ -2597,12 +2584,12 @@ mod tests {
             r#"{ "edition": "1.20", "main": "main.slint" }"#,
         )
         .unwrap();
-        spin_on::spin_on(session.reload_active_project_file(
+        poll_ready(session.reload_active_project_file(
             SourcePath::new(temp.path().join(FILE_NAME)),
             FileChangeKind::Changed,
         ))
         .unwrap();
-        let diagnostics = spin_on::spin_on(session.reload_document(entry_url.clone())).unwrap();
+        let diagnostics = poll_ready(session.reload_document(entry_url.clone())).unwrap();
         assert!(diagnostics.iter().any(|(url, _, diagnostics)| url == &entry_url
             && diagnostics.iter().any(|diagnostic| diagnostic.message.contains("DoesNotExist"))));
     }
@@ -2632,7 +2619,7 @@ mod tests {
         let first_project = project_directories[0].join(FILE_NAME);
         std::fs::write(&first_project, r#"{ "edition": "1.20", "main": "../replacement.slint" }"#)
             .unwrap();
-        spin_on::spin_on(
+        poll_ready(
             session.reload_active_project_file(
                 SourcePath::new(&first_project),
                 FileChangeKind::Changed,
@@ -2642,7 +2629,7 @@ mod tests {
         for path in entries.iter().chain(core::iter::once(&dependency)) {
             assert!(cached_text(&session, path).is_some());
         }
-        spin_on::spin_on(session.reload_active_project_file(
+        poll_ready(session.reload_active_project_file(
             SourcePath::new(project_directories[1].join(FILE_NAME)),
             FileChangeKind::Deleted,
         ))
@@ -2650,14 +2637,14 @@ mod tests {
         assert!(cached_text(&session, &entries[0]).is_none());
         assert!(cached_text(&session, &dependency).is_some());
         let replacement_url = Url::from_file_path(&entries[1]).unwrap();
-        spin_on::spin_on(session.open_document(
+        poll_ready(session.open_document(
             "export component Unsaved {}".into(),
             replacement_url,
             Some(3),
         ))
         .unwrap();
         let diagnostics =
-            spin_on::spin_on(session.reload_active_project_file(
+            poll_ready(session.reload_active_project_file(
                 SourcePath::new(&first_project),
                 FileChangeKind::Deleted,
             ))
@@ -2692,13 +2679,13 @@ mod tests {
             Url::parse(&entry_url.as_str().replace("main.slint", "main.%73lint")).unwrap();
         session.show_preview(0, PreviewComponent { url: encoded_url, component: None }, None);
         assert!(session.pending_recompile.contains(&entry_url));
-        spin_on::spin_on(
+        poll_ready(
             session.reload_active_project_file(SourcePath::new(&project), FileChangeKind::Deleted),
         )
         .unwrap();
         assert!(cached_text(&session, &entry).is_some());
         assert!(session.pending_recompile.contains(&entry_url));
-        spin_on::spin_on(session.drop_document(entry_url.clone())).unwrap();
+        poll_ready(session.drop_document(entry_url.clone())).unwrap();
         assert!(session.pending_recompile.contains(&entry_url));
     }
 
@@ -2875,7 +2862,7 @@ mod tests {
             std::fs::write(&path, r#"{"edition":"1.20","experimental-features":[],"include-paths":["include"],"library-paths":{"shared":"../shared"}}"#).unwrap();
             add_project_file(&mut session, &path);
         }
-        let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+        let diagnostics = poll_ready(session.reapply_effective_configuration()).unwrap();
         assert_eq!(diagnostics.len(), 2);
         assert!(diagnostics.iter().all(|(_, _, warnings)| warnings.is_empty()));
         assert_eq!(
@@ -2905,7 +2892,7 @@ mod tests {
             add_project_file(&mut session, &path);
             project_paths.push(path);
         }
-        let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+        let diagnostics = poll_ready(session.reapply_effective_configuration()).unwrap();
         let warnings = &diagnostics
             .iter()
             .find(|(url, _, _)| url == &Url::from_file_path(&project_paths[2]).unwrap())
@@ -2916,7 +2903,7 @@ mod tests {
             warnings[0].message.contains(&format!("project file {}", project_paths[1].display()))
         );
         let diagnostics =
-            spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+            poll_ready(session.set_workspace_config_overrides(SessionConfigOverrides {
                 compiler: Overrides {
                     project: ProjectFileData {
                         library_paths: Some(HashMap::from([(
@@ -2949,7 +2936,7 @@ mod tests {
     fn a_configured_edition_applies_without_a_project_file() {
         let edition = i_slint_compiler::project_file::SlintEdition { major: 1, minor: 18 };
         let mut session = session();
-        spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+        poll_ready(session.set_workspace_config_overrides(SessionConfigOverrides {
             compiler: Overrides {
                 project: ProjectFileData { edition: Some(edition), ..Default::default() },
                 ..Default::default()
@@ -2973,7 +2960,7 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let mut session = session();
         session.set_workspace_roots(vec![SourcePath::new(temp.path())]);
-        spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+        poll_ready(session.set_workspace_config_overrides(SessionConfigOverrides {
             default_edition: Some(default_edition),
             ..Default::default()
         }))
@@ -3002,7 +2989,7 @@ mod tests {
                 Some(current.as_str()),
             ),
         ] {
-            spin_on::spin_on(session.load_document(content.into(), url.clone(), Some(1))).unwrap();
+            poll_ready(session.load_document(content.into(), url.clone(), Some(1))).unwrap();
             let expected = expected.map(|e| e.parse::<SlintEdition>().unwrap());
             assert_eq!(
                 session.document_cache.compiler_configuration().compiler_config.edition,
@@ -3017,7 +3004,7 @@ mod tests {
         }
         assert_eq!(session.preview_config.overrides.project.edition, None);
 
-        spin_on::spin_on(session.delete_document(url.clone())).unwrap();
+        poll_ready(session.delete_document(url.clone())).unwrap();
         assert_eq!(session.document_cache.compiler_configuration().compiler_config.edition, None);
         assert!(session.preview_config.rust_macro_editions.is_empty());
     }
@@ -3036,7 +3023,7 @@ mod tests {
             add_project_file(&mut session, path);
         }
 
-        let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+        let diagnostics = poll_ready(session.reapply_effective_configuration()).unwrap();
 
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.edition,
@@ -3072,7 +3059,7 @@ mod tests {
             add_project_file(&mut session, path);
         }
         let recompute = |session: &mut EditorSession| {
-            spin_on::spin_on(session.reapply_effective_configuration()).unwrap()
+            poll_ready(session.reapply_effective_configuration()).unwrap()
         };
         let warnings_for = |diagnostics: &VersionedDiagnostics, path: &std::path::Path| {
             diagnostics
@@ -3087,7 +3074,7 @@ mod tests {
         let warnings = warnings_for(&diagnostics, &inner);
         assert_eq!(warnings.len(), 2);
         assert!(warnings.iter().all(|warning| warning.message.contains("project file")));
-        let diagnostics = spin_on::spin_on(session.update_project_file_contents(
+        let diagnostics = poll_ready(session.update_project_file_contents(
             SourcePath::new(&inner),
             std::fs::read(&inner).unwrap(),
             None,
@@ -3115,7 +3102,7 @@ mod tests {
         assert_eq!(warnings.len(), 1, "{warnings:?}");
         assert!(warnings[0].message.contains(&format!("project file {}", outer.display())));
         let diagnostics =
-            spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+            poll_ready(session.set_workspace_config_overrides(SessionConfigOverrides {
                 compiler: Overrides { project: ProjectFileData::default(), ..Default::default() },
                 ..Default::default()
             }))
@@ -3140,7 +3127,7 @@ mod tests {
         session.workspace_config_overrides.compiler.project.library_paths = Some(HashMap::new());
         let diagnostics = recompute(&mut session);
         assert_eq!(warnings_for(&diagnostics, &inner).len(), 1);
-        let diagnostics = spin_on::spin_on(session.load_document(
+        let diagnostics = poll_ready(session.load_document(
             std::fs::read_to_string(&document).unwrap(),
             Url::from_file_path(&document).unwrap(),
             Some(1),
@@ -3150,7 +3137,7 @@ mod tests {
             [&outer, &inner].iter().any(|path| url == &Url::from_file_path(path).unwrap())
         }));
         std::fs::write(&inner, "invalid").unwrap();
-        let diagnostics = spin_on::spin_on(
+        let diagnostics = poll_ready(
             session.reload_active_project_file(SourcePath::new(&inner), FileChangeKind::Changed),
         )
         .unwrap();
@@ -3159,7 +3146,7 @@ mod tests {
             Some(lsp_types::DiagnosticSeverity::ERROR)
         );
         let diagnostics =
-            spin_on::spin_on(session.trigger_file_watcher(
+            poll_ready(session.trigger_file_watcher(
                 Url::from_file_path(&inner).unwrap(),
                 FileChangeKind::Deleted,
             ))
@@ -3167,7 +3154,7 @@ mod tests {
         assert!(warnings_for(&diagnostics, &inner).is_empty());
         session.set_startup_config_overrides(Default::default());
         let diagnostics =
-            spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
+            poll_ready(session.set_workspace_config_overrides(Default::default())).unwrap();
         assert!(warnings_for(&diagnostics, &outer).is_empty());
     }
 
@@ -3219,7 +3206,7 @@ mod tests {
             ),
             (Vec::new(), HashMap::new()),
         ] {
-            spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+            poll_ready(session.set_workspace_config_overrides(SessionConfigOverrides {
                 compiler: Overrides {
                     project: ProjectFileData {
                         include_paths: Some(paths.clone()),
@@ -3260,7 +3247,7 @@ mod tests {
                     .is_empty()
             );
         }
-        spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
+        poll_ready(session.set_workspace_config_overrides(Default::default())).unwrap();
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.include_paths,
             with_project_paths(&startup_paths)
@@ -3284,7 +3271,7 @@ mod tests {
             ExperimentalFeatures::all()
         );
         session.set_startup_config_overrides(Default::default());
-        spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
+        poll_ready(session.set_workspace_config_overrides(Default::default())).unwrap();
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.include_paths,
             project_paths
@@ -3397,7 +3384,7 @@ mod tests {
 
         for path in &project_paths {
             std::fs::write(path, "{").unwrap();
-            spin_on::spin_on(
+            poll_ready(
                 session.reload_active_project_file(SourcePath::new(path), FileChangeKind::Changed),
             )
             .unwrap();
@@ -3416,7 +3403,7 @@ mod tests {
                 format!(r#"{{ "edition": "1.20", "include-paths": ["{include_path}"] }}"#),
             )
             .unwrap();
-            spin_on::spin_on(
+            poll_ready(
                 session.reload_active_project_file(SourcePath::new(path), FileChangeKind::Changed),
             )
             .unwrap();
@@ -3473,9 +3460,9 @@ mod tests {
         for reload in [false, true] {
             let mut session = session();
             let diagnostics = if reload {
-                spin_on::spin_on(session.reload_document(document_url.clone()))
+                poll_ready(session.reload_document(document_url.clone()))
             } else {
-                spin_on::spin_on(session.load_document(
+                poll_ready(session.load_document(
                     std::fs::read_to_string(&document_path).unwrap(),
                     document_url.clone(),
                     None,
@@ -3515,10 +3502,8 @@ mod tests {
         let project_url = Url::from_file_path(&project_path).unwrap();
 
         std::fs::write(&project_path, "{").unwrap();
-        spin_on::spin_on(
-            session.trigger_file_watcher(project_url.clone(), FileChangeKind::Changed),
-        )
-        .unwrap();
+        poll_ready(session.trigger_file_watcher(project_url.clone(), FileChangeKind::Changed))
+            .unwrap();
 
         assert!(
             session
@@ -3536,8 +3521,7 @@ mod tests {
 
         std::fs::write(&project_path, r#"{ "edition": "1.20", "include-paths": ["second"] }"#)
             .unwrap();
-        spin_on::spin_on(session.trigger_file_watcher(project_url, FileChangeKind::Changed))
-            .unwrap();
+        poll_ready(session.trigger_file_watcher(project_url, FileChangeKind::Changed)).unwrap();
 
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.include_paths,
@@ -3557,10 +3541,8 @@ mod tests {
             assert!(session.active_project_file_paths().next().is_none());
             let path = directory.path().join(FILE_NAME);
             std::fs::write(&path, r#"{"edition":"1.20","include-paths":["created"]}"#).unwrap();
-            spin_on::spin_on(
-                session.trigger_file_watcher(Url::from_file_path(&path).unwrap(), change),
-            )
-            .unwrap();
+            poll_ready(session.trigger_file_watcher(Url::from_file_path(&path).unwrap(), change))
+                .unwrap();
             assert_eq!(
                 session.active_project_file_paths().collect::<Vec<_>>(),
                 [&SourcePath::new(&path)]
@@ -3587,10 +3569,9 @@ mod tests {
         let project_url = Url::from_file_path(&project_path).unwrap();
 
         std::fs::remove_file(&project_path).unwrap();
-        let diagnostics = spin_on::spin_on(
-            session.trigger_file_watcher(project_url.clone(), FileChangeKind::Deleted),
-        )
-        .unwrap();
+        let diagnostics =
+            poll_ready(session.trigger_file_watcher(project_url.clone(), FileChangeKind::Deleted))
+                .unwrap();
         assert!(
             diagnostics.iter().any(|(url, _, warnings)| url == &project_url && warnings.is_empty())
         );
@@ -3608,10 +3589,8 @@ mod tests {
 
         std::fs::write(&project_path, r#"{ "edition": "1.20", "include-paths": ["second"] }"#)
             .unwrap();
-        spin_on::spin_on(
-            session.trigger_file_watcher(project_url.clone(), FileChangeKind::Created),
-        )
-        .unwrap();
+        poll_ready(session.trigger_file_watcher(project_url.clone(), FileChangeKind::Created))
+            .unwrap();
 
         assert_eq!(
             session.active_project_file_paths().collect::<Vec<_>>(),
@@ -3623,7 +3602,7 @@ mod tests {
         );
 
         std::fs::remove_file(&project_path).unwrap();
-        let diagnostics = spin_on::spin_on(session.reload_document(project_url.clone())).unwrap();
+        let diagnostics = poll_ready(session.reload_document(project_url.clone())).unwrap();
         assert!(
             diagnostics.iter().any(|(url, _, errors)| url == &project_url && !errors.is_empty())
         );

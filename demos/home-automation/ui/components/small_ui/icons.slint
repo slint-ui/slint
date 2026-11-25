@@ -1,0 +1,127 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { LightsTheme } from "lightsTheme.slint";
+
+export enum NavIconKind {
+    bulb,
+    shield,
+    climate,
+}
+
+export component BulbIcon inherits Rectangle {
+    in property <color> icon-color: LightsTheme.white;
+
+    Image {
+        x: 2px;
+        y: 2px;
+        width: 60px;
+        height: 60px;
+        source: @image-url("../../images/primer-icons/light-bulb.svg");
+        colorize: root.icon-color;
+    }
+}
+
+export component ShieldIcon inherits Rectangle {
+    in property <color> icon-color: LightsTheme.muted-text;
+
+    Image {
+        x: 3px;
+        y: 3px;
+        width: 60px;
+        height: 60px;
+        source: @image-url("../../images/primer-icons/shield-check-sm.svg");
+        colorize: root.icon-color;
+    }
+}
+
+export component ClimateIcon inherits Rectangle {
+    in property <color> icon-color: LightsTheme.muted-text;
+
+    Image {
+        x: 2px;
+        y: 1px;
+        width: 62px;
+        height: 62px;
+        source: @image-url("../../images/primer-icons/meter-sm.svg");
+        colorize: root.icon-color;
+    }
+}
+
+export component ChevronIcon inherits Rectangle {
+    in property <color> icon-color: LightsTheme.muted-text;
+
+    Image {
+        x: -14px;
+        y: -5px;
+        width: 58px;
+        height: 52px;
+        source: @image-url("../../images/primer-icons/chevron-right.svg");
+        colorize: root.icon-color;
+    }
+}
+
+export component NavIconButton inherits Rectangle {
+    in property <NavIconKind> kind: NavIconKind.bulb;
+    in property <bool> selected: false;
+    callback clicked;
+
+    property <color> icon-color: selected ? LightsTheme.white : LightsTheme.muted-text;
+
+    height: 138px;
+    border-radius: 13px;
+    background: selected ? LightsTheme.selected-nav-background : transparent;
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: selected ? 5px : 0px;
+        height: 137px;
+        border-radius: 3px;
+        background: LightsTheme.purple;
+        drop-shadow-blur: selected ? 12px : 0px;
+        drop-shadow-color: LightsTheme.purple-glow;
+    }
+
+    if root.kind == NavIconKind.bulb : BulbIcon {
+        x: 21px;
+        y: 31px;
+        width: 64px;
+        height: 82px;
+        icon-color: root.icon-color;
+    }
+
+    if root.kind == NavIconKind.shield : ShieldIcon {
+        x: 17px;
+        y: 29px;
+        width: 70px;
+        height: 74px;
+        icon-color: root.icon-color;
+    }
+
+    if root.kind == NavIconKind.climate : ClimateIcon {
+        x: 20px;
+        y: 39px;
+        width: 64px;
+        height: 56px;
+        icon-color: root.icon-color;
+    }
+
+    Rectangle {
+        x: 47px;
+        y: 105px;
+        width: root.selected ? 10px : 0px;
+        height: self.width;
+        border-radius: self.width / 2;
+        background: LightsTheme.purple;
+    }
+
+    TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}

@@ -26,7 +26,9 @@ fn reuse_window() {
     let handle = {
         let mut compiler = Compiler::default();
         compiler.set_style("fluent".into());
-        let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+        let result = i_slint_compiler::poll_ready(
+            compiler.build_from_source(code.into(), Default::default()),
+        );
         assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
         let definition = result.component("MainWindow").unwrap();
         let instance = definition.create().unwrap();
@@ -40,7 +42,9 @@ fn reuse_window() {
     let _handle2 = {
         let mut compiler = Compiler::default();
         compiler.set_style("fluent".into());
-        let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+        let result = i_slint_compiler::poll_ready(
+            compiler.build_from_source(code.into(), Default::default()),
+        );
         assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
         let definition = result.component("MainWindow").unwrap();
         let instance = definition.create_with_existing_window(handle.window()).unwrap();
@@ -90,7 +94,8 @@ export component Clock {
 }
     "#;
     let compiler = Compiler::default();
-    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    let result =
+        i_slint_compiler::poll_ready(compiler.build_from_source(code.into(), Default::default()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let definition = result.component("Clock").unwrap();
     let instance = definition.create().unwrap();
@@ -133,7 +138,7 @@ fn llr_compile(code: &str, name: &str) -> crate::component::ComponentInstanceInn
     let config = i_slint_compiler::CompilerConfiguration::new(
         i_slint_compiler::generator::OutputFormat::Interpreter,
     );
-    let result = spin_on::spin_on(crate::component::build_from_source(
+    let result = i_slint_compiler::poll_ready(crate::component::build_from_source(
         code.into(),
         Default::default(),
         config,
@@ -160,7 +165,7 @@ fn llr_compile(code: &str, name: &str) -> crate::component::ComponentInstanceInn
 fn compile_motion_test(code: &str, static_preview: bool) -> crate::ComponentInstance {
     let compiler = crate::Compiler::default();
     let result = if static_preview {
-        spin_on::spin_on(compiler.build(
+        i_slint_compiler::poll_ready(compiler.build(
             Some(code.into()),
             SourcePath::new("test.slint"),
             crate::component::AnimationMode::Static,
@@ -169,7 +174,7 @@ fn compile_motion_test(code: &str, static_preview: bool) -> crate::ComponentInst
         ))
         .0
     } else {
-        spin_on::spin_on(
+        i_slint_compiler::poll_ready(
             compiler.build_from_source(code.into(), std::path::PathBuf::from("test.slint")),
         )
     };
@@ -512,7 +517,7 @@ fn interpreter_path_elements() {
     let config = i_slint_compiler::CompilerConfiguration::new(
         i_slint_compiler::generator::OutputFormat::Interpreter,
     );
-    let result = spin_on::spin_on(crate::component::build_from_source(
+    let result = i_slint_compiler::poll_ready(crate::component::build_from_source(
         code.into(),
         Default::default(),
         config,
@@ -569,7 +574,8 @@ fn context_debug_handler_overrides_platform() {
     "#;
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    let result =
+        i_slint_compiler::poll_ready(compiler.build_from_source(code.into(), Default::default()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let definition = result.component("MainWindow").unwrap();
     let instance = definition.create().unwrap();
@@ -609,7 +615,7 @@ export component MainWindow inherits Window {
 "#;
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let result = spin_on::spin_on(
+    let result = i_slint_compiler::poll_ready(
         compiler.build_from_source(code.into(), std::path::PathBuf::from("test.slint")),
     );
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
@@ -652,7 +658,7 @@ export component MainWindow inherits Window {
 "#;
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let result = spin_on::spin_on(
+    let result = i_slint_compiler::poll_ready(
         compiler.build_from_source(code.into(), std::path::PathBuf::from("test.slint")),
     );
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
@@ -687,7 +693,8 @@ fn platform_debug_handler_is_fallback() {
     "#;
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    let result =
+        i_slint_compiler::poll_ready(compiler.build_from_source(code.into(), Default::default()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let definition = result.component("MainWindow").unwrap();
     let instance = definition.create().unwrap();
@@ -728,7 +735,8 @@ fn global_debug_messages_use_context_handler() {
     "#;
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    let result =
+        i_slint_compiler::poll_ready(compiler.build_from_source(code.into(), Default::default()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let definition = result.component("MainWindow").unwrap();
     let instance = definition.create().unwrap();
@@ -787,7 +795,8 @@ export component TestCase {
 }
     "#;
     let compiler = Compiler::default();
-    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    let result =
+        i_slint_compiler::poll_ready(compiler.build_from_source(code.into(), Default::default()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let definition = result.component("TestCase").unwrap();
     let instance = definition.create().unwrap();
@@ -824,7 +833,8 @@ fn accent_color_reachable_from_global() {
     "#;
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    let result =
+        i_slint_compiler::poll_ready(compiler.build_from_source(code.into(), Default::default()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let instance = result.component("App").unwrap().create().unwrap();
 
@@ -867,7 +877,8 @@ fn text_runs_belong_to_the_nearest_accessible_item() {
     "#;
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    let result =
+        i_slint_compiler::poll_ready(compiler.build_from_source(code.into(), Default::default()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let instance = result.component("App").unwrap().create().unwrap();
     instance.show().unwrap();
@@ -922,7 +933,9 @@ fn compilation_result_moves_to_the_instantiating_thread() {
     // The compiler is not Send either, so the worker builds its own.
     let (sent, storage_on_the_worker) = std::thread::spawn(move || {
         let compiler = Compiler::default();
-        let result = poll_ready(compiler.build_from_source(code.into(), Default::default()));
+        let result = i_slint_compiler::poll_ready(
+            compiler.build_from_source(code.into(), Default::default()),
+        );
         let storage = unit_storage(&result);
         (result.into_send(), storage)
     })
@@ -959,7 +972,7 @@ fn every_component_survives_the_round_trip() {
     use crate::{CompilationResult, Compiler, Value};
 
     let compiler = Compiler::default();
-    let result = poll_ready(
+    let result = i_slint_compiler::poll_ready(
         compiler.build_from_source(
             r#"
             export component First inherits Window { out property <int> v: 1; }
@@ -994,7 +1007,7 @@ fn a_failed_compilation_survives_the_round_trip() {
     use crate::{CompilationResult, Compiler};
 
     let compiler = Compiler::default();
-    let result = poll_ready(
+    let result = i_slint_compiler::poll_ready(
         compiler
             .build_from_source("export component App inherits { oops".into(), Default::default()),
     );
@@ -1016,7 +1029,7 @@ fn a_definition_kept_alive_across_into_send_still_works() {
     use crate::{CompilationResult, Compiler, Value};
 
     let compiler = Compiler::default();
-    let result = poll_ready(compiler.build_from_source(
+    let result = i_slint_compiler::poll_ready(compiler.build_from_source(
         "export component App inherits Window { in-out property <int> v: 7; }".into(),
         Default::default(),
     ));
@@ -1039,17 +1052,6 @@ fn a_definition_kept_alive_across_into_send_still_works() {
     assert_eq!(from_sent.get_property("v").unwrap(), Value::Number(2.));
 }
 
-/// Poll a future that is expected to be immediately ready. The compiler is only
-/// asynchronous when an async file loader is set, which these tests don't use.
-fn poll_ready<F: core::future::Future>(future: F) -> F::Output {
-    let mut future = core::pin::pin!(future);
-    let mut cx = core::task::Context::from_waker(core::task::Waker::noop());
-    match core::future::Future::poll(future.as_mut(), &mut cx) {
-        core::task::Poll::Ready(result) => result,
-        core::task::Poll::Pending => unreachable!("Compiler returned Pending"),
-    }
-}
-
 #[test]
 #[cfg(feature = "internal")]
 fn system_tray_uses_its_context() {
@@ -1068,7 +1070,8 @@ fn system_tray_uses_its_context() {
     "#;
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    let result =
+        i_slint_compiler::poll_ready(compiler.build_from_source(code.into(), Default::default()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let definition = result.component("TestCase").unwrap();
     let backend = i_slint_backend_testing::TestingBackend::new(Default::default());
@@ -1111,7 +1114,7 @@ fn hooks_see_the_windows_of_a_sibling_context() {
     let events_ = events.clone();
     set_window_event_hook(Some(Box::new(move |_, _, _| events_.set(events_.get() + 1)))).unwrap();
 
-    let result = spin_on::spin_on(crate::Compiler::default().build_from_source(
+    let result = i_slint_compiler::poll_ready(crate::Compiler::default().build_from_source(
         "export component TestCase inherits Window {}".into(),
         Default::default(),
     ));
@@ -1161,7 +1164,7 @@ fn a_window_shown_twice_keeps_the_event_loop_alive_once() {
         i_slint_backend_testing::TestingBackend::new(Default::default()),
         quits.clone(),
     )));
-    let result = spin_on::spin_on(crate::Compiler::default().build_from_source(
+    let result = i_slint_compiler::poll_ready(crate::Compiler::default().build_from_source(
         "export component TestCase inherits Window {}".into(),
         Default::default(),
     ));
@@ -1180,7 +1183,9 @@ fn diagnostic_source_file_and_url() {
     let compiler = crate::Compiler::default();
     let code = "export component App { property <int> p: unknown; }";
 
-    let result = poll_ready(compiler.build_from_source(code.into(), "ui/app.slint".into()));
+    let result = i_slint_compiler::poll_ready(
+        compiler.build_from_source(code.into(), "ui/app.slint".into()),
+    );
     let diag = result
         .diagnostics()
         .find(|d| d.level() == crate::DiagnosticLevel::Error)
@@ -1189,8 +1194,9 @@ fn diagnostic_source_file_and_url() {
     let url = diag.source_url().unwrap();
     assert!(url.starts_with("file:///") && url.ends_with("/ui/app.slint"), "{url}");
 
-    let result =
-        poll_ready(compiler.build_from_source(code.into(), "https://example.com/app.slint".into()));
+    let result = i_slint_compiler::poll_ready(
+        compiler.build_from_source(code.into(), "https://example.com/app.slint".into()),
+    );
     let diag = result
         .diagnostics()
         .find(|d| d.level() == crate::DiagnosticLevel::Error)
@@ -1242,7 +1248,7 @@ export component Label inherits Text { }
         i_slint_core::InternalToken,
     );
 
-    let result = spin_on::spin_on(
+    let result = i_slint_compiler::poll_ready(
         compiler.build_from_source(
             r#"
 import "fonts/Main.ttf";
@@ -1286,4 +1292,58 @@ export component App inherits Window { Label { font-family: "01 Digitall"; } }
             .family_by_name("01 Digitall")
             .is_some()
     );
+}
+
+#[test]
+#[cfg(feature = "internal")]
+fn change_handlers_run_on_their_context() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, Value};
+
+    let code = r#"
+        global Glob {
+            in-out property <int> value: 1;
+            out property <int> changes;
+            changed value => { changes += 1; }
+        }
+        export component TestCase inherits Window {
+            in property <int> value: 1;
+            out property <int> changes;
+            changed value => { changes += 1; }
+            in-out property <int> global-value <=> Glob.value;
+            out property <int> global-changes: Glob.changes;
+        }
+    "#;
+    let result = i_slint_compiler::poll_ready(
+        Compiler::default().build_from_source(code.into(), Default::default()),
+    );
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let new_context = || {
+        i_slint_core::SlintContext::new(Box::new(i_slint_backend_testing::TestingBackend::new(
+            Default::default(),
+        )))
+    };
+    // The handlers must not run on the current context, so `ctx` must be another one.
+    let current = i_slint_core::SlintContext::current().unwrap_or_else(new_context);
+    let ctx = new_context();
+    let instance = definition.create_with_context(ctx.clone()).unwrap();
+
+    instance.set_property("value", Value::from(5)).unwrap();
+    instance.set_property("global-value", Value::from(5)).unwrap();
+    current.run_change_handlers();
+    assert_eq!(instance.get_property("changes").unwrap(), Value::from(0));
+    assert_eq!(instance.get_property("global-changes").unwrap(), Value::from(0));
+
+    ctx.update_timers_and_animations();
+    assert_eq!(instance.get_property("changes").unwrap(), Value::from(1));
+    assert_eq!(instance.get_property("global-changes").unwrap(), Value::from(1));
+
+    // Driving a context also runs the handlers of the contexts sharing its platform.
+    let sibling = definition.create_with_context(ctx.new_sharing_platform()).unwrap();
+    sibling.set_property("value", Value::from(5)).unwrap();
+    sibling.set_property("global-value", Value::from(5)).unwrap();
+    ctx.update_timers_and_animations();
+    assert_eq!(sibling.get_property("changes").unwrap(), Value::from(1));
+    assert_eq!(sibling.get_property("global-changes").unwrap(), Value::from(1));
 }

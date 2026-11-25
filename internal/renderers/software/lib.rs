@@ -24,6 +24,8 @@ mod minimal_software_window;
 #[cfg(feature = "path")]
 mod path;
 mod scene;
+mod simd;
+mod target_pixel;
 
 pub use self::api::*;
 use self::box_shadow::{BoxShadowCommand, process_drop_shadow};
@@ -2399,7 +2401,7 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
         enum Pixels {
             Static(&'static [u8]),
             #[cfg(feature = "owned-pre-rendered-resources")]
-            Owned(Rc<StaticTextures<OwnedStorage>>),
+            Owned(alloc::sync::Arc<StaticTextures<OwnedStorage>>),
         }
         let mut draw_textures = |pixels: Pixels,
                                  textures: &[StaticTexture],
@@ -2538,13 +2540,12 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
                 };
 
                 let orig = image_inner.size().cast::<f32>();
-                let svg_target_size = if tiled.is_some() {
-                    euclid::size2(orig.width * source_to_target_x, orig.height * source_to_target_y)
-                        .round()
-                        .cast()
-                } else {
-                    target_rect.size.cast()
-                };
+                let svg_target_size = euclid::size2(
+                    orig.width * source_to_target_x,
+                    orig.height * source_to_target_y,
+                )
+                .round()
+                .cast();
                 if let Some(buffer) = image_inner.render_to_buffer(Some(svg_target_size)) {
                     let buf_size = buffer.size().cast::<f32>();
 
@@ -2591,8 +2592,6 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
                         RasterCommand::TargetTexture { texture: t, clip: clipped_target.cast() },
                         &self.rounded_clips,
                     );
-                } else {
-                    unimplemented!("The image cannot be rendered")
                 }
             }
         };
@@ -3676,6 +3675,7 @@ impl<T: RasterCommandSink> sharedparley::GlyphRenderer for SoftwareItemRenderer<
         synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
+        _baseline: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
         let slint_context = self.window.context();

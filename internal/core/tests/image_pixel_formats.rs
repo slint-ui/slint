@@ -136,8 +136,9 @@ fn alpha_map_renders_in_its_color_or_the_colorize_color(
             index: 0,
         }],
     };
-    let image =
-        slint::Image::from(i_slint_core::graphics::ImageInner::OwnedTextures(Rc::new(textures)));
+    let image = slint::Image::from(i_slint_core::graphics::ImageInner::OwnedTextures(
+        std::sync::Arc::new(textures),
+    ));
     let rgba = image.to_rgba8().unwrap();
     let premultiplied = image.to_rgba8_premultiplied().unwrap();
     for (i, (p, pm)) in rgba.as_slice().iter().zip(premultiplied.as_slice()).enumerate() {

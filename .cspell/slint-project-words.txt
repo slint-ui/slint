@@ -255,6 +255,7 @@ fooo
 FOURCC
 fract
 framebuffers
+frdm
 freetype
 frontends
 frontmatter
@@ -421,6 +422,7 @@ maturin
 mcp
 mcus
 MCUX
+mcxn
 mdbook
 memsize
 menuconfig
@@ -482,6 +484,7 @@ NUMS
 Nunito
 NVIC
 nvim
+nxpdebugmbox
 O_WRONLY
 objc
 objfile
@@ -537,11 +540,13 @@ pyfunction
 pymethods
 pymodule
 pyobject
+pyocd
 pypi
 pypiserver
 pyproject
 pystruct
 pytest
+qreal
 qskinny
 qtbase
 qtsvg

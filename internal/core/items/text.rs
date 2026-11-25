@@ -1081,7 +1081,7 @@ impl PreEditSelection {
     }
 }
 
-#[repr(C)]
+#[repr(u8)]
 #[derive(Clone)]
 enum UndoItemKind {
     TextInsert,
@@ -1159,6 +1159,7 @@ impl Item for TextInput {
         // Seed the mirror so the change handler doesn't treat the initial text as external.
         self.internal_text.set(self.text());
         self.text_change_tracker.init_delayed(
+            self_rc.slint_context().change_handler_queue(),
             self_rc.downgrade(),
             |self_weak| {
                 self_weak
@@ -1777,7 +1778,7 @@ impl core::convert::TryFrom<char> for TextCursorDirection {
 
 /// Which visual position a cursor byte offset means when it sits at a soft line break: the same
 /// offset is both the end of the wrapped line and the start of the following one.
-#[repr(C)]
+#[repr(u8)]
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub enum TextCursorAffinity {
     /// The start of the line after the break. Produced by typing and horizontal movement.

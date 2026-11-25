@@ -179,7 +179,6 @@ fn lat() -> f32 {
         return lat.parse().unwrap_or_default();
     }
 
-    #[cfg(not(feature = "mcu-board-support"))]
     if let Some(lat) = std::env::var_os(WEATHER_LAT_KEY)
         && let Some(lat) = lat.to_str()
     {
@@ -194,7 +193,6 @@ fn long() -> f32 {
         return lat.parse().unwrap_or_default();
     }
 
-    #[cfg(not(feature = "mcu-board-support"))]
     if let Some(lat) = std::env::var_os(WEATHER_LONG_KEY)
         && let Some(lat) = lat.to_str()
     {
