@@ -1,0 +1,461 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A z set on the root element of a component works like a z set where the component is used.
+
+// A constant z
+component Raised inherits TouchArea {
+    callback hit();
+    z: 5;
+    clicked => { hit(); }
+}
+
+// A dynamic z
+component Lifted inherits TouchArea {
+    in property <bool> up;
+    callback hit();
+    z: up ? 10 : 0;
+    clicked => { hit(); }
+}
+
+// A z that depends on the instance, for `for`
+component Card inherits TouchArea {
+    in property <int> id;
+    in property <int> top;
+    callback hit(int);
+    z: id == top ? 10 : 0;
+    clicked => { hit(id); }
+}
+
+// A component that inherits its z from its base
+component DeepRaised inherits Raised { }
+
+// A z linked to a property that the instance sets
+component Linked inherits TouchArea {
+    in-out property <float> elevation <=> root.z;
+    callback hit();
+    z: 5;
+    clicked => { hit(); }
+}
+
+// A z assigned at runtime: a click lowers the element below its sibling
+component Lowering inherits TouchArea {
+    callback hit();
+    z: 5;
+    clicked => {
+        hit();
+        root.z = -1;
+    }
+}
+
+// A z that is only assigned at runtime, without a binding
+component Raising inherits TouchArea {
+    callback hit();
+    public function raise() {
+        root.z = 10;
+    }
+    clicked => { hit(); }
+}
+
+export component TestCase inherits Rectangle {
+    width: 1200phx;
+    height: 100phx;
+
+    in-out property <int> clicked-value;
+    in-out property <bool> front: false;
+    in-out property <int> top-layer: 0;
+    in-out property <float> elevation: 1;
+
+    public function raise() {
+        raising.raise();
+    }
+
+    // --- Section 1: `for` instances with a dynamic z in the definition (x: 0..100) ---
+    Rectangle {
+        x: 0phx; width: 100phx; height: 100phx;
+
+        for i in 3 : Card {
+            id: i;
+            top: root.top-layer;
+            hit(v) => { clicked-value = 10 + v; }
+        }
+    }
+
+    // --- Section 2: a constant z in the definition (x: 100..200) ---
+    Rectangle {
+        x: 100phx; width: 100phx; height: 100phx;
+
+        Raised {
+            hit => { clicked-value = 20; }
+        }
+        TouchArea {
+            clicked => { clicked-value = 21; }
+        }
+    }
+
+    // --- Section 3: a dynamic z in the definition (x: 200..300) ---
+    Rectangle {
+        x: 200phx; width: 100phx; height: 100phx;
+
+        Lifted {
+            up: root.front;
+            hit => { clicked-value = 30; }
+        }
+        TouchArea {
+            z: 5;
+            clicked => { clicked-value = 31; }
+        }
+    }
+
+    // --- Section 4: the z where the component is used wins (x: 300..400) ---
+    Rectangle {
+        x: 300phx; width: 100phx; height: 100phx;
+
+        Raised {
+            z: -1;
+            hit => { clicked-value = 40; }
+        }
+        TouchArea {
+            clicked => { clicked-value = 41; }
+        }
+        Lifted {
+            up: true;
+            z: root.front ? 1 : -1;
+            hit => { clicked-value = 42; }
+        }
+    }
+
+    // --- Section 5: a z inherited from the base of a component (x: 400..500) ---
+    Rectangle {
+        x: 400phx; width: 100phx; height: 100phx;
+
+        DeepRaised {
+            hit => { clicked-value = 50; }
+        }
+        TouchArea {
+            z: 3;
+            clicked => { clicked-value = 51; }
+        }
+    }
+
+    // --- Section 6: `for` instances with a constant z in the definition: they
+    // share that z and stay together (x: 500..600) ---
+    Rectangle {
+        x: 500phx; width: 100phx; height: 100phx;
+
+        for i in 2 : Raised {
+            hit => { clicked-value = 60 + i; }
+        }
+        TouchArea {
+            z: 3;
+            clicked => { clicked-value = 69; }
+        }
+    }
+
+    // --- Section 7: `if` with a dynamic z in the definition (x: 600..700) ---
+    Rectangle {
+        x: 600phx; width: 100phx; height: 100phx;
+
+        if root.top-layer != 9 : Lifted {
+            up: root.front;
+            hit => { clicked-value = 70; }
+        }
+        TouchArea {
+            z: 5;
+            clicked => { clicked-value = 71; }
+        }
+    }
+
+    // --- Section 8: a z linked to a property of the instance (x: 700..800) ---
+    Rectangle {
+        x: 700phx; width: 100phx; height: 100phx;
+
+        Linked {
+            elevation: root.elevation;
+            hit => { clicked-value = 80; }
+        }
+        TouchArea {
+            z: 3;
+            clicked => { clicked-value = 81; }
+        }
+    }
+
+    // --- Section 9: `for` instances with a z linked to a property (x: 800..900) ---
+    Rectangle {
+        x: 800phx; width: 100phx; height: 100phx;
+
+        for i in 1 : Linked {
+            elevation: root.elevation;
+            hit => { clicked-value = 90; }
+        }
+        TouchArea {
+            z: 3;
+            clicked => { clicked-value = 91; }
+        }
+    }
+
+    // --- Section 10: a z assigned at runtime (x: 900..1000) ---
+    Rectangle {
+        x: 900phx; width: 100phx; height: 100phx;
+
+        Lowering {
+            hit => { clicked-value = 100; }
+        }
+        TouchArea {
+            clicked => { clicked-value = 101; }
+        }
+    }
+
+    // --- Section 11: `for` instances with a z assigned at runtime (x: 1000..1100) ---
+    Rectangle {
+        x: 1000phx; width: 100phx; height: 100phx;
+
+        for i in 1 : Lowering {
+            hit => { clicked-value = 110; }
+        }
+        TouchArea {
+            z: 3;
+            clicked => { clicked-value = 111; }
+        }
+    }
+
+    // --- Section 12: a z only assigned at runtime (x: 1100..1200) ---
+    Rectangle {
+        x: 1100phx; width: 100phx; height: 100phx;
+
+        raising := Raising {
+            hit => { clicked-value = 120; }
+        }
+        TouchArea {
+            clicked => { clicked-value = 121; }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+// Section 1: the instance whose id is top-layer is on top
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_clicked_value(), 10);
+instance.set_top_layer(1);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_clicked_value(), 11);
+instance.set_top_layer(2);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_clicked_value(), 12);
+instance.set_top_layer(0);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_clicked_value(), 10);
+
+// Section 2: z 5 from the definition is above the later sibling
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq!(instance.get_clicked_value(), 20);
+
+// Section 3: the definition's z follows `up`
+slint_testing::send_mouse_click(&instance, 250., 50.);
+assert_eq!(instance.get_clicked_value(), 31);
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 250., 50.);
+assert_eq!(instance.get_clicked_value(), 30);
+
+// Section 4: the z set at the use site overrides the definition's
+slint_testing::send_mouse_click(&instance, 350., 50.);
+assert_eq!(instance.get_clicked_value(), 42);
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 350., 50.);
+assert_eq!(instance.get_clicked_value(), 41);
+
+// Section 5
+slint_testing::send_mouse_click(&instance, 450., 50.);
+assert_eq!(instance.get_clicked_value(), 50);
+
+// Section 6: the last instance of the repeater is on top
+slint_testing::send_mouse_click(&instance, 550., 50.);
+assert_eq!(instance.get_clicked_value(), 61);
+
+// Section 7
+slint_testing::send_mouse_click(&instance, 650., 50.);
+assert_eq!(instance.get_clicked_value(), 71);
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 650., 50.);
+assert_eq!(instance.get_clicked_value(), 70);
+
+// Section 8: the instance's elevation of 1 is its z, below the sibling's 3
+slint_testing::send_mouse_click(&instance, 750., 50.);
+assert_eq!(instance.get_clicked_value(), 81);
+instance.set_elevation(4.);
+slint_testing::send_mouse_click(&instance, 750., 50.);
+assert_eq!(instance.get_clicked_value(), 80);
+
+// Section 9
+slint_testing::send_mouse_click(&instance, 850., 50.);
+assert_eq!(instance.get_clicked_value(), 90);
+instance.set_elevation(1.);
+slint_testing::send_mouse_click(&instance, 850., 50.);
+assert_eq!(instance.get_clicked_value(), 91);
+
+// Section 10: the first click lowers the element below its sibling
+slint_testing::send_mouse_click(&instance, 950., 50.);
+assert_eq!(instance.get_clicked_value(), 100);
+slint_testing::send_mouse_click(&instance, 950., 50.);
+assert_eq!(instance.get_clicked_value(), 101);
+
+// Section 11
+slint_testing::send_mouse_click(&instance, 1050., 50.);
+assert_eq!(instance.get_clicked_value(), 110);
+slint_testing::send_mouse_click(&instance, 1050., 50.);
+assert_eq!(instance.get_clicked_value(), 111);
+
+// Section 12: the later sibling is on top until raise() sets a z
+slint_testing::send_mouse_click(&instance, 1150., 50.);
+assert_eq!(instance.get_clicked_value(), 121);
+instance.invoke_raise();
+slint_testing::send_mouse_click(&instance, 1150., 50.);
+assert_eq!(instance.get_clicked_value(), 120);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_clicked_value(), 10);
+instance.set_top_layer(1);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_clicked_value(), 11);
+instance.set_top_layer(2);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_clicked_value(), 12);
+instance.set_top_layer(0);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_clicked_value(), 10);
+
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq(instance.get_clicked_value(), 20);
+
+slint_testing::send_mouse_click(&instance, 250., 50.);
+assert_eq(instance.get_clicked_value(), 31);
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 250., 50.);
+assert_eq(instance.get_clicked_value(), 30);
+
+slint_testing::send_mouse_click(&instance, 350., 50.);
+assert_eq(instance.get_clicked_value(), 42);
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 350., 50.);
+assert_eq(instance.get_clicked_value(), 41);
+
+slint_testing::send_mouse_click(&instance, 450., 50.);
+assert_eq(instance.get_clicked_value(), 50);
+
+slint_testing::send_mouse_click(&instance, 550., 50.);
+assert_eq(instance.get_clicked_value(), 61);
+
+slint_testing::send_mouse_click(&instance, 650., 50.);
+assert_eq(instance.get_clicked_value(), 71);
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 650., 50.);
+assert_eq(instance.get_clicked_value(), 70);
+
+slint_testing::send_mouse_click(&instance, 750., 50.);
+assert_eq(instance.get_clicked_value(), 81);
+instance.set_elevation(4.);
+slint_testing::send_mouse_click(&instance, 750., 50.);
+assert_eq(instance.get_clicked_value(), 80);
+
+slint_testing::send_mouse_click(&instance, 850., 50.);
+assert_eq(instance.get_clicked_value(), 90);
+instance.set_elevation(1.);
+slint_testing::send_mouse_click(&instance, 850., 50.);
+assert_eq(instance.get_clicked_value(), 91);
+
+slint_testing::send_mouse_click(&instance, 950., 50.);
+assert_eq(instance.get_clicked_value(), 100);
+slint_testing::send_mouse_click(&instance, 950., 50.);
+assert_eq(instance.get_clicked_value(), 101);
+
+slint_testing::send_mouse_click(&instance, 1050., 50.);
+assert_eq(instance.get_clicked_value(), 110);
+slint_testing::send_mouse_click(&instance, 1050., 50.);
+assert_eq(instance.get_clicked_value(), 111);
+
+slint_testing::send_mouse_click(&instance, 1150., 50.);
+assert_eq(instance.get_clicked_value(), 121);
+instance.invoke_raise();
+slint_testing::send_mouse_click(&instance, 1150., 50.);
+assert_eq(instance.get_clicked_value(), 120);
+```
+
+```js
+var instance = new slint.TestCase();
+
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.clicked_value, 10);
+instance.top_layer = 1;
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.clicked_value, 11);
+instance.top_layer = 2;
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.clicked_value, 12);
+instance.top_layer = 0;
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.clicked_value, 10);
+
+slintlib.private_api.send_mouse_click(instance, 150., 50.);
+assert.equal(instance.clicked_value, 20);
+
+slintlib.private_api.send_mouse_click(instance, 250., 50.);
+assert.equal(instance.clicked_value, 31);
+instance.front = true;
+slintlib.private_api.send_mouse_click(instance, 250., 50.);
+assert.equal(instance.clicked_value, 30);
+
+slintlib.private_api.send_mouse_click(instance, 350., 50.);
+assert.equal(instance.clicked_value, 42);
+instance.front = false;
+slintlib.private_api.send_mouse_click(instance, 350., 50.);
+assert.equal(instance.clicked_value, 41);
+
+slintlib.private_api.send_mouse_click(instance, 450., 50.);
+assert.equal(instance.clicked_value, 50);
+
+slintlib.private_api.send_mouse_click(instance, 550., 50.);
+assert.equal(instance.clicked_value, 61);
+
+slintlib.private_api.send_mouse_click(instance, 650., 50.);
+assert.equal(instance.clicked_value, 71);
+instance.front = true;
+slintlib.private_api.send_mouse_click(instance, 650., 50.);
+assert.equal(instance.clicked_value, 70);
+
+slintlib.private_api.send_mouse_click(instance, 750., 50.);
+assert.equal(instance.clicked_value, 81);
+instance.elevation = 4.;
+slintlib.private_api.send_mouse_click(instance, 750., 50.);
+assert.equal(instance.clicked_value, 80);
+
+slintlib.private_api.send_mouse_click(instance, 850., 50.);
+assert.equal(instance.clicked_value, 90);
+instance.elevation = 1.;
+slintlib.private_api.send_mouse_click(instance, 850., 50.);
+assert.equal(instance.clicked_value, 91);
+
+slintlib.private_api.send_mouse_click(instance, 950., 50.);
+assert.equal(instance.clicked_value, 100);
+slintlib.private_api.send_mouse_click(instance, 950., 50.);
+assert.equal(instance.clicked_value, 101);
+
+slintlib.private_api.send_mouse_click(instance, 1050., 50.);
+assert.equal(instance.clicked_value, 110);
+slintlib.private_api.send_mouse_click(instance, 1050., 50.);
+assert.equal(instance.clicked_value, 111);
+
+slintlib.private_api.send_mouse_click(instance, 1150., 50.);
+assert.equal(instance.clicked_value, 121);
+instance.raise();
+slintlib.private_api.send_mouse_click(instance, 1150., 50.);
+assert.equal(instance.clicked_value, 120);
+```
+*/
