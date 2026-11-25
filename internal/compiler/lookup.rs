@@ -418,7 +418,12 @@ impl LookupObject for IdLookup {
             None
         }
         for e in ctx.component_scope.iter().rev() {
-            if e.borrow().repeated.is_some() && let Some(r) = visit(e, f)
+            if (e.borrow().repeated.is_some()
+                || e.borrow()
+                    .slot_expansion
+                    .as_ref()
+                    .is_some_and(|expansion| expansion.projection_slot.is_some()))
+                && let Some(r) = visit(e, f)
             {
                 return Some(r);
             }
@@ -445,7 +450,7 @@ impl InScopeLookup {
         let is_legacy = ctx.is_legacy_component();
         for (idx, elem) in ctx.component_scope.iter().rev().enumerate() {
             if let Some(expansion) = &elem.borrow().slot_expansion {
-                let entry = elem.clone();
+                let entry = expansion.entry_element(elem);
                 if let Some(r) = visit_entry(
                     &expansion.entry_id,
                     Expression::ElementReference(Rc::downgrade(&entry)).into(),
