@@ -1,0 +1,102 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SpinBoxBase } from "../headless/spin_box_base.slint";
+import { Button, ButtonStyle, ButtonStyles } from "button.slint";
+import { FocusOutline } from "focus_outline.slint";
+import { LineEditStyle, LineEditStateStyle, LineEditStyles } from "line_edit.slint";
+
+export struct SpinBoxStyle {
+    field: LineEditStyle,
+    stepper: ButtonStyle,
+}
+
+export global SpinBoxStyles {
+    out property <SpinBoxStyle> standard: {
+        field: LineEditStyles.standard,
+        stepper: ButtonStyles.invisible,
+    };
+}
+
+component StepperButton inherits Button {
+    focus-on-tab-navigation: false;
+    horizontal-padding: 0px;
+    vertical-padding: 0px;
+    border-width: 0px;
+    font-weight: 600;
+}
+
+export component SpinBox inherits SpinBoxBase {
+    in property <SpinBoxStyle> style: SpinBoxStyles.standard;
+    in property <brush> background-color: root.state-style.background-color;
+    in property <length> border-width: 1px;
+    in property <length> border-radius: 4px;
+    in property <length> focus-width: 2px;
+    in property <length> focus-offset: 2px;
+    in property <length> stepper-size: 24px;
+    in property <length> stepper-spacing: 2px;
+
+    private property <LineEditStateStyle> state-style: !root.enabled ? root.style.field.disabled
+        : root.hovered ? root.style.field.hover : root.style.field.rest;
+
+    font-size: 14px;
+    horizontal-padding: 6px;
+    vertical-padding: 5px;
+    left-padding: 12px;
+    spacing: 6px;
+    preferred-width: 160px;
+    foreground-color: root.state-style.foreground-color;
+    selection-background-color: root.style.field.selection-background-color;
+    selection-foreground-color: root.style.field.selection-foreground-color;
+
+    states [
+        disabled when !root.enabled: {
+            foreground-color: root.style.field.disabled.foreground-color;
+        }
+    ]
+
+    background << Rectangle {
+        background: root.enabled ? root.background-color : root.style.field.disabled.background-color;
+        border-color: root.state-style.border-color;
+        border-width: root.border-width;
+        border-radius: root.border-radius;
+
+        FocusOutline {
+            active: root.enabled && root.has-focus;
+            outline-color: root.style.field.focus-color;
+            target-width: parent.width;
+            target-height: parent.height;
+            radius: root.border-radius;
+            line-width: root.focus-width;
+            offset: root.focus-offset;
+        }
+    }
+
+    steppers << HorizontalLayout {
+        horizontal-stretch: 0;
+        spacing: root.stepper-spacing;
+        cross-axis-alignment: center;
+
+        StepperButton {
+            text: "−";
+            accessible-label: @tr("Decrease value");
+            min-width: root.stepper-size;
+            min-height: root.stepper-size;
+            font-size: root.font-size;
+            style: root.style.stepper;
+            enabled: root.can-decrement;
+            clicked => { root.decrement(); }
+        }
+
+        StepperButton {
+            text: "+";
+            accessible-label: @tr("Increase value");
+            min-width: root.stepper-size;
+            min-height: root.stepper-size;
+            font-size: root.font-size;
+            style: root.style.stepper;
+            enabled: root.can-increment;
+            clicked => { root.increment(); }
+        }
+    }
+}
