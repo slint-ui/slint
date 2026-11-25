@@ -785,6 +785,12 @@ impl Color {
         t: f32,
         color_space: GradientColorSpace,
     ) -> Self {
+        // The round trip through a space isn't exact, and its error differs per platform.
+        if t <= 0. {
+            return self;
+        } else if t >= 1. {
+            return other;
+        }
         let from = SpaceComponents::new(self, color_space);
         let to = SpaceComponents::new(other, color_space);
         let alpha = from.alpha + (to.alpha - from.alpha) * t;
