@@ -12,6 +12,9 @@
 #if defined(SLINT_FEATURE_EXPERIMENTAL) && !CONFIG_FREERTOS_UNICORE
 #    define SLINT_ESP_RASTERIZE_IN_SEPARATE_TASK 1
 #endif
+#ifdef SLINT_FEATURE_EXPERIMENTAL
+#    define SLINT_ESP_CPU_TEXTURES 1
+#endif
 
 /**
  * The type of LCD peripheral that drives the panel.
@@ -109,6 +112,19 @@ struct SlintPlatformConfiguration
     bool rasterize_in_separate_task = false;
     /// The stack size in bytes of the task that rasterizes, if `rasterize_in_separate_task` is set.
     uint32_t raster_task_stack_size = 8192;
+#endif
+#ifdef SLINT_ESP_CPU_TEXTURES
+    /// Blend the images with a whole-image CPU loop, instead of the software renderer's per-line
+    /// path. It needs a full frame buffer.
+    ///
+    /// **Note**: This field is still experimental - its API is subject to changes and not
+    /// stabilized yet. To use it, build Slint from source with the environment variable
+    /// `SLINT_ESP_EXPERIMENTAL=1` set when running CMake.
+    bool use_cpu_textures = false;
+    /// The memory in KiB for the images the renderer prepares, if `use_cpu_textures` is set.
+    /// When the next image doesn't fit, the renderer drops the images used longest ago.
+    /// Larger images aren't prepared, so 0 turns preparing off.
+    uint32_t prepared_textures_kib = 8192;
 #endif
 };
 
