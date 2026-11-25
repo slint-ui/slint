@@ -239,7 +239,6 @@ jobs:
               if: runner.os == 'Windows'
             # Build Slint-compiler with CMake so that CMakeLists.txt can configure C++ specific features
             - name: Slint Compiler Build
-              shell: bash
               run: |
                   cmake -S . -B "${{ runner.workspace }}/cppbuild" -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSLINT_BUILD_RUNTIME=OFF ${{ inputs.extra_cmake_flags }} -DSLINT_FEATURE_SDF_FONTS=ON -DRust_CARGO_TARGET=${{ matrix.cargo_target }}
                   cmake --build "${{ runner.workspace }}/cppbuild" --config Release
