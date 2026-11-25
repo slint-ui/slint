@@ -2332,10 +2332,14 @@ pub struct QtWindow {
     window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
 
     parent: Weak<QtWindow>,
+    children: RefCell<alloc::vec::Vec<Weak<QtWindow>>>,
 }
 
 impl Drop for QtWindow {
     fn drop(&mut self) {
+        if let Some(parent) = self.parent.upgrade() {
+            parent.child_about_to_remove(&self.self_weak);
+        }
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "SlintWidget*"]  {
             // widget_ptr uses deleteLater to destroy the SlintWidget, we must prevent events to still call us
@@ -2367,9 +2371,13 @@ impl QtWindow {
                 text_layout_cache: Default::default(),
                 tree_structure_changed: RefCell::new(false),
                 window_icon_cache_key: Default::default(),
-                parent,
+                parent: parent.clone(),
+                children: Default::default(),
             }
         });
+        if let Some(parent) = parent.upgrade() {
+            parent.children.borrow_mut().push(Rc::downgrade(&rc));
+        }
         let widget_ptr = rc.widget_ptr();
         let rust_window = Rc::as_ptr(&rc);
         cpp! {unsafe [widget_ptr as "SlintWidget*", rust_window as "void*"]  {
@@ -2581,6 +2589,10 @@ impl QtWindow {
         if fullscreen != self.window().is_fullscreen() {
             self.window().set_fullscreen(fullscreen);
         }
+    }
+
+    fn child_about_to_remove(&self, child: &Weak<QtWindow>) {
+        self.children.borrow_mut().retain(|v| !Weak::ptr_eq(v, child));
     }
 }
 
@@ -2843,6 +2855,12 @@ fn into_qsize(logical_size: i_slint_core::api::LogicalSize) -> qttypes::QSize {
 impl WindowAdapterInternal for QtWindow {
     fn get_parent(&self) -> Option<Rc<dyn WindowAdapter>> {
         self.parent.clone().upgrade().map(|rc| rc as _)
+    }
+
+    fn visit_children(&self, visitor: &mut dyn FnMut(&Rc<dyn WindowAdapter>)) {
+        for child in self.children.borrow().iter().filter_map(Weak::upgrade) {
+            visitor(&(child as Rc<dyn WindowAdapter>));
+        }
     }
 
     fn start_drag(&self, request: &DragRequest) -> bool {

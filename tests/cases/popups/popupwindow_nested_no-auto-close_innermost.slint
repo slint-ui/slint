@@ -1,0 +1,176 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A no-auto-close popup keeps the popups below it open,
+// even when their close policy would close them.
+// Covers native and non-native popups.
+//
+// main window
+// └── outer (close-on-click-outside)
+//     └── inner (close-on-click-outside)
+//         └── innermost (no-auto-close)
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    callback show-outer();
+    show-outer => {
+        outer.show();
+    }
+
+    outer := PopupWindow {
+        width: 200px;
+        height: 200px;
+        close-policy: close-on-click-outside;
+
+        TouchArea {
+            x: 0;
+            y: 150px;
+            width: 50px;
+            height: 50px;
+            clicked => {
+                inner.show();
+            }
+        }
+
+        inner := PopupWindow {
+            x: 0;
+            y: 0;
+            width: 80px;
+            height: 80px;
+            close-policy: close-on-click-outside;
+
+            TouchArea {
+                clicked => {
+                    innermost.show();
+                }
+            }
+
+            innermost := PopupWindow {
+                x: 0;
+                y: 0;
+                width: 30px;
+                height: 30px;
+                close-policy: no-auto-close;
+
+                TouchArea {
+                    clicked => {
+                        innermost.close();
+                    }
+                }
+            }
+        }
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+// Native popup windows.
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint_testing::{PopupWindowLocation, WindowInner};
+type Adapter = std::rc::Rc<dyn slint::platform::WindowAdapter>;
+
+fn click(window: &slint::Window, x: f32, y: f32) {
+    let position = LogicalPosition::new(x, y);
+    let button = PointerEventButton::Left;
+    window.dispatch_event(WindowEvent::PointerMoved { position });
+    window.dispatch_event(WindowEvent::PointerPressed { position, button });
+    slint_testing::mock_elapsed_time(50);
+    window.dispatch_event(WindowEvent::PointerReleased { position, button });
+}
+
+// The windows of all open popups, the ones opened from a popup listed after it.
+fn popup_windows(window: &slint::Window) -> Vec<Adapter> {
+    let inner = WindowInner::from_pub(window);
+    let locations: Vec<_> = inner.active_popups().iter().map(|p| match &p.location {
+        PopupWindowLocation::TopLevel(adapter) => adapter.clone(),
+        PopupWindowLocation::ChildWindow(_) => panic!("the popup should be a native popup window"),
+    }).collect();
+    locations.into_iter().flat_map(|a| {
+        let nested = popup_windows(a.window());
+        std::iter::once(a).chain(nested)
+    }).collect()
+}
+
+let instance = TestCase::new().unwrap();
+slint_testing::access_testing_window(instance.window(), |w| w.use_native_popup(true));
+
+instance.invoke_show_outer();
+let [outer] = &popup_windows(instance.window())[..] else { panic!("the outer popup") };
+let outer = outer.clone();
+click(outer.window(), 25., 175.);
+let [_, inner] = &popup_windows(instance.window())[..] else { panic!("the inner popup") };
+let inner = inner.clone();
+click(inner.window(), 40., 40.);
+let [_, _, innermost] = &popup_windows(instance.window())[..] else { panic!("the innermost popup") };
+let innermost = innermost.clone();
+
+// The innermost popup keeps the inner and the outer popup open.
+click(outer.window(), 150., 100.);
+assert_eq!(popup_windows(instance.window()).len(), 3, "a click in the outer popup closes nothing");
+click(instance.window(), 250., 250.);
+assert_eq!(popup_windows(instance.window()).len(), 3, "a click in the main window closes nothing");
+
+// Once the innermost popup is closed, a click in the outer popup closes the inner popup.
+click(innermost.window(), 10., 10.);
+let open = popup_windows(instance.window());
+assert_eq!(open.len(), 2, "the innermost popup closes itself");
+assert!(std::rc::Rc::ptr_eq(&open[1], &inner));
+click(outer.window(), 150., 100.);
+let open = popup_windows(instance.window());
+assert_eq!(open.len(), 1, "a click in the outer popup closes the inner popup");
+assert!(std::rc::Rc::ptr_eq(&open[0], &outer));
+click(instance.window(), 250., 250.);
+assert!(popup_windows(instance.window()).is_empty());
+```
+
+```rust
+// Non-native popups, shown inside the main window.
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint_testing::{PopupWindowLocation, WindowInner};
+
+fn click(window: &slint::Window, x: f32, y: f32) {
+    let position = LogicalPosition::new(x, y);
+    let button = PointerEventButton::Left;
+    window.dispatch_event(WindowEvent::PointerMoved { position });
+    window.dispatch_event(WindowEvent::PointerPressed { position, button });
+    slint_testing::mock_elapsed_time(50);
+    window.dispatch_event(WindowEvent::PointerReleased { position, button });
+}
+
+fn open_popups(window: &slint::Window) -> usize {
+    let popups = WindowInner::from_pub(window).active_popups();
+    assert!(
+        popups.iter().all(|p| matches!(p.location, PopupWindowLocation::ChildWindow(_))),
+        "the popups should be shown inside the main window"
+    );
+    popups.len()
+}
+
+let instance = TestCase::new().unwrap();
+slint_testing::access_testing_window(instance.window(), |w| w.use_native_popup(false));
+let window = instance.window();
+
+instance.invoke_show_outer();
+click(window, 25., 175.);
+click(window, 40., 40.);
+assert_eq!(open_popups(window), 3, "the innermost popup opens");
+
+// The innermost popup keeps the inner and the outer popup open.
+click(window, 150., 100.);
+assert_eq!(open_popups(window), 3, "a click in the outer popup closes nothing");
+click(window, 250., 250.);
+assert_eq!(open_popups(window), 3, "a click in the main window closes nothing");
+
+// Once the innermost popup is closed, a click in the outer popup closes the inner popup.
+click(window, 10., 10.);
+assert_eq!(open_popups(window), 2, "the innermost popup closes itself");
+click(window, 150., 100.);
+assert_eq!(open_popups(window), 1, "a click in the outer popup closes the inner popup");
+click(window, 250., 250.);
+assert_eq!(open_popups(window), 0);
+```
+*/
