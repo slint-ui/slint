@@ -99,7 +99,7 @@ pub fn value_from_json(t: &langtype::Type, v: &serde_json::Value) -> Result<Valu
                             return Err("Expected a color space after 'in'".into());
                         };
                         if in_pos != 0 && in_pos + 2 != words.len() {
-                            return Err("'in <color-space>' must be at the start or the end of the gradient header".into());
+                            return Err("'in <color-space>' must be at the start or the end of the gradient header, which ends at the first comma".into());
                         }
                         let space = name
                             .parse()
@@ -798,7 +798,7 @@ fn test_color_space_position_in_json() {
         ("@linear-gradient(in bogus 42deg, #ff0000 0%)", "'bogus' is not a valid color space"),
         (
             "@radial-gradient(circle in hsl at 5px 5px, #ff0000 0%)",
-            "'in <color-space>' must be at the start or the end of the gradient header",
+            "'in <color-space>' must be at the start or the end of the gradient header, which ends at the first comma",
         ),
     ] {
         assert_eq!(parse(input), Err(error.into()), "{input}");

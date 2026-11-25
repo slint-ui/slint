@@ -1015,7 +1015,7 @@ impl Expression {
                 .count();
             if header_before != 0 && header_before != header_len {
                 ctx.diag.push_error(
-                    "'in <color-space>' must be at the start or the end of the gradient header"
+                    "'in <color-space>' must be at the start or the end of the gradient header, which ends at the first comma"
                         .into(),
                     &clause,
                 );

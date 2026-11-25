@@ -50,4 +50,6 @@ export component X inherits Rectangle {
 //                                                       >      <error{Only one 'in <color-space>' is allowed}
     property<brush> g29: @linear-gradient(90deg, red, blue in oklch);
 //                                                         >      <error{'in <color-space>' must be in the gradient header, before the first comma}
+    property<brush> g30: @linear-gradient(90deg in oklch red, blue);
+//                                              >      <error{'in <color-space>' must be at the start or the end of the gradient header, which ends at the first comma}
 }
