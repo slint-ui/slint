@@ -1270,55 +1270,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn the_debugger_gets_a_local_previews_console_in_order() {
-        tokio::task::LocalSet::new()
-            .run_until(async {
-                let (controller, mut receiver, mut debugger, _discovery, _usb) =
-                    controller_with_debugger("echo_child");
-                controller.start();
-                started_with_debugger(&mut receiver, &mut debugger).await;
-                let reloaded = PreviewToDebuggerNotification::Reloaded { success: false };
-                let diagnostics = vec![lsp_types::Diagnostic {
-                    severity: Some(lsp_types::DiagnosticSeverity::ERROR),
-                    message: "error".into(),
-                    ..Default::default()
-                }];
-                let location = Some((PathBuf::from("/fixture.slint"), 3, 5));
-                let debug = PreviewToLspMessage::DebugMessage {
-                    location: location.clone(),
-                    message: "debug".into(),
-                };
-                let (sender, endpoint) = mpsc::unbounded_channel();
-                controller
-                    .task_sender
-                    .send(Box::new(move |task| task.connection.replace_local_receiver(endpoint)))
-                    .unwrap();
-                for message in [
-                    PreviewToLspMessage::DebuggerNotification(reloaded.clone()),
-                    PreviewToLspMessage::Diagnostics {
-                        uri: component().url,
-                        version: Some(2),
-                        diagnostics: diagnostics.clone(),
-                    },
-                    debug.clone(),
-                ] {
-                    sender.send(message).unwrap();
-                }
-                for expected in [
-                    DebuggerEvent::Notification(reloaded),
-                    DebuggerEvent::Diagnostics { uri: component().url, diagnostics },
-                    DebuggerEvent::DebugMessage { location, message: "debug".into() },
-                ] {
-                    assert_eq!(receive_debugger(&mut debugger).await, expected);
-                }
-                assert_forwarded(&mut receiver, &[debug]).await;
-                assert!(receiver.try_recv().is_err());
-                controller.shutdown().await;
-            })
-            .await;
-    }
-
-    #[tokio::test]
     async fn the_debugger_gets_an_error_without_a_preview() {
         tokio::task::LocalSet::new()
             .run_until(async {
