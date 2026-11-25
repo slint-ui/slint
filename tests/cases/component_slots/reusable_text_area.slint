@@ -1,0 +1,94 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TextArea } from "../../../tools/editor/controls/src/basic.slint";
+import { TextAreaBase } from "../../../tools/editor/controls/src/headless.slint";
+import { TextEditInterface } from "std-widget-interfaces.slint";
+
+component ReadOnlyEditor {
+    slot <TextEditInterface> editor;
+    editor { read-only: true; }
+}
+
+export component TestCase inherits Window {
+    width: 440px;
+    height: 240px;
+    in-out property <string> text <=> notes.text;
+    in-out property <bool> text-enabled <=> notes.enabled;
+    in-out property <bool> text-read-only <=> notes.read-only;
+    out property <bool> text-focused: notes.has-focus;
+    out property <length> text-x: notes.content-x;
+    out property <length> text-y: notes.content-y;
+    out property <int> text-edits;
+
+    out property <bool> test: notes.wrap == TextWrap.no-wrap;
+
+    public function select-notes() { notes.select-all(); }
+    public function cut-notes() { notes.cut(); }
+
+    VerticalLayout {
+        padding: 20px;
+        spacing: 12px;
+
+        notes := TextArea {
+            height: 90px;
+            font-size: 16px;
+            wrap: no-wrap;
+            accessible-label: "Notes";
+            placeholder-text: "Multiple lines";
+            edited => { root.text-edits += 1; }
+        }
+
+        ReadOnlyEditor {
+            height: 52px;
+            editor << TextAreaBase {
+                accessible-label: "Read-only preview";
+                placeholder-text: "Preview placeholder";
+                horizontal-padding: 8px;
+                background << Rectangle { border-width: 1px; border-color: blue; }
+                placeholder << Text { text: "Custom placeholder"; }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::{ComponentHandle, SharedString, platform::Key};
+use slint_testing::{AccessibleRole, ElementHandle, send_key_combo, send_keyboard_string_sequence};
+
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert!(instance.get_test());
+let find = |label| ElementHandle::find_by_accessible_label(&instance, label).next().unwrap();
+let press = |key: Key| send_keyboard_string_sequence(&instance, &SharedString::from(key));
+
+let notes = find("Notes");
+assert_eq!(notes.accessible_role(), Some(AccessibleRole::TextInput));
+notes.invoke_accessible_default_action();
+assert!(instance.get_text_focused());
+send_keyboard_string_sequence(&instance, "first\nsecond");
+assert_eq!(instance.get_text(), "first\nsecond");
+assert!(instance.get_text_edits() > 0);
+instance.set_text("Wide text ".repeat(80).into());
+press(Key::End);
+assert!(instance.get_text_x() < 0.);
+instance.set_text("Line\n".repeat(20).into());
+send_key_combo(&instance, [char::from(Key::Control), char::from(Key::End)]);
+assert!(instance.get_text_y() < 0.);
+instance.set_text_read_only(true);
+let original = instance.get_text();
+let edits = instance.get_text_edits();
+instance.invoke_select_notes();
+instance.invoke_cut_notes();
+send_keyboard_string_sequence(&instance, "x");
+notes.set_accessible_value("blocked");
+assert_eq!(instance.get_text(), original);
+assert_eq!(instance.get_text_edits(), edits);
+instance.set_text_read_only(false);
+instance.set_text_enabled(false);
+notes.set_accessible_value("blocked");
+assert_eq!(instance.get_text(), original);
+assert_eq!(find("Read-only preview").accessible_read_only(), Some(true));
+```
+*/

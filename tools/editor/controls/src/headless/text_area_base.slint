@@ -1,0 +1,175 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TextEditInterface } from "std-widget-interfaces.slint";
+import { ScrollBarBase } from "scroll_bar_base.slint";
+import { ScrollViewBase } from "scroll_view_base.slint";
+
+export component TextAreaBase {
+    implement TextEditInterface <=> self;
+
+    in property <bool> enabled: true;
+    in property <bool> read-only;
+    in property <string> placeholder-text;
+    in property <TextWrap> wrap: word-wrap;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> input.horizontal-alignment;
+    in property <InputMethodHints> input-method-hints <=> input.input-method-hints;
+
+    in property <string> font-family <=> input.font-family;
+    in property <length> font-size <=> input.font-size;
+    in property <bool> font-italic <=> input.font-italic;
+    in property <int> font-weight <=> input.font-weight;
+    in property <brush> foreground-color <=> input.color;
+    in property <color> selection-background-color <=> input.selection-background-color;
+    in property <color> selection-foreground-color <=> input.selection-foreground-color;
+
+    in property <length> horizontal-padding;
+    in property <length> vertical-padding;
+    in property <length> left-padding: root.horizontal-padding;
+    in property <length> right-padding: root.horizontal-padding;
+    in property <length> top-padding: root.vertical-padding;
+    in property <length> bottom-padding: root.vertical-padding;
+    in property <ScrollBarPolicy> vertical-scrollbar-policy: always-off;
+    in property <ScrollBarPolicy> horizontal-scrollbar-policy: always-off;
+    in property <length> vertical-scrollbar-width: 12px;
+    in property <length> horizontal-scrollbar-height: 12px;
+
+    in-out property <string> text <=> input.text;
+    in-out property <length> content-x <=> viewport.content-x;
+    in-out property <length> content-y <=> viewport.content-y;
+    in-out property <length> content-width <=> viewport.content-width;
+    in-out property <length> content-height <=> viewport.content-height;
+
+    out property <length> visible-width <=> viewport.visible-width;
+    out property <length> visible-height <=> viewport.visible-height;
+    out property <bool> has-focus: input.has-focus;
+    @shadowable out property <bool> has-selection: input.has-selection;
+    out property <bool> hovered: root.enabled && hover-area.has-hover;
+
+    slot background;
+    slot placeholder;
+    slot vertical-scrollbar-track;
+    slot vertical-scrollbar-thumb << Rectangle {
+        background: root.foreground-color.with-alpha(root.enabled ? 0.48 : 0.24);
+        border-radius: min(self.width, self.height) / 2;
+    }
+    slot horizontal-scrollbar-track;
+    slot horizontal-scrollbar-thumb << Rectangle {
+        background: root.foreground-color.with-alpha(root.enabled ? 0.48 : 0.24);
+        border-radius: min(self.width, self.height) / 2;
+    }
+
+    callback edited(text: string);
+    callback key-pressed(event: KeyEvent) -> EventResult;
+    callback key-released(event: KeyEvent) -> EventResult;
+
+    public function set-selection-offsets(anchor: int, focus: int) { input.set-selection-offsets(anchor, focus); }
+    public function select-all() { input.select-all(); }
+    public function clear-selection() { input.clear-selection(); }
+    public function copy() { if root.enabled { input.copy(); } }
+    public function cut() { if root.enabled && !root.read-only { input.cut(); } }
+    public function paste() { if root.enabled && !root.read-only { input.paste(); } }
+    @shadowable public function undo() { if root.enabled && !root.read-only { input.undo(); } }
+    @shadowable public function redo() { if root.enabled && !root.read-only { input.redo(); } }
+
+    min-width: 1px + root.left-padding + root.right-padding + viewport.min-width;
+    min-height: caret-height + root.top-padding + root.bottom-padding + viewport.min-height;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    forward-focus: input;
+    accessible-role: text-input;
+    accessible-label: "";
+    accessible-enabled: root.enabled;
+    accessible-value: root.text;
+    accessible-placeholder-text: root.placeholder-text;
+    accessible-read-only: root.read-only;
+    accessible-action-default => { if root.enabled { input.focus(); } }
+    accessible-action-set-value(value) => {
+        if root.enabled && !root.read-only {
+            root.text = value;
+            root.edited(value);
+        }
+    }
+    accessible-action-set-selection-offsets(anchor, focus) => { root.set-selection-offsets(anchor, focus); }
+
+    private property <Point> caret-position;
+    private property <length> caret-height: max(1px, input.font-metrics.ascent - input.font-metrics.descent);
+
+    function reveal-caret() {
+        if !root.has-focus { return; }
+        let caret = root.caret-position;
+        let x = clamp(root.content-x, min(-caret.x, root.visible-width - caret.x - input.text-cursor-width), -caret.x);
+        let y = clamp(root.content-y, min(-caret.y, root.visible-height - caret.y - root.caret-height), -caret.y);
+        let scroll-x = clamp(x, min(0px, root.visible-width - root.content-width), 0px);
+        let scroll-y = clamp(y, min(0px, root.visible-height - root.content-height), 0px);
+        if scroll-x != root.content-x { root.content-x = scroll-x; }
+        if scroll-y != root.content-y { root.content-y = scroll-y; }
+    }
+
+    changed visible-width => { root.reveal-caret(); }
+    changed visible-height => { root.reveal-caret(); }
+
+    background { }
+
+    hover-area := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.text;
+        clicked => { input.focus(); }
+
+        viewport := ScrollViewBase {
+            x: root.left-padding;
+            y: root.top-padding;
+            width: max(0px, root.width - root.left-padding - root.right-padding);
+            height: max(0px, root.height - root.top-padding - root.bottom-padding);
+            enabled: root.enabled;
+            vertical-scrollbar-policy: root.vertical-scrollbar-policy;
+            horizontal-scrollbar-policy: root.horizontal-scrollbar-policy;
+            vertical-scrollbar-width: root.vertical-scrollbar-width;
+            horizontal-scrollbar-height: root.horizontal-scrollbar-height;
+            content-width: root.wrap == TextWrap.no-wrap
+                ? max(self.visible-width, input.preferred-width + input.text-cursor-width) : self.visible-width;
+            content-height: max(self.visible-height, input.preferred-height);
+
+            vertical-scrollbar << ScrollBarBase {
+                track << vertical-scrollbar-track;
+                thumb << Rectangle { vertical-scrollbar-thumb { } }
+            }
+
+            horizontal-scrollbar << ScrollBarBase {
+                track << horizontal-scrollbar-track;
+                thumb << Rectangle { horizontal-scrollbar-thumb { } }
+            }
+
+            input := TextInput {
+                width: root.content-width;
+                height: root.content-height;
+                single-line: false;
+                enabled: root.enabled;
+                read-only: root.read-only;
+                wrap: root.wrap;
+                page-height: root.visible-height;
+                accessible-role: none;
+
+                edited => { root.edited(self.text); }
+                key-pressed(event) => { return root.key-pressed(event); }
+                key-released(event) => { return root.key-released(event); }
+                cursor-position-changed(position) => {
+                    root.caret-position = position;
+                    root.reveal-caret();
+                }
+            }
+        }
+
+        Rectangle {
+            x: viewport.x;
+            y: viewport.y;
+            width: root.visible-width;
+            height: root.visible-height;
+            clip: true;
+            visible: root.text.is-empty && input.preedit-text.is-empty;
+            placeholder { }
+        }
+    }
+
+    @children
+}

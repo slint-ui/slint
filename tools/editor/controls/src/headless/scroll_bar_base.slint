@@ -1,0 +1,115 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export interface ScrollBarSurface {
+    in property <bool> enabled;
+    in property <bool> horizontal;
+    in property <length> maximum;
+    in property <length> page-size;
+    in property <ScrollBarPolicy> policy;
+    in-out property <length> value;
+    callback scrolled();
+}
+
+export component ScrollBarBase {
+    implement ScrollBarSurface <=> self;
+
+    in property <bool> enabled: true;
+    in property <bool> horizontal;
+    in property <length> maximum;
+    in property <length> page-size;
+    in property <ScrollBarPolicy> policy: as-needed;
+    in property <length> minimum-thumb-length: 12px;
+    in-out property <length> value;
+    out property <bool> has-hover: pointer.enabled && pointer.has-hover;
+    out property <bool> pressed: pointer.enabled && pointer.pressed;
+    callback scrolled();
+
+    private property <length> scroll-range: max(0px, root.maximum);
+    private property <length> page: max(0px, root.page-size);
+    private property <length> track-length: root.horizontal ? root.width : root.height;
+    private property <length> thumb-length: root.scroll-range > 0px
+        ? min(root.track-length, max(root.minimum-thumb-length, root.track-length * root.page / (root.scroll-range + root.page)))
+        : root.track-length;
+    private property <length> travel: max(0px, root.track-length - root.thumb-length);
+    private property <length> thumb-start: root.scroll-range > 0px
+        ? root.travel * clamp(-root.value / root.scroll-range, 0, 1) : 0px;
+    private property <length> pointer-position: root.horizontal ? pointer.mouse-x : pointer.mouse-y;
+    private property <bool> dragging;
+    private property <{ value: length, coordinate: length, range: length, travel: length }> drag-start;
+
+    slot track;
+    slot thumb;
+
+    visible: root.policy == ScrollBarPolicy.always-on
+        || (root.policy == ScrollBarPolicy.as-needed && root.scroll-range > 0px);
+
+    changed enabled => { if !root.enabled { root.dragging = false; } }
+    changed travel => { if root.travel <= 0px { root.dragging = false; } }
+
+    function save-drag-start() {
+        root.drag-start = {
+            value: root.value,
+            coordinate: root.pointer-position,
+            range: root.scroll-range,
+            travel: root.travel,
+        };
+    }
+
+    function scroll-to(requested: length) -> bool {
+        let next = clamp(requested, -root.scroll-range, 0px);
+        if next == root.value { return false; }
+        root.value = next;
+        root.scrolled();
+        return true;
+    }
+
+    track { }
+
+    Rectangle {
+        x: root.horizontal ? root.thumb-start : 0px;
+        y: root.horizontal ? 0px : root.thumb-start;
+        width: root.horizontal ? root.thumb-length : root.width;
+        height: root.horizontal ? root.height : root.thumb-length;
+        thumb { }
+    }
+
+    pointer := TouchArea {
+        enabled: root.enabled && root.scroll-range > 0px;
+
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                let on-thumb = root.pointer-position >= root.thumb-start
+                    && root.pointer-position <= root.thumb-start + root.thumb-length;
+                root.dragging = on-thumb && root.travel > 0px;
+                if root.dragging {
+                    root.save-drag-start();
+                } else if !on-thumb {
+                    let delta = root.pointer-position < root.thumb-start ? root.page : -root.page;
+                    root.scroll-to(root.value + delta);
+                }
+            } else if event.kind == PointerEventKind.cancel
+                || (event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
+                root.dragging = false;
+            }
+        }
+
+        moved => {
+            if !root.dragging || !self.pressed || root.travel <= 0px { return; }
+            // Like the standard scrollbars, rebase the drag when the content extent changes.
+            if root.drag-start.range != root.scroll-range || root.drag-start.travel != root.travel {
+                root.save-drag-start();
+            }
+            let delta = root.pointer-position - root.drag-start.coordinate;
+            root.scroll-to(root.drag-start.value - delta * root.scroll-range / root.travel);
+        }
+
+        scroll-event(event) => {
+            let delta = root.horizontal ? event.delta-x : event.delta-y;
+            if delta != 0px && root.scroll-to(root.value + delta) { return accept; }
+            return reject;
+        }
+    }
+
+    @children
+}

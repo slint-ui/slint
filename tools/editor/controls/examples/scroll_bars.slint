@@ -1,0 +1,83 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { BasicTheme, ScrollBar } from "../src/basic.slint";
+import { PreviewSettings } from "preview_settings.slint";
+import { ExampleSection } from "section.slint";
+
+export component ScrollBarExamples inherits VerticalLayout {
+    in-out property <int> size-index: 1;
+    in-out property <bool> preview-disabled;
+    private property <length> bar-thickness: [8px, 12px, 16px][clamp(root.size-index, 0, 2)];
+    private property <length> cell-width: 108px;
+    private property <length> cell-height: 28px;
+
+    vertical-stretch: 0;
+    spacing: 20px;
+
+    PreviewSettings {
+        control-name: "ScrollBar";
+        size-index <=> root.size-index;
+        disabled <=> root.preview-disabled;
+    }
+
+    ExampleSection {
+        title: "Grid viewport";
+        description: "Drag either thumb, click a track to move one page, or scroll inside the grid.";
+
+        Rectangle {
+            height: 280px;
+            background: BasicTheme.hover-background;
+            border-radius: 6px;
+
+            grid := Flickable {
+                x: 8px;
+                y: 8px;
+                width: parent.width - root.bar-thickness - 24px;
+                height: parent.height - root.bar-thickness - 24px;
+                content-width: 10 * root.cell-width;
+                content-height: 24 * root.cell-height;
+
+                for row in 24: Rectangle {
+                    y: row * root.cell-height;
+                    width: grid.content-width;
+                    height: root.cell-height;
+                    background: Math.mod(row, 2) == 0 ? BasicTheme.background : BasicTheme.hover-background;
+
+                    for column in 10: Text {
+                        x: column * root.cell-width + 8px;
+                        height: parent.height;
+                        text: "R" + (row + 1) + " · C" + (column + 1);
+                        color: BasicTheme.foreground;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            vertical-bar := ScrollBar {
+                x: grid.x + grid.width + 8px;
+                y: grid.y;
+                width: root.bar-thickness;
+                height: grid.height;
+                thickness: root.bar-thickness;
+                enabled: !root.preview-disabled;
+                maximum: grid.content-height - grid.height;
+                page-size: grid.height;
+                value <=> grid.content-y;
+            }
+
+            horizontal-bar := ScrollBar {
+                x: grid.x;
+                y: grid.y + grid.height + 8px;
+                width: grid.width;
+                height: root.bar-thickness;
+                thickness: root.bar-thickness;
+                enabled: !root.preview-disabled;
+                horizontal: true;
+                maximum: grid.content-width - grid.width;
+                page-size: grid.width;
+                value <=> grid.content-x;
+            }
+        }
+    }
+}

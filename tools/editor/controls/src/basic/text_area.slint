@@ -1,0 +1,73 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TextAreaBase } from "../headless/text_area_base.slint";
+import { FocusOutline } from "focus_outline.slint";
+import { LineEditStyle, LineEditStateStyle, LineEditStyles } from "line_edit.slint";
+
+export global TextAreaStyles {
+    out property <LineEditStyle> standard: LineEditStyles.standard;
+}
+
+export component TextArea inherits TextAreaBase {
+    in property <LineEditStyle> style: TextAreaStyles.standard;
+    in property <brush> background-color: root.state-style.background-color;
+    in property <brush> placeholder-color: root.state-style.placeholder-color;
+    in property <length> border-width: 1px;
+    in property <length> border-radius: 4px;
+    in property <length> focus-width: 2px;
+    in property <length> focus-offset: 2px;
+
+    private property <LineEditStateStyle> state-style: !root.enabled ? root.style.disabled
+        : root.hovered ? root.style.hover : root.style.rest;
+
+    font-size: 14px;
+    horizontal-padding: 12px;
+    vertical-padding: 8px;
+    preferred-width: 240px;
+    preferred-height: 100px;
+    vertical-scrollbar-policy: as-needed;
+    horizontal-scrollbar-policy: root.wrap == TextWrap.no-wrap ? as-needed : always-off;
+    foreground-color: root.state-style.foreground-color;
+    selection-background-color: root.style.selection-background-color;
+    selection-foreground-color: root.style.selection-foreground-color;
+
+    states [
+        disabled when !root.enabled: {
+            foreground-color: root.style.disabled.foreground-color;
+        }
+    ]
+
+    background << Rectangle {
+        background: root.enabled ? root.background-color : root.style.disabled.background-color;
+        border-color: root.state-style.border-color;
+        border-width: root.border-width;
+        border-radius: root.border-radius;
+
+        FocusOutline {
+            active: root.enabled && root.has-focus;
+            outline-color: root.style.focus-color;
+            target-width: parent.width;
+            target-height: parent.height;
+            radius: root.border-radius;
+            line-width: root.focus-width;
+            offset: root.focus-offset;
+        }
+    }
+
+    placeholder << Text {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        text: root.placeholder-text;
+        color: root.enabled ? root.placeholder-color : root.style.disabled.placeholder-color;
+        font-family: root.font-family;
+        font-size: root.font-size;
+        font-italic: root.font-italic;
+        font-weight: root.font-weight;
+        horizontal-alignment: root.horizontal-alignment;
+        wrap: root.wrap;
+        overflow: elide;
+        accessible-role: none;
+    }
+}
