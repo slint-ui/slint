@@ -293,9 +293,7 @@ where
         }
 
         let p1 = self.apply_pin(item);
-        if let Some(shared_property) = p1.check_mapped_common_property::<Value>().or_else(|| {
-            p1.check_common_property().and_then(|c| c.as_ref().check_mapped_common_property())
-        }) {
+        if let Some(shared_property) = p1.check_mapped_common_property::<Value>() {
             return shared_property;
         }
 

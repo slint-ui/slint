@@ -1,17 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_core::graphics::{
-    Image, ImageCacheKey, ImageInner, IntSize, OpaqueImage, OpaqueImageVTable, SharedImageBuffer,
-    SharedPixelBuffer, cache as core_cache,
-};
+use i_slint_core::graphics::{Image, ImageInner, SharedImageBuffer, SharedPixelBuffer, cache};
 use i_slint_core::items::ImageFit;
 use i_slint_core::lengths::{LogicalSize, ScaleFactor};
-
-struct SkiaCachedImage {
-    image: skia_safe::Image,
-    cache_key: ImageCacheKey,
-}
 
 struct PixelBytes<Pixel>(SharedPixelBuffer<Pixel>);
 
@@ -26,20 +18,6 @@ fn shared_pixel_data<Pixel: Clone + bytemuck::Pod + Send + Sync>(
     pixels: &SharedPixelBuffer<Pixel>,
 ) -> skia_safe::Data {
     skia_safe::Data::new_with_owner(PixelBytes(pixels.clone()))
-}
-
-i_slint_core::OpaqueImageVTable_static! {
-    static SKIA_CACHED_IMAGE_VT for SkiaCachedImage
-}
-
-impl OpaqueImage for SkiaCachedImage {
-    fn size(&self) -> IntSize {
-        IntSize::new(self.image.width() as u32, self.image.height() as u32)
-    }
-
-    fn cache_key(&self) -> ImageCacheKey {
-        self.cache_key.clone()
-    }
 }
 
 /// `transform_scale` is how much the canvas transform magnifies the image,
@@ -57,22 +35,12 @@ pub(crate) fn as_skia_image(
     match image_inner {
         ImageInner::None => None,
         ImageInner::EmbeddedImage { buffer, cache_key } => {
-            if let Some(ImageInner::BackendStorage(cached)) =
-                core_cache::lookup_cached_image(cache_key)
-                && let Some(img) = skia_cached_image(&cached)
-            {
-                return Some(img);
-            }
-            let result = image_buffer_to_skia_image(buffer);
-            if let Some(img) = result.as_ref() {
-                core_cache::replace_cached_image(
-                    cache_key.clone(),
-                    ImageInner::BackendStorage(vtable::VRc::into_dyn(vtable::VRc::new(
-                        SkiaCachedImage { image: img.clone(), cache_key: cache_key.clone() },
-                    ))),
-                )
-            }
-            result
+            let image = cache::cached(cache_key, || {
+                let image = image_buffer_to_skia_image(buffer)?;
+                let weight = image.image_info().compute_min_byte_size();
+                Some((image, weight))
+            })?;
+            Some(skia_safe::Image::clone(&image))
         }
         ImageInner::Svg(svg) => {
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
@@ -102,7 +70,6 @@ pub(crate) fn as_skia_image(
                 pixels.width() as usize * 4,
             )
         }
-        ImageInner::BackendStorage(x) => skia_cached_image(x),
         ImageInner::BorrowedOpenGLTexture(texture) => {
             surface.and_then(|surface| surface.import_opengl_texture(canvas, texture))
         }
@@ -132,10 +99,6 @@ pub(crate) fn as_skia_image(
             .render_to_buffer(None)
             .and_then(|buffer| image_buffer_to_skia_image(&buffer)),
     }
-}
-
-fn skia_cached_image(storage: &vtable::VRc<OpaqueImageVTable>) -> Option<skia_safe::Image> {
-    vtable::VRc::borrow(storage).downcast::<SkiaCachedImage>().map(|x| x.image.clone())
 }
 
 fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::Image> {

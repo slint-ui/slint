@@ -95,6 +95,7 @@ impl<T: Tree> TreeAdapterModel<T> {
             count += 1;
         }
         cached_layout.drain(row + 1..row + 1 + count);
+        drop(cached_layout);
         self.model_tracker.row_removed(row + 1, count);
     }
 }

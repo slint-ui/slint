@@ -891,6 +891,13 @@ impl SkiaRenderer {
                     partial_renderer.dirty_region.add_rect(overlay_rect);
                 }
 
+                // Skia's GPU backend clips to more than one rectangle with a stencil mask,
+                // which costs more than painting the gaps between them.
+                if gr_context.is_some() {
+                    partial_renderer.dirty_region =
+                        partial_renderer.dirty_region.bounding_rect().into();
+                }
+
                 if matches!(self.dirty_region_debug_mode, DirtyRegionDebugMode::Log) {
                     let area_to_repaint: f32 =
                         partial_renderer.dirty_region.iter().map(|b| b.area()).sum();

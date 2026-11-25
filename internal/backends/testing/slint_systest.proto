@@ -283,6 +283,27 @@ message RequestGetElementTree {
     uint32 max_elements = 2;
 }
 
+// Only over system testing.
+// Requests the children of element_handle, or, without a handle, the root elements of every window.
+// The children include clipped-away elements, and the elements of popups the element shows.
+// Over the debugger transport, it also subscribes to the children,
+// which without a handle includes the roots of windows shown later.
+// That ends the earlier subscription to the same children, without a SubscriptionEnded.
+message RequestGetElementChildren {
+    Handle element_handle = 1;
+}
+
+// Only over the debugger transport.
+message RequestSubscribeElementProperties {
+    Handle element_handle = 1;
+}
+
+// Only over the debugger transport.
+// Succeeds for a subscription that already ended.
+message RequestUnsubscribe {
+    uint64 subscription_id = 1;
+}
+
 message RequestQueryElementDescendants {
     Handle element_handle = 1;
     repeated ElementQueryInstruction query_stack = 2;
@@ -324,6 +345,9 @@ message RequestToAUT {
         RequestClearEventLog request_clear_event_log = 15;
         RequestStartEventRecording request_start_event_recording = 16;
         RequestStopEventRecording request_stop_event_recording = 17;
+        RequestGetElementChildren request_get_element_children = 18;
+        RequestSubscribeElementProperties request_subscribe_element_properties = 19;
+        RequestUnsubscribe request_unsubscribe = 20;
     }
 }
 
@@ -447,6 +471,73 @@ message DispatchKeyEventResponse {
 message GetElementTreeResponse {
 }
 
+message ElementChild {
+    Handle handle = 1;
+    repeated ElementTypeNameAndId type_names_and_ids = 2;
+    bool has_children = 3;
+}
+
+message GetElementChildrenResponse {
+    repeated ElementChild children = 1;
+    // True when the element has more children than the application keeps handles for.
+    bool truncated = 2;
+    // False when the application was built without debug info,
+    // which leaves the window roots without children.
+    // True when no window shows a component.
+    bool debug_info_available = 3;
+    // The subscription that pushes later changes, which are relative to these children.
+    // 0 when there's none: over TCP, or when truncated is true.
+    uint64 subscription_id = 4;
+}
+
+message SubscribeElementPropertiesResponse {
+    // Meaningful only when available is true.
+    uint64 subscription_id = 1;
+    // The initial values, which later changes are relative to.
+    repeated TestableProperty properties = 2;
+    // Same meaning as testable_properties_available in ElementPropertiesResponse.
+    // No subscription exists when this is false.
+    bool available = 3;
+}
+
+message UnsubscribeResponse {
+    uint64 subscription_id = 1;
+}
+
+// A change that a subscription pushes, until it ends or the debugger unsubscribes.
+message SubscriptionNotification {
+    uint64 subscription_id = 1;
+    oneof msg {
+        ElementPropertiesChanged properties_changed = 2;
+        ElementChildrenChanged children_changed = 3;
+        SubscriptionEnded ended = 4;
+    }
+}
+
+message ElementPropertiesChanged {
+    repeated TestableProperty changed = 1;
+}
+
+// Apply removals first, then insertions in order, then updates.
+message ElementChildrenChanged {
+    repeated Handle removed = 1;
+    repeated InsertedChildren inserted = 2;
+    // Children that stayed, but whose has_children changed.
+    repeated ElementChild updated = 3;
+}
+
+message InsertedChildren {
+    // The child these follow, after the removals and the insertions before this one.
+    // Missing when they come first.
+    Handle after = 1;
+    repeated ElementChild children = 2;
+}
+
+// The observed element was destroyed,
+// or it has more children than one response can hold.
+message SubscriptionEnded {
+}
+
 message ElementQueryResponse {
     repeated Handle element_handles = 1;
 }
@@ -506,5 +597,8 @@ message AUTResponse {
         ClearEventLogResponse clear_event_log_response = 16;
         StartEventRecordingResponse start_event_recording_response = 17;
         StopEventRecordingResponse stop_event_recording_response = 18;
+        GetElementChildrenResponse get_element_children_response = 19;
+        SubscribeElementPropertiesResponse subscribe_element_properties_response = 20;
+        UnsubscribeResponse unsubscribe_response = 21;
     }
 }

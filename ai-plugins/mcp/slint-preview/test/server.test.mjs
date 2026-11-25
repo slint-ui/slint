@@ -268,6 +268,39 @@ test("checks a render before publishing with text only", async () => {
     );
 });
 
+test("check_slint handles the documented widget styles", async (context) => {
+    const { result } = await request("tools/list");
+    const checkTool = result.tools.find((tool) => tool.name === "check_slint");
+    const source = 'import { Button } from "std-widgets.slint"; export component Main inherits Window { Button {} }';
+    const styles = [
+        "fluent", "fluent-light", "fluent-dark",
+        "material", "material-light", "material-dark",
+        "cupertino", "cupertino-light", "cupertino-dark",
+        "cosmic", "cosmic-light", "cosmic-dark",
+        "qt", "native",
+    ];
+    for (const style of styles) {
+        await context.test(style, async () => {
+            const response = await request("tools/call", {
+                name: "check_slint",
+                arguments: { source, style },
+            });
+            if (style === "qt") {
+                assert.equal(response.error?.code, -32602);
+                assert.match(response.error.message, /Qt.*Wasm/);
+                assert.ok(!checkTool.inputSchema.properties.style.enum.includes(style));
+                return;
+            }
+            assert.equal(
+                response.result?.structuredContent?.ok,
+                true,
+                response.error?.message ?? response.result?.content[0].text,
+            );
+            assert.ok(checkTool.inputSchema.properties.style.enum.includes(style));
+        });
+    }
+});
+
 test("takes either an absolute path or source, and a project root only with a path", async () => {
     const call = (args) =>
         request("tools/call", { name: "check_slint", arguments: args });
