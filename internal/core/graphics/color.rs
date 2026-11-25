@@ -842,8 +842,8 @@ fn test_interpolate_in_color_space() {
 
     // sRGB goes through gray, HSL keeps full saturation and goes through the hue wheel.
     assert_eq!(
-        red.interpolate_in(cyan, 0.5, GradientColorSpace::Srgb),
-        Color::from_rgb_u8(127, 127, 127)
+        red.interpolate_in(cyan, 0.5, GradientColorSpace::Srgb).to_argb_u8(),
+        Color::from_rgb_u8(127, 127, 127).to_argb_u8()
     );
     let hsl_mid = red.interpolate_in(cyan, 0.5, GradientColorSpace::Hsl).to_argb_u8();
     assert_eq!(
