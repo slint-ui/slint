@@ -310,6 +310,9 @@ impl<'a> SkiaItemRenderer<'a> {
             color_space: i_slint_core::graphics::GradientColorSpace,
         ) -> skia_safe::gradient::interpolation::ColorSpace {
             match color_space {
+                i_slint_core::graphics::GradientColorSpace::Srgb => {
+                    skia_safe::gradient::interpolation::ColorSpace::SRGB
+                }
                 i_slint_core::graphics::GradientColorSpace::Oklch => {
                     skia_safe::gradient::interpolation::ColorSpace::OKLCH
                 }
@@ -319,7 +322,6 @@ impl<'a> SkiaItemRenderer<'a> {
                 i_slint_core::graphics::GradientColorSpace::Hsl => {
                     skia_safe::gradient::interpolation::ColorSpace::HSL
                 }
-                _ => skia_safe::gradient::interpolation::ColorSpace::SRGB,
             }
         }
 

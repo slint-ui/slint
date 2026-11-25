@@ -4565,7 +4565,12 @@ fn compile_struct(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
 }
 
 fn compile_gradient_color_space(color_space: GradientColorSpace) -> TokenStream {
-    let variant = format_ident!("{color_space:?}");
+    let variant = match color_space {
+        GradientColorSpace::Srgb => quote!(Srgb),
+        GradientColorSpace::Oklch => quote!(Oklch),
+        GradientColorSpace::Oklab => quote!(Oklab),
+        GradientColorSpace::Hsl => quote!(Hsl),
+    };
     quote!(sp::GradientColorSpace::#variant)
 }
 

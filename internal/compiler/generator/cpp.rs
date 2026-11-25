@@ -4441,8 +4441,13 @@ fn is_number_model(model: &llr::Expression, ctx: &EvaluationContext) -> bool {
     }
 }
 
-fn gradient_color_space_encoding(color_space: GradientColorSpace) -> String {
-    format!("::slint::private_api::GradientColorSpace::{color_space:?}")
+fn gradient_color_space_encoding(color_space: GradientColorSpace) -> &'static str {
+    match color_space {
+        GradientColorSpace::Srgb => "::slint::private_api::GradientColorSpace::Srgb",
+        GradientColorSpace::Oklch => "::slint::private_api::GradientColorSpace::Oklch",
+        GradientColorSpace::Oklab => "::slint::private_api::GradientColorSpace::Oklab",
+        GradientColorSpace::Hsl => "::slint::private_api::GradientColorSpace::Hsl",
+    }
 }
 
 #[allow(

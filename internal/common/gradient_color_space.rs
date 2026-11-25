@@ -5,7 +5,6 @@
 ///
 /// `Display` and `FromStr` use the CSS name, as in a gradient's `in <space>` clause.
 #[repr(u8)]
-#[non_exhaustive]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum GradientColorSpace {
