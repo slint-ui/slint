@@ -32,7 +32,9 @@ slint-build = { path = "../../api/rs/build" }
 [features]
 default = ["slint/default", "network", "chrono", "slint/backend-android-activity-06"]
 simulator = ["mcu-board-support", "slint/renderer-software", "slint/backend-winit", "slint/std"]
-network = ["dep:reqwest", "dep:serde", "tokio"]
+std = []
+chrono = ["dep:chrono", "std"]
+network = ["dep:reqwest", "dep:serde", "tokio", "std"]
 
 [package.metadata.android.sdk]
 min_sdk_version = 26

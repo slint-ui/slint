@@ -3664,9 +3664,6 @@ dependencies = [
 [[package]]
 name = "i-slint-parser-test-macro"
 version = "1.20.0"
-dependencies = [
- "quote",
-]
 
 [[package]]
 name = "i-slint-renderer-anyrender"
@@ -3727,7 +3724,6 @@ dependencies = [
  "pin-weak",
  "raw-window-handle",
  "read-fonts 0.46.0",
- "scoped-tls-hkt",
  "skia-safe",
  "slint",
  "softbuffer",

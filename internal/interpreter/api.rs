@@ -693,6 +693,15 @@ impl ComponentCompiler {
         self.config.style.as_ref()
     }
 
+    /// Selects the edition whose language behavior to use, as its major and minor version,
+    /// such as `(1, 19)`.
+    ///
+    /// This wins over the edition of the project file.
+    /// If the edition is older than 1.18 or newer than this version of Slint, compilation fails.
+    pub fn set_edition(&mut self, edition: (u32, u32)) {
+        self.overrides.project.edition = Some(edition.into());
+    }
+
     /// The domain used for translations
     pub fn set_translation_domain(&mut self, domain: String) {
         self.config.translation_domain = Some(domain);

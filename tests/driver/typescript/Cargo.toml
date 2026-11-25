@@ -17,10 +17,8 @@ publish = false
 path = "main.rs"
 name = "test-driver-typescript"
 
-[dependencies]
-tempfile = "3"
-
 [dev-dependencies]
+tempfile = "3"
 test_driver_lib = { path = "../driverlib" }
 i-slint-compiler = { workspace = true, features = ["default", "typescript", "display-diagnostics"] }
 

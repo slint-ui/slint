@@ -1109,14 +1109,9 @@ class Repeater
         }
         void row_removed(size_t index, size_t count) override
         {
-            remove_rows(index, count, model ? model->row_count() : 0);
-        }
-        /// `row_count` is the number of rows after the removal.
-        void remove_rows(size_t index, size_t count, size_t row_count)
-        {
             private_api::IndexRange removed;
             if (!cbindgen_private::slint_repeater_rows_removed(
-                        &layout_state.item_index, data.size(), index, count, row_count, &removed)) {
+                        &layout_state.item_index, data.size(), index, count, &removed)) {
                 return;
             }
             instances_changed();
@@ -1230,7 +1225,7 @@ public:
                 if (value > old_value) {
                     inner->row_added(old_value, value - old_value);
                 } else if (value < old_value) {
-                    inner->remove_rows(value, old_value - value, value);
+                    inner->row_removed(value, old_value - value);
                 }
                 return;
             }

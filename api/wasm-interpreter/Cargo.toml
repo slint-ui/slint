@@ -26,7 +26,7 @@ headless = [
   "i-slint-core/svg",
 ]
 
-[dependencies]
+[target.'cfg(target_arch = "wasm32")'.dependencies]
 slint-interpreter = { workspace = true, features = ["std", "compat-1-2", "internal"] }
 i-slint-backend-winit = { workspace = true, optional = true }
 i-slint-renderer-anyrender = { workspace = true, optional = true }

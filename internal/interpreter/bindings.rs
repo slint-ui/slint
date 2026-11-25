@@ -34,7 +34,10 @@ pub fn install_bindings_only(instance: &VRc<ItemTreeVTable, Instance>) {
     // component's tracker would see the default value and fire when the
     // outer component's `property_init` supersedes it.
     install_property_bindings(&instance.root_sub_component);
-    install_change_callbacks(&instance.root_sub_component);
+    install_change_callbacks(
+        &instance.root_sub_component,
+        instance.globals.context.change_handler_queue(),
+    );
 }
 
 pub fn run_init_code_for_instance(instance: &VRc<ItemTreeVTable, Instance>) {
@@ -116,9 +119,12 @@ pub(crate) fn update_timers(sub: &Pin<Rc<SubComponentInstance>>) {
     }
 }
 
-fn install_change_callbacks(sub: &Pin<Rc<SubComponentInstance>>) {
+fn install_change_callbacks(
+    sub: &Pin<Rc<SubComponentInstance>>,
+    queue: &i_slint_core::properties::ChangeHandlerQueue,
+) {
     for nested in &sub.sub_components {
-        install_change_callbacks(nested);
+        install_change_callbacks(nested, queue);
     }
     let cu = &sub.compilation_unit;
     let sc: &SubComponent = &cu.sub_components[sub.sub_component_idx];
@@ -133,6 +139,7 @@ fn install_change_callbacks(sub: &Pin<Rc<SubComponentInstance>>) {
         let weak_set = weak_sub.clone();
         let expr_for_set = expr.clone();
         sub.change_trackers[idx].init(
+            queue,
             (),
             move |()| -> Value {
                 let Some(owner) = weak_get.upgrade() else { return Value::Void };
