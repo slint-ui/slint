@@ -159,7 +159,24 @@ impl ElementType {
         match self {
             Self::Component(component) => {
                 if crate::object_tree::slot_collections::default_collection(component).is_some() {
-                    return tr.empty_type().lookup_type_for_child_element(name, tr);
+                    return tr.empty_type().lookup_type_for_child_element(name, tr).or_else(|error| {
+                        if tr.lookup_including_disabled(name) != Type::Invalid {
+                            return Err(error);
+                        }
+                        let mut base = self.clone();
+                        while let Self::Component(component) = base {
+                            if let Some(child) = component
+                                .implicit_child_types
+                                .borrow()
+                                .get(name)
+                                .and_then(std::rc::Weak::upgrade)
+                            {
+                                return Ok(Self::Component(child));
+                            }
+                            base = component.root_element.borrow().base_type.clone();
+                        }
+                        Err(error)
+                    });
                 }
                 let base_type = match component.child_insertion_points.borrow().get(DEFAULT_SLOT_NAME) {
                     Some(insert_in) => insert_in.parent.borrow().base_type.clone(),

@@ -204,6 +204,14 @@ impl Snapshotter {
 
     fn finalize(&mut self) {
         for (source, target) in &self.keep_alive {
+            *target.implicit_child_types.borrow_mut() = source
+                .implicit_child_types
+                .borrow()
+                .iter()
+                .filter_map(|(name, child)| {
+                    child.upgrade().map(|child| (name.clone(), self.use_component(&child)))
+                })
+                .collect();
             for (name, point) in source.child_insertion_points.borrow().iter() {
                 if let Some(copied) = target.child_insertion_points.borrow_mut().get_mut(name) {
                     copied.parent = self.use_element(&point.parent);
@@ -427,6 +435,7 @@ impl Snapshotter {
                 id: component.id.clone(),
                 child_insertion_points,
                 declared_slots,
+                implicit_child_types: component.implicit_child_types.clone(),
                 exported_global_names: RefCell::new(
                     component.exported_global_names.borrow().clone(),
                 ),
@@ -3184,16 +3193,20 @@ fn snapshotting_slot_collections() {
         ),
     );
     assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+    let original_entry = Rc::downgrade(
+        &loader.get_document(&path).unwrap().exports.find("NominalEntry").unwrap().left().unwrap(),
+    );
     let mut copy = snapshot(&loader).unwrap();
     drop(loader);
+    assert!(original_entry.upgrade().is_none());
     let source = r#"
         import { Group, ViewGroup, NominalEntry as ImportedEntry, NominalGroup } from "slot-collections-library.slint";
         component Item { in property <int> value; }
         component DerivedEntry inherits ImportedEntry { }
         export component Test inherits Window {
-            Group { Item { } }
+            Group { Item { } NominalEntry { } }
             Group { for value in [1, 2, 3]: Item { } }
-            NominalGroup { ImportedEntry { } DerivedEntry { } }
+            NominalGroup { ImportedEntry { } DerivedEntry { } NominalEntry { } }
             ViewGroup { Item { value: 7; } }
         }
     "#;
@@ -3204,6 +3217,178 @@ fn snapshotting_slot_collections() {
         &mut diag,
     ));
     assert!(raw.is_some());
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+}
+
+#[test]
+fn collection_child_import_scope() {
+    let library = r#"
+        interface Contract { in property <int> value; }
+        component ItemImpl { in property <int> value; }
+        component PrivateItem { in property <int> value; }
+        export { ItemImpl as Item }
+        export component WrongItem { }
+        export global State { in property <int> value; }
+        export interface PublicContract { in property <int> value; }
+        export component Group {
+            default slot <[implements Contract]> entries;
+            for entry in entries: entry { }
+        }
+        export component NominalGroup {
+            default slot <[ItemImpl]> entries;
+            for entry in entries: entry { }
+        }
+        export component AnyGroup {
+            default slot <[*]> entries;
+            for entry in entries: entry { }
+        }
+        export component PlainGroup { @children }
+    "#;
+    for (declarations, body, error) in [
+        ("", "Container { Item { } }", None),
+        ("component Derived inherits Container { }", "Derived { Item { } }", None),
+        ("", "NominalGroup { Item { } } AnyGroup { Item { } }", None),
+        (
+            "component Item { in property <int> value; in property <int> local-only; }",
+            "Container { Item { local-only: 42; } }",
+            None,
+        ),
+        (
+            "struct Item { value: int }",
+            "Container { Item { } }",
+            Some("cannot be used as an element"),
+        ),
+        ("", "Item { }", Some("Unknown element 'Item'")),
+        ("", "PlainGroup { Item { } }", Some("Unknown element 'Item'")),
+        ("", "Container { ItemImpl { } }", Some("Unknown element 'ItemImpl'")),
+        ("", "Container { PrivateItem { } }", Some("Unknown element 'PrivateItem'")),
+        ("", "Container { State { } }", Some("Unknown element 'State'")),
+        ("", "Container { PublicContract { } }", Some("Unknown element 'PublicContract'")),
+        ("", "Container { WrongItem { } }", Some("Cannot implement 'Contract'")),
+        (
+            "import { WrongItem as Item } from \"collection-library.slint\";",
+            "Container { Item { } }",
+            Some("Cannot implement 'Contract'"),
+        ),
+        (
+            "component Item { in property <int> value; }",
+            "NominalGroup { Item { } }",
+            Some("requires 'ItemImpl'"),
+        ),
+    ] {
+        let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        config.style = Some("fluent".into());
+        config.experimental_features = crate::ExperimentalFeatures::all();
+        config.open_import_callback = Some(Rc::new(move |path| {
+            let source = (path.file_name() == Some("collection-library.slint"))
+                .then(|| Ok(library.to_owned()));
+            Box::pin(async move { source })
+        }));
+        let source = format!(
+            r#"import {{ Group as Container, NominalGroup, AnyGroup, PlainGroup }} from "collection-library.slint";
+            {declarations}
+            export component App inherits Window {{ {body} }}"#,
+        );
+        let mut diag = BuildDiagnostics::default();
+        let node = crate::parser::parse(source, None, None, &mut diag);
+        let (_, diag, _) = crate::poll_ready(crate::compile_syntax_node(node, diag, config));
+        if let Some(error) = error {
+            assert!(diag.has_errors(), "{body}");
+            assert!(
+                diag.to_string_vec().iter().any(|message| message.contains(error)),
+                "{body}: {:?}",
+                diag.to_string_vec()
+            );
+        } else {
+            assert!(!diag.has_errors(), "{body}: {:?}", diag.to_string_vec());
+        }
+    }
+}
+
+#[test]
+fn radio_widgets_without_experimental_features() {
+    let source = r#"
+        import { RadioGroup as Choices, RadioGroupBase, RadioButtonBase } from "std-widgets.slint";
+        component CustomRadio inherits RadioButtonBase {
+            Text { text: root.text; }
+        }
+        component CustomGroup inherits RadioGroupBase { }
+        component Colors inherits Choices {
+            RadioButton { text: "Red"; checked: true; }
+            RadioButton { text: "Green"; }
+        }
+        export component Test inherits Window {
+            in property <Orientation> orientation;
+            Colors { }
+            CustomGroup {
+                CustomRadio { text: "Custom"; checked: true; }
+            }
+            Choices {
+                orientation: root.orientation;
+                for label in ["Desktop", "Mobile"]: RadioButton { text: label; }
+            }
+        }
+    "#;
+    for style in ["fluent", "material", "cupertino", "cosmic", "qt"] {
+        let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        config.style = Some(style.into());
+        config.experimental_features = crate::ExperimentalFeatures::default();
+        let mut diag = BuildDiagnostics::default();
+        let node = crate::parser::parse(source.into(), None, None, &mut diag);
+        let (_, diag, _) = crate::poll_ready(crate::compile_syntax_node(node, diag, config));
+        assert!(!diag.has_errors(), "{style}: {:?}", diag.to_string_vec());
+    }
+}
+
+#[test]
+fn radio_group_respects_local_button_type() {
+    let source = r#"
+        import { RadioGroup, RadioButtonBase } from "std-widgets.slint";
+        component RadioButton inherits RadioButtonBase {
+            in property <int> marker;
+        }
+        export component App inherits Window {
+            RadioGroup { RadioButton { text: "Custom"; marker: 42; } }
+        }
+    "#;
+    let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    config.style = Some("fluent".into());
+    let mut diag = BuildDiagnostics::default();
+    let node = crate::parser::parse(source.into(), None, None, &mut diag);
+    let (_, diag, _) = crate::poll_ready(crate::compile_syntax_node(node, diag, config));
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+}
+
+#[test]
+fn snapshotting_radio_group_implicit_button() {
+    let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    config.style = Some("fluent".into());
+    let mut diag = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(config, &mut diag);
+    crate::poll_ready(loader.load_file(
+        &SourcePath::new("/tmp/radio-exports.slint"),
+        r#"export { RadioGroup as Choices } from "std-widgets.slint";"#.into(),
+        false,
+        &mut diag,
+    ));
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+    let mut copy = snapshot(&loader).unwrap();
+    drop(loader);
+    crate::poll_ready(
+        copy.load_file(
+            &SourcePath::new("/tmp/radio-app.slint"),
+            r#"
+            import { Choices } from "radio-exports.slint";
+            component Derived inherits Choices { }
+            export component App inherits Window {
+                Derived { RadioButton { text: "A"; checked: true; } }
+            }
+        "#
+            .into(),
+            false,
+            &mut diag,
+        ),
+    );
     assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
 }
 

@@ -65,6 +65,7 @@ The application selects light or dark mode; standard widgets from `std-widgets.s
 Use direct properties, such as `foreground-color` or `checked-color`, for simple color changes.
 Direct colors override the selected style while enabled, including hover and pressed states.
 Disabled controls use their style's disabled colors.
+RadioButton's `checked-color` builds its default style; an explicit `style` replaces that default.
 
 For different colors in each state, pass a complete style struct through `style`.
 Struct literals don't merge with presets.
@@ -186,12 +187,63 @@ Each `src/basic/<control>.slint` file defines the component, its style structs, 
 Run the gallery with the checkout's viewer:
 
 ```powershell
-$env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "interfaces,shadowable,closures,named-slots"
-.\target\debug\slint-viewer.exe --auto-reload tools/editor/controls/examples/controls.slint
+cargo run -p slint-viewer --bin slint-viewer -- --auto-reload --project-root tools/editor tools/editor/controls/examples/controls.slint
 ```
 
-Each page provides size and disabled settings for previews, and the gallery supports light and dark palettes.
+`--project-root` loads the experimental features and library paths from the editor's `slint-project.json`.
+
+Built-in widget sources are embedded in the viewer executable.
+Use `cargo run` to rebuild them after changing a shared base; auto-reload updates application sources only.
+
+The gallery supports light and dark palettes.
+Button, ComboBox, Slider, CheckBox, Switch, and LineEdit pages provide size and disabled settings for previews.
 Preview sizes are defined by gallery components in `examples/preview_controls.slint`; headless examples keep their custom dimensions.
 The Button page shows defaults, direct adjustments, reusable application defaults, and custom visuals through slots.
 Its customization examples keep their own dimensions independently of the preview size selector.
-Every control page demonstrates custom visuals through slots.
+The RadioGroup page demonstrates vertical and horizontal layouts, model-driven buttons, a custom header slot, spacing, and padding.
+`RadioGroupBase` and `RadioButtonBase` are shared with the built-in widget styles and re-exported through `src/headless.slint`.
+The Basic radio style declares its own title and typography, supplying them through the base's `header` slot.
+Replace the header with `header << YourHeader { }`, or remove it with `header << { }`.
+Set `accessible-label` for a custom header.
+Use `spacing` for the gap between buttons and `content-padding` for the inset around the header and buttons.
+
+### Radio Prototype Status
+
+The radio controls demonstrate [collection slots](../../../docs/astro/src/content/docs/guide/experimental/named-slots.mdx#collection-slots).
+Selection and input logic live in the shared Slint bases; the compiler handles generic interface validation and collection wiring.
+The Basic RadioGroup and RadioButton expose `style` structs and theme-derived presets.
+The [radio gallery](examples/radio_groups.slint) demonstrates custom title and button state colors without changing the shared palette.
+Set styles on individual buttons or an application component to share them; the group style covers its title.
+
+The bases still own the orientation-aware layout; replacing the entire layout isn't supported.
+The radio controls have these limitations:
+
+- `current-value` can become stale after direct `current-index` changes or changes to the selected button's text.
+- `item-count` is an input, and public helpers such as `select()` don't validate indexes.
+- Initial and later programmatic selection of disabled buttons follow different rules.
+
+### Collection Tab Prototype
+
+The [Collection tabs gallery](examples/collection_tabs.slint) demonstrates two APIs:
+
+- `CollectionTabWidget { CollectionTab { title: "Settings"; SettingsPage { } } }` keeps each title and page together.
+- `CollectionTabBar` and `PageStack`, linked by `current-index`, allow custom layouts and header visuals.
+  Keep their headers and pages in matching order.
+
+The combined widget uses the same bar and stack through generic collection composition.
+Wrappers can pass pages through a collection expansion to add bindings or callback connections while the widget generates their headers.
+Titles remain reactive, and inactive pages retain their state and contribute layout constraints.
+The gallery includes horizontal and vertical tabs, a custom header, and per-widget style structs.
+Use `CollectionTabWidget.style.header` for header state colors and `style.background-color` and `style.border-color` for the content surface.
+Standalone `CollectionTabHeader` components also accept a `style`.
+Style presets follow BasicTheme; complete custom styles can reference preset states without changing other controls.
+See the [API](API.md#collection-tabs) for properties, input behavior, and headless bases.
+
+The combined widget accepts static pages or a single model loop, with headers reading each page's reactive properties.
+The separate bar and stack also accept a single model loop each.
+The [dynamic example](examples/dynamic_collection_tabs.slint) adds, inserts, closes, and renames pages using the combined widget.
+Its model-editing functions preserve the selected page on insertion and select a neighbor on removal.
+Direct model edits still require application selection updates; reordering doesn't preserve page state by ID.
+Custom header slots on the combined widget and automatic scrolling to the focused header remain unsupported.
+Keyboard and wheel navigation skip disabled headers.
+This prototype doesn't replace the standard `TabWidget` or reproduce the built-in `Tab` placement restriction.

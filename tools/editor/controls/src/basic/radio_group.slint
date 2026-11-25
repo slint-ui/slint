@@ -1,0 +1,192 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioGroupBase, RadioButtonBase } from "../headless.slint";
+import { BasicTheme } from "theme.slint";
+
+export struct RadioGroupStyle {
+    title-color: brush,
+    disabled-title-color: brush,
+}
+
+export struct RadioButtonStateStyle {
+    background-color: brush,
+    foreground-color: brush,
+    border-color: brush,
+    indicator-color: brush,
+    indicator-border-color: brush,
+}
+
+export struct RadioButtonStateStyles {
+    rest: RadioButtonStateStyle,
+    hover: RadioButtonStateStyle,
+    pressed: RadioButtonStateStyle,
+    disabled: RadioButtonStateStyle,
+}
+
+export struct RadioButtonStyle {
+    unchecked: RadioButtonStateStyles,
+    checked: RadioButtonStateStyles,
+    focus-color: brush,
+}
+
+export global RadioGroupStyles {
+    out property <RadioGroupStyle> standard: {
+        title-color: BasicTheme.foreground,
+        disabled-title-color: BasicTheme.disabled-foreground,
+    };
+}
+
+export global RadioButtonStyles {
+    out property <RadioButtonStyle> standard: root.with-accent(BasicTheme.accent);
+
+    pure public function with-accent(accent: brush) -> RadioButtonStyle {
+        return {
+            unchecked: {
+                rest: {
+                    background-color: BasicTheme.background,
+                    foreground-color: BasicTheme.foreground,
+                    border-color: BasicTheme.border,
+                    indicator-color: transparent,
+                    indicator-border-color: BasicTheme.disabled-foreground,
+                },
+                hover: {
+                    background-color: BasicTheme.hover-background,
+                    foreground-color: BasicTheme.foreground,
+                    border-color: BasicTheme.border,
+                    indicator-color: transparent,
+                    indicator-border-color: BasicTheme.disabled-foreground,
+                },
+                pressed: {
+                    background-color: BasicTheme.pressed-background,
+                    foreground-color: BasicTheme.foreground,
+                    border-color: BasicTheme.border,
+                    indicator-color: transparent,
+                    indicator-border-color: BasicTheme.disabled-foreground,
+                },
+                disabled: {
+                    background-color: BasicTheme.disabled-background,
+                    foreground-color: BasicTheme.disabled-foreground,
+                    border-color: BasicTheme.border.with-alpha(0.5),
+                    indicator-color: BasicTheme.disabled-foreground,
+                    indicator-border-color: BasicTheme.disabled-foreground,
+                },
+            },
+            checked: {
+                rest: {
+                    background-color: accent.with-alpha(0.08),
+                    foreground-color: BasicTheme.foreground,
+                    border-color: accent,
+                    indicator-color: accent,
+                    indicator-border-color: accent,
+                },
+                hover: {
+                    background-color: accent.with-alpha(0.08),
+                    foreground-color: BasicTheme.foreground,
+                    border-color: accent,
+                    indicator-color: accent,
+                    indicator-border-color: accent,
+                },
+                pressed: {
+                    background-color: BasicTheme.pressed-background,
+                    foreground-color: BasicTheme.foreground,
+                    border-color: accent,
+                    indicator-color: accent,
+                    indicator-border-color: accent,
+                },
+                disabled: {
+                    background-color: BasicTheme.disabled-background,
+                    foreground-color: BasicTheme.disabled-foreground,
+                    border-color: BasicTheme.border.with-alpha(0.5),
+                    indicator-color: BasicTheme.disabled-foreground,
+                    indicator-border-color: BasicTheme.disabled-foreground,
+                },
+            },
+            focus-color: accent,
+        };
+    }
+}
+
+export component RadioGroup inherits RadioGroupBase {
+    in property <RadioGroupStyle> style: RadioGroupStyles.standard;
+    in property <string> title;
+    in property <brush> title-color: root.enabled ? root.style.title-color : root.style.disabled-title-color;
+    in property <length> title-font-size: 14px;
+    in property <int> title-font-weight: 600;
+
+    accessible-label: root.title;
+
+    header << VerticalLayout {
+        padding: 0px;
+        padding-bottom: root.title != "" ? root.spacing : 0px;
+        vertical-stretch: 0;
+        if root.title != "": Text {
+            text: root.title;
+            color: root.title-color;
+            font-size: root.title-font-size;
+            font-weight: root.title-font-weight;
+            accessible-role: none;
+        }
+    }
+}
+
+export component RadioButton inherits RadioButtonBase {
+    in property <brush> checked-color: BasicTheme.accent;
+    in property <RadioButtonStyle> style: RadioButtonStyles.with-accent(root.checked-color);
+    private property <bool> interactive: root.enabled && root.group-enabled;
+    private property <RadioButtonStateStyles> selected-styles: root.checked ? root.style.checked : root.style.unchecked;
+    private property <RadioButtonStateStyle> state-style: root.selected-styles.rest;
+
+    states [
+        disabled when !root.interactive: {
+            state-style: root.selected-styles.disabled;
+        }
+        pressed when root.pressed: {
+            state-style: root.selected-styles.pressed;
+        }
+        hover when root.has-hover: {
+            state-style: root.selected-styles.hover;
+        }
+    ]
+
+    min-height: 56px;
+    preferred-height: 56px;
+    vertical-stretch: 0;
+
+    Rectangle {
+        border-radius: 10px;
+        border-width: root.has-focus ? 2px : 1px;
+        border-color: root.interactive && root.has-focus ? root.style.focus-color : root.state-style.border-color;
+        background: root.state-style.background-color;
+
+        HorizontalLayout {
+            padding: 16px;
+            spacing: 12px;
+
+            Rectangle {
+                width: 20px;
+                height: 20px;
+                border-radius: 10px;
+                border-width: 1.5px;
+                border-color: root.state-style.indicator-border-color;
+                cross-axis-self-alignment: center;
+
+                if root.checked: Rectangle {
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 5px;
+                    background: root.state-style.indicator-color;
+                }
+            }
+
+            Text {
+                text: root.text;
+                color: root.state-style.foreground-color;
+                font-size: 14px;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                accessible-role: none;
+            }
+        }
+    }
+}

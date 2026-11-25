@@ -2,7 +2,7 @@
 
 Import styled controls and theme types from [`src/basic.slint`](src/basic.slint).
 Import headless controls and surface interfaces from [`src/headless.slint`](src/headless.slint).
-The controls implement the existing standard widget interfaces from [`std-widget-interfaces.slint`](../../../internal/compiler/widgets/common/std-widget-interfaces.slint).
+Button, CheckBox, Switch, Slider, ComboBox, and LineEdit implement the existing standard widget interfaces from [`std-widget-interfaces.slint`](../../../internal/compiler/widgets/common/std-widget-interfaces.slint).
 These interfaces define the common compatibility API; headless bases can expose additional properties, callbacks, and functions for interaction and styling.
 The additional members don't become requirements for other implementations of the standard interfaces.
 Import those interfaces directly; neither entry point re-exports them.
@@ -344,6 +344,105 @@ Derived components inherit these slots automatically.
 Selection color overrides apply while enabled; disabled fields use style selection colors.
 Read-only fields retain enabled style colors.
 
+## RadioGroup and RadioButton
+
+Sources: [styled](src/basic/radio_group.slint), [shared group base](../../../internal/compiler/widgets/common/radiogroup-base.slint), [shared button base](../../../internal/compiler/widgets/common/radiobutton-base.slint).
+
+These controls inherit the same bases as the built-in radio styles.
+See the [standard radio API](../../../docs/astro/src/content/docs/reference/std-widgets/basic-widgets/radiogroup.mdx) for selection, writable `checked`, input, and accessibility behavior.
+
+| Component | Input | Type | Default or Meaning |
+| --- | --- | --- | --- |
+| RadioGroup | `title` | `string` | Empty; default header text and accessibility label |
+| RadioGroup | `style` | `RadioGroupStyle` | `RadioGroupStyles.standard`; enabled and disabled title colors |
+| RadioGroup | `title-color` | `brush` | Current style's title color; an explicit binding overrides both enabled and disabled colors |
+| RadioGroup | `title-font-size` | `length` | `14px` |
+| RadioGroup | `title-font-weight` | `int` | `600` |
+| RadioGroupBase | `orientation` | `Orientation` | Vertical |
+| RadioGroupBase | `spacing` | `length` | `8px`; gap between buttons |
+| RadioGroupBase | `content-padding` | `length` | `0px`; inset around header and buttons |
+| RadioButton | `style` | `RadioButtonStyle` | `RadioButtonStyles.with-accent(checked-color)` |
+| RadioButton | `checked-color` | `brush` | Theme accent; customizes the default style |
+
+`RadioGroup.style` styles the default title; each RadioButton has its own style.
+Share a button style through a binding or an application component to style a whole group.
+`RadioButtonStyle.checked` and `.unchecked` each contain `rest`, `hover`, `pressed`, and `disabled` colors for the card background, label, card border, indicator, and indicator border.
+The shared `focus-color` colors the focused card border.
+Disabling the button or its group selects the disabled state before pressed or hover colors.
+An explicit button `style` takes precedence over the `checked-color` shortcut.
+`RadioButtonStyles.standard` uses the theme accent; `with-accent(accent: brush)` returns the same state structure with a different accent while retaining theme-derived surface and disabled colors.
+
+The optional `header` slot is declared by RadioGroupBase.
+The Basic style supplies a title header; callers can replace it with `header << Component { }` or remove it with `header << { }`.
+RadioGroupBase doesn't declare title or typography properties.
+Set `accessible-label` when replacing the title with custom content.
+The base still provides a layout; it doesn't yet support replacing that entire layout.
+See [Radio Prototype Status](README.md#radio-prototype-status) for current limitations and unresolved issues.
+
+## Collection Tabs
+
+Sources: [styled](src/basic/collection_tabs.slint), [headless](src/headless/collection_tabs.slint).
+These prototype components are separate from the standard `TabWidget`; see the [gallery and limitations](README.md#collection-tab-prototype).
+
+| Direction | CollectionTabWidget Property | Default or Meaning |
+| --- | --- | --- |
+| `in-out` | `current-index: int` | `0`; selects the visible page. |
+| `in` | `orientation: Orientation` | `horizontal`; can change at runtime. |
+| `in` | `style: CollectionTabWidgetStyle` | `CollectionTabWidgetStyles.standard`; header state colors, content background, and border. |
+| `in` | `content-padding: length` | `12px`; inset around the pages. |
+| `out` | `item-count: int` | Number of supplied pages. |
+
+Children satisfy `CollectionTabEntry`, which requires `in property <string> title` and `in property <bool> enabled`.
+`CollectionTab` inherits `CollectionTabBase` and accepts page content through `@children`.
+Supply static pages or one model loop; generated headers reference the actual page instances.
+
+The headless `CollectionTabBarBase` has `current-index`, `item-count`, and `orientation`, plus read-only `has-focus` and `focused-index`.
+`focused-index` is `-1` when the bar doesn't have focus.
+Its `activate(index)` function selects a valid index and focuses the bar; disabled bars ignore activation.
+`find-enabled(start, direction)` returns an enabled index at or after `start` in direction `-1`, `0`, or `1`, or `-1`.
+Override this pure callback when using the base with disabled items; direction `0` queries only `start`.
+Arrow keys follow the orientation; Home and End move focus to the first and last headers without changing selection.
+Enter activates on press, and Space activates on release.
+Vertical wheel deltas select the previous or next tab.
+
+`CollectionTabHeaderBase` exposes `title`, `selected`, `focused`, and the inherited `enabled` property.
+It emits `activated()` for enabled pointer and accessibility activation.
+Both bases accept visual children through `@children`.
+
+### Composable Tabs
+
+`CollectionTabBar` accepts headers inheriting `CollectionTabHeaderBase` through its default collection.
+It connects their state and activation to `CollectionTabBarBase` and provides a scrollable layout without header visuals.
+Set `spacing` (default `4px`) and `orientation` to arrange headers.
+Its `item-count` is bound to the header count; callers don't need to supply it.
+It handles disabled-header lookup through indexed collection reads and manages each header's `previous-enabled-index` and `next-enabled-index`.
+It is exported through both `headless.slint` and `basic.slint`.
+Use `CollectionTabBarBase` directly for a different header layout.
+The styled `CollectionTabHeader` adds `horizontal-padding` (default `16px`) and `style: CollectionTabHeaderStyle`, defaulting to `CollectionTabHeaderStyles.standard`.
+Its style has `unselected` and `selected` state sets, each with `rest`, `hover`, `pressed`, and `disabled` colors for the background, text, and indicator, plus a shared `focus-color`.
+Disabled colors take precedence over pressed and hover colors.
+`CollectionTabWidget.style.header` supplies the style of every generated header; standalone headers accept their own style.
+Padding and sizing remain direct properties.
+Inherit `CollectionTabHeaderBase` to supply different visuals.
+
+[`PageStack`](src/headless/page_stack.slint), exported through `headless.slint`, has these properties:
+
+| Direction | Property | Default or Meaning |
+| --- | --- | --- |
+| `in` | `current-index: int` | `0`; index of the visible page. |
+| `in` | `content-padding: length` | `0px`; inset around the pages. |
+| `out` | `item-count: int` | Number of supplied pages. |
+
+Its default collection accepts any component through `[*]`.
+The stack manages page geometry and visibility; pages fill the content area subject to their size constraints.
+Inactive pages retain their state and contribute minimum and preferred sizes.
+An index outside the collection hides all pages without changing the index.
+It doesn't assign tab-specific accessibility roles.
+
+Bind the stack's `current-index` to the bar's `current-index` and keep headers and pages in matching order.
+The bar and stack can each use static children or a single model loop.
+They don't automatically synchronize their counts or selection after model edits.
+
 ## Style Struct Fields
 
 All types below are exported from `basic.slint`.
@@ -368,9 +467,19 @@ All color fields are `brush`, except LineEdit selection colors, which are `color
 | `ComboBoxStyle` | `rest`, `hover`, `pressed`, `disabled`: `ComboBoxStateStyle`; `popup`: `ComboBoxPopupStyle`; `focus-color`: `brush` |
 | `LineEditStateStyle` | `background-color`, `foreground-color`, `border-color`, `placeholder-color`: `brush` |
 | `LineEditStyle` | `rest`, `hover`, `disabled`: `LineEditStateStyle`; `selection-background-color`, `selection-foreground-color`: `color`; `focus-color`: `brush` |
+| `RadioGroupStyle` | `title-color`, `disabled-title-color`: `brush` |
+| `RadioButtonStateStyle` | `background-color`, `foreground-color`, `border-color`, `indicator-color`, `indicator-border-color`: `brush` |
+| `RadioButtonStateStyles` | `rest`, `hover`, `pressed`, `disabled`: `RadioButtonStateStyle` |
+| `RadioButtonStyle` | `unchecked`, `checked`: `RadioButtonStateStyles`; `focus-color`: `brush` |
+| `CollectionTabHeaderStateStyle` | `background-color`, `foreground-color`, `indicator-color`: `brush` |
+| `CollectionTabHeaderStateStyles` | `rest`, `hover`, `pressed`, `disabled`: `CollectionTabHeaderStateStyle` |
+| `CollectionTabHeaderStyle` | `unselected`, `selected`: `CollectionTabHeaderStateStyles`; `focus-color`: `brush` |
+| `CollectionTabWidgetStyle` | `header`: `CollectionTabHeaderStyle`; `background-color`, `border-color`: `brush` |
 
 Read-only preset globals expose `ButtonStyles.secondary`, `primary`, `danger`, and `invisible`.
 `CheckBoxStyles`, `SwitchStyles`, `SliderStyles`, `ComboBoxStyles`, and `LineEditStyles` each expose `standard`.
+`CollectionTabHeaderStyles` and `CollectionTabWidgetStyles` also expose `standard`.
+`RadioGroupStyles` and `RadioButtonStyles` expose `standard`; `RadioButtonStyles.with-accent(brush)` builds an accent variant.
 Presets derive their colors from BasicTheme.
 
 ## Theme API

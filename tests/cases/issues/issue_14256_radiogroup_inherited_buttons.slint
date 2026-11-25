@@ -4,7 +4,7 @@
 // An instance of a RadioGroup subclass that declares its own RadioButtons
 // used to render as an empty group, with the subclass's title gone too.
 // https://github.com/slint-ui/slint/issues/14256
-import { RadioGroup } from "std-widgets.slint";
+import { RadioGroup, RadioButton } from "std-widgets.slint";
 
 component Colors inherits RadioGroup {
     title: "Colors";
@@ -25,9 +25,14 @@ export component TestCase inherits Window {
             orientation: horizontal;
         }
         more := MoreColors { }
+        replacement := Colors {
+            title: "Replacement";
+            RadioButton { text: "Blue"; checked: true; }
+        }
     }
 
-    out property <bool> test: colors1.current-value == "Green" && colors2.current-value == "Green" && more.current-value == "Green";
+    out property <bool> test: colors1.current-value == "Green" && colors2.current-value == "Green"
+        && more.current-value == "Green" && replacement.current-value == "Blue";
 }
 
 /*
@@ -52,5 +57,8 @@ for group in &colors {
 let horizontal = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Horizontal").next().unwrap();
 assert_eq!(horizontal.accessible_item_count(), Some(2));
 assert_eq!(horizontal.accessible_orientation(), Some(Orientation::Horizontal));
+let replacement = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Replacement").next().unwrap();
+assert_eq!(replacement.accessible_item_count(), Some(1));
+assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Blue").count(), 1);
 ```
 */

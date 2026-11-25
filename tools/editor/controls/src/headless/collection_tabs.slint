@@ -1,0 +1,197 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export interface CollectionTabEntry {
+    in property <string> title;
+    in property <bool> enabled;
+}
+
+export component CollectionTabBase inherits Rectangle {
+    in property <string> title;
+    in property <bool> enabled: true;
+    accessible-role: tab-panel;
+    accessible-label: root.title;
+    @children
+}
+
+export component CollectionTabHeaderBase inherits TouchArea {
+    in property <string> title;
+    in property <bool> selected;
+    in property <bool> focused;
+    in property <int> previous-enabled-index: -1;
+    in property <int> next-enabled-index: -1;
+    callback activated();
+
+    clicked => { if root.enabled { root.activated(); } }
+    accessible-role: tab;
+    accessible-label: root.title;
+    accessible-enabled: root.enabled;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
+    accessible-action-default => { if root.enabled { root.activated(); } }
+    @children
+}
+
+export component CollectionTabBarBase inherits TouchArea {
+    in-out property <int> current-index: 0;
+    in property <int> item-count;
+    in property <Orientation> orientation: Orientation.horizontal;
+    out property <bool> has-focus: keys.has-focus;
+    out property <int> focused-index: keys.has-focus ? keys.focused-index : -1;
+    private property <int> space-pressed-index: -1;
+    private property <int> first-enabled: root.find-enabled(0, 1);
+    private property <bool> focused-item-enabled: root.is-enabled(keys.focused-index);
+
+    pure callback find-enabled(int, int) -> int;
+    find-enabled(start, direction) => { return start >= 0 && start < root.item-count ? start : -1; }
+
+    pure function is-enabled(index: int) -> bool {
+        return index >= 0 && index < root.item-count && root.find-enabled(index, 0) == index;
+    }
+
+    function move-focus(start: int, direction: int) {
+        let next = root.find-enabled(start, direction);
+        if next >= 0 { keys.focused-index = next; }
+    }
+
+    changed focused-item-enabled => {
+        if !root.focused-item-enabled {
+            root.space-pressed-index = -1;
+            keys.focused-index = root.first-enabled;
+        }
+    }
+
+    changed current-index => {
+        if root.current-index >= 0 && root.current-index < root.item-count {
+            keys.focused-index = root.is-enabled(root.current-index) ? root.current-index : root.first-enabled;
+            root.space-pressed-index = -1;
+        }
+    }
+    changed item-count => {
+        if !root.is-enabled(keys.focused-index) { keys.focused-index = root.first-enabled; }
+        root.space-pressed-index = -1;
+    }
+
+    enabled: root.item-count > 0;
+    forward-focus: keys;
+    accessible-role: tab-list;
+    accessible-enabled: root.enabled;
+    accessible-orientation: root.orientation;
+    accessible-item-count: root.item-count;
+    accessible-delegate-focus: keys.has-focus ? keys.focused-index : root.current-index;
+
+    public function activate(index: int) {
+        if root.enabled && root.is-enabled(index) {
+            root.current-index = index;
+            keys.focused-index = index;
+            keys.focus();
+        }
+    }
+
+    scroll-event(event) => {
+        if !root.enabled || root.item-count <= 0 { return reject; }
+        if event.delta-y < -2px {
+            let next = root.find-enabled(Math.max(root.current-index + 1, 0), 1);
+            if next >= 0 { root.current-index = next; return accept; }
+        }
+        if event.delta-y > 2px {
+            let next = root.find-enabled(Math.min(root.current-index - 1, root.item-count - 1), -1);
+            if next >= 0 { root.current-index = next; return accept; }
+        }
+        return reject;
+    }
+
+    keys := FocusScope {
+        private property <int> focused-index;
+        width: 0px;
+        height: 0px;
+        enabled: root.enabled && root.first-enabled >= 0;
+        focus-gained => {
+            self.focused-index = root.is-enabled(root.current-index) ? root.current-index : root.first-enabled;
+        }
+        focus-lost => { root.space-pressed-index = -1; }
+        key-pressed(event) => {
+            if event.modifiers.control || event.modifiers.alt || event.modifiers.meta { return reject; }
+            if event.text == (root.orientation == Orientation.horizontal ? Key.LeftArrow : Key.UpArrow) {
+                root.move-focus(self.focused-index - 1, -1);
+                return accept;
+            }
+            if event.text == (root.orientation == Orientation.horizontal ? Key.RightArrow : Key.DownArrow) {
+                root.move-focus(self.focused-index + 1, 1);
+                return accept;
+            }
+            if event.text == Key.Home {
+                root.move-focus(0, 1);
+                return accept;
+            }
+            if event.text == Key.End {
+                root.move-focus(root.item-count - 1, -1);
+                return accept;
+            }
+            if event.text == Key.Return {
+                root.activate(self.focused-index);
+                return accept;
+            }
+            if event.text == Key.Space {
+                root.space-pressed-index = self.focused-index;
+                return accept;
+            }
+            return reject;
+        }
+        key-released(event) => {
+            if event.text == Key.Space && root.space-pressed-index >= 0 {
+                let pressed-index = root.space-pressed-index;
+                root.space-pressed-index = -1;
+                if self.focused-index == pressed-index { root.activate(pressed-index); }
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    @children
+}
+
+export component CollectionTabBar inherits CollectionTabBarBase {
+    in property <length> spacing: 4px;
+    default slot <[CollectionTabHeaderBase]> headers;
+    item-count: headers.length;
+    find-enabled(start, direction) => {
+        if start < 0 || start >= headers.length { return -1; }
+        if headers[start].enabled { return start; }
+        return direction > 0 ? headers[start].next-enabled-index
+            : direction < 0 ? headers[start].previous-enabled-index : -1;
+    }
+    horizontal-stretch: root.orientation == Orientation.horizontal ? 1 : 0;
+    vertical-stretch: root.orientation == Orientation.vertical ? 1 : 0;
+    min-width: root.orientation == Orientation.vertical ? header-layout.min-width : 0px;
+    min-height: root.orientation == Orientation.horizontal ? header-layout.min-height : 0px;
+    preferred-width: header-layout.preferred-width;
+    preferred-height: header-layout.preferred-height;
+
+    Flickable {
+        content-width: Math.max(self.width, header-layout.preferred-width);
+        content-height: Math.max(self.height, header-layout.preferred-height);
+
+        header-layout := GridLayout {
+            x: 0px;
+            y: 0px;
+            width: root.orientation == Orientation.horizontal ? self.preferred-width : parent.content-width;
+            height: root.orientation == Orientation.vertical ? self.preferred-height : parent.content-height;
+            spacing: root.spacing;
+            for header[index] in headers: header {
+                row: root.orientation == Orientation.vertical ? index : 0;
+                col: root.orientation == Orientation.vertical ? 0 : index;
+                selected: root.current-index == index;
+                focused: root.focused-index == index;
+                previous-enabled-index: index <= 0 ? -1
+                    : headers[index - 1].enabled ? index - 1 : headers[index - 1].previous-enabled-index;
+                next-enabled-index: index + 1 >= headers.length ? -1
+                    : headers[index + 1].enabled ? index + 1 : headers[index + 1].next-enabled-index;
+                accessible-item-index: index;
+                accessible-enabled: root.enabled && self.enabled;
+                activated => { root.activate(index); }
+            }
+        }
+    }
+}

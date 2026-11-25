@@ -1,0 +1,138 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    RadioGroup, RadioButton, RadioButtonStyle, RadioButtonStyles,
+    BasicTheme,
+} from "../src/basic.slint";
+import { ExampleSection } from "section.slint";
+
+export component StyledRadioGroupExample inherits RadioGroup {
+    title: "Custom state colors";
+    current-index: 0;
+    style: {
+        title-color: BasicTheme.accent,
+        disabled-title-color: BasicTheme.disabled-foreground,
+    };
+    private property <RadioButtonStyle> button-style: {
+        unchecked: RadioButtonStyles.standard.unchecked,
+        checked: {
+            rest: {
+                background-color: #ccfbf1,
+                foreground-color: #115e59,
+                border-color: #0f766e,
+                indicator-color: #0f766e,
+                indicator-border-color: #0f766e,
+            },
+            hover: {
+                background-color: #99f6e4,
+                foreground-color: #134e4a,
+                border-color: #0f766e,
+                indicator-color: #0f766e,
+                indicator-border-color: #0f766e,
+            },
+            pressed: {
+                background-color: #5eead4,
+                foreground-color: #134e4a,
+                border-color: #0f766e,
+                indicator-color: #0f766e,
+                indicator-border-color: #0f766e,
+            },
+            disabled: RadioButtonStyles.standard.checked.disabled,
+        },
+        focus-color: #0f766e,
+    };
+
+    RadioButton { text: "Personal"; style: root.button-style; }
+    RadioButton { text: "Team"; style: root.button-style; }
+    RadioButton { text: "Enterprise (coming soon)"; style: root.button-style; enabled: false; }
+}
+
+export component RadioGroupExamples inherits Rectangle {
+    vertical-stretch: 0;
+
+    VerticalLayout {
+        spacing: 20px;
+
+        ExampleSection {
+            title: "Vertical radio group";
+            description: "Select one option with the pointer, or use Tab and Space or Enter.";
+            vertical := RadioGroup {
+                title: "Billing cycle";
+                current-index: 0;
+                spacing: 8px;
+                RadioButton {
+                    text: "Monthly";
+                }
+
+                RadioButton {
+                    text: "Yearly";
+                }
+
+                RadioButton {
+                    text: "Enterprise (coming soon)";
+                    enabled: false;
+                }
+            }
+        }
+
+        ExampleSection {
+            title: "Horizontal radio group";
+            description: "Buttons created from a model, with a larger gap and padding around the group.";
+            horizontal := RadioGroup {
+                title: "Delivery";
+                current-index: 0;
+                orientation: Orientation.horizontal;
+                spacing: 16px;
+                content-padding: 8px;
+                for option in ["Standard", "Express", "Pickup"]: RadioButton {
+                    text: option;
+                }
+            }
+        }
+
+        ExampleSection {
+            title: "Per-control styles";
+            description: "The group styles its title; each button accepts a shared or individual style for its checked, unchecked, hover, pressed, disabled, and focus colors.";
+            StyledRadioGroupExample { }
+        }
+
+        ExampleSection {
+            title: "Custom header";
+            description: "Replace the default title through the header slot, or clear it with header << { }.";
+            custom := RadioGroup {
+                accessible-label: "Workspace";
+                current-index: 0;
+                spacing: 12px;
+                content-padding: 8px;
+                header << VerticalLayout {
+                    spacing: 4px;
+                    padding-bottom: 12px;
+                    vertical-stretch: 0;
+                    Text {
+                        text: "Choose your workspace";
+                        color: BasicTheme.foreground;
+                        font-size: 18px;
+                        font-weight: 600;
+                        accessible-role: none;
+                    }
+
+                    Text {
+                        text: "The header can contain more than a title.";
+                        color: BasicTheme.disabled-foreground;
+                        wrap: word-wrap;
+                        accessible-role: none;
+                    }
+                }
+                RadioButton {
+                    text: "Personal";
+                }
+
+                RadioButton {
+                    text: "Team";
+                    checked-color: BasicTheme.focus;
+                }
+            }
+        }
+    }
+}
