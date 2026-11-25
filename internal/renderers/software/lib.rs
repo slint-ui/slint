@@ -23,6 +23,7 @@ mod fonts;
 mod minimal_software_window;
 #[cfg(feature = "path")]
 mod path;
+mod prepared_textures;
 mod scene;
 mod simd;
 mod target_pixel;
@@ -67,6 +68,8 @@ use i_slint_core::{Brush, Color, Coord, ImageInner, StaticTextures};
 #[allow(unused)]
 use num_traits::Float;
 use num_traits::NumCast;
+#[cfg(not(feature = "experimental"))]
+use prepared_textures::PreparedTextures;
 
 type PhysicalLength = euclid::Length<i16, PhysicalPx>;
 type PhysicalRect = euclid::Rect<i16, PhysicalPx>;
@@ -545,6 +548,7 @@ impl SoftwareRenderer {
     fn render_buffer_impl(
         &self,
         buffer: &mut impl target_pixel_buffer::TargetPixelBuffer,
+        prepared_textures: &mut PreparedTextures,
     ) -> PhysicalRegion {
         let pixels_per_line = buffer.line_slice(0).len();
         let num_lines = buffer.num_lines();
@@ -554,6 +558,7 @@ impl SoftwareRenderer {
             dirty_region: Default::default(),
             scale_factor,
             clips: Vec::new(),
+            prepared_textures,
         })
         .map(|(r, _)| r)
         .unwrap_or_default()
@@ -1573,20 +1578,21 @@ enum RasterCommand {
         clip: PhysicalRect,
         region: PhysicalRegion,
     },
-    /// Pixels that live as long as the program, such as embedded images and glyphs.
-    Texture {
+    /// Glyphs that live as long as the program.
+    /// Line-by-line rendering also gets embedded images as this command.
+    GlyphTexture {
         geometry: PhysicalRect,
         texture: Texture<'static>,
-    },
-    /// Pixels shared with the window, such as images and glyphs loaded at run time.
-    SharedBuffer {
-        geometry: PhysicalRect,
-        buffer: SharedBufferCommand,
     },
     /// An image, which a [`target_pixel_buffer::TargetPixelBuffer`] may draw itself.
     TargetTexture {
         texture: target_pixel_buffer::DrawTextureArgs,
         clip: PhysicalRect,
+    },
+    /// Pixels shared with the window, such as images and glyphs loaded at run time.
+    SharedBuffer {
+        geometry: PhysicalRect,
+        buffer: SharedBufferCommand,
     },
     /// A rectangle, which a [`target_pixel_buffer::TargetPixelBuffer`] may draw itself.
     Rectangle {
@@ -1923,6 +1929,7 @@ struct BufferRasterizer<'a, TargetPixelBuffer> {
     scale_factor: ScaleFactor,
     /// Reused by every command, so drawing doesn't allocate.
     clips: Vec<ShapeClip>,
+    prepared_textures: &'a mut PreparedTextures,
 }
 
 impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
@@ -2026,7 +2033,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
                         .sum::<i64>(),
                     rects = region.count,
                 ),
-                Texture { geometry, .. } => span!("process_scene_texture", geometry.size),
+                GlyphTexture { geometry, .. } => span!("process_scene_texture", geometry.size),
                 SharedBuffer { geometry, .. } => span!("process_shared_buffer", geometry.size),
                 TargetTexture { texture, .. } => {
                     let source = texture.source();
@@ -2070,7 +2077,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
         };
         match command {
             Background { args, clip, region } => self.rasterize_background(args, *clip, region),
-            Texture { geometry, texture } => {
+            GlyphTexture { geometry, texture } => {
                 self.draw_clipped(*geometry, rounded_clips, None, texture)
             }
             SharedBuffer { geometry, buffer } => {
@@ -2146,8 +2153,17 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
                 texture.dst_height as _,
             );
             geometry.intersection(&clip.cast()).map_or_else(Default::default, |r| r.cast())
-        }) && self.buffer.draw_texture(texture, &self.dirty_region.intersection(&clip))
-        {
+        }) && {
+            let region = self.dirty_region.intersection(&clip);
+            let prepared = self.prepared_textures.get(texture);
+            #[cfg(feature = "tracing")]
+            let _span =
+                tracing::info_span!("texture_hook", prepared = prepared.is_some() as u8).entered();
+            match prepared {
+                Some(prepared) => self.buffer.draw_texture(&prepared.at(texture), &region),
+                None => self.buffer.draw_texture(texture, &region),
+            }
+        } {
             return;
         }
 
@@ -2155,6 +2171,8 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
             return;
         };
 
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!("texture_cpu").entered();
         self.draw_clipped(geometry, rounded_clips, None, &texture);
     }
 
@@ -2261,7 +2279,6 @@ impl RecordedRasterCommands {
     /// The buffer has the `pixels_per_line` and `num_lines` that
     /// [`SoftwareRenderer::record_frame`] recorded the frame for,
     /// so it must hold at least `pixels_per_line * num_lines` pixels.
-    #[cfg_attr(feature = "tracing", tracing::instrument(name = "render_recorded", skip_all))]
     pub fn rasterize(&self, buffer: &mut [impl TargetPixel]) -> PhysicalRegion {
         assert!(
             buffer.len() >= self.pixels_per_line * self.num_lines,
@@ -2271,12 +2288,25 @@ impl RecordedRasterCommands {
             self.pixels_per_line,
         );
         let mut buffer = TargetPixelSlice { data: buffer, pixel_stride: self.pixels_per_line };
+        self.rasterize_into_buffer(&mut buffer, &mut PreparedTextures::new())
+    }
+
+    /// Rasterizes the frame into `buffer`, like [`SoftwareRenderer::render_into_buffer`] renders it.
+    /// Textures prepared for the buffer go into `prepared_textures`.
+    /// Pass the same one with every frame, from the thread that rasterizes.
+    #[cfg_attr(feature = "tracing", tracing::instrument(name = "render_recorded", skip_all))]
+    pub fn rasterize_into_buffer(
+        &self,
+        buffer: &mut impl target_pixel_buffer::TargetPixelBuffer,
+        prepared_textures: &mut PreparedTextures,
+    ) -> PhysicalRegion {
         let mut rasterizer = BufferRasterizer {
-            buffer: &mut buffer,
+            buffer,
             dirty_range_cache: Vec::new(),
             dirty_region: Default::default(),
             scale_factor: self.scale_factor,
             clips: Vec::new(),
+            prepared_textures,
         };
         for (command, rounded_clips) in &self.commands {
             rasterizer.rasterize(command, &self.rounded_clips[rounded_clips.clone()]);
@@ -2327,7 +2357,7 @@ impl RasterCommandSink for ScanlineRasterCommands {
     fn push(&mut self, command: RasterCommand, rounded_clips: &[RoundedClip]) {
         use RasterCommand::*;
         let (geometry, scanline_command, own_clip) = match command {
-            Texture { geometry, texture } => {
+            GlyphTexture { geometry, texture } => {
                 let texture_index = self.vectors.textures.len() as u16;
                 self.vectors.textures.push(texture);
                 self.push_item(
@@ -2349,7 +2379,7 @@ impl RasterCommandSink for ScanlineRasterCommands {
                 );
                 return;
             }
-            TargetTexture { texture, clip } => {
+            TargetTexture { texture, clip, .. } => {
                 let Some((extra, geometry)) = TextureExtra::from_target_texture(&texture, &clip)
                 else {
                     return;
@@ -2358,7 +2388,7 @@ impl RasterCommandSink for ScanlineRasterCommands {
                     target_pixel_buffer::TextureDataContainer::Static(texture_data) => {
                         let pixel_stride =
                             (texture_data.byte_stride / texture_data.pixel_format.bpp()) as u16;
-                        Texture {
+                        GlyphTexture {
                             geometry,
                             texture: scene::Texture {
                                 data: texture_data.data,
@@ -2373,6 +2403,9 @@ impl RasterCommandSink for ScanlineRasterCommands {
                             geometry,
                             buffer: SharedBufferCommand { buffer, source_rect, extra },
                         }
+                    }
+                    target_pixel_buffer::TextureDataContainer::Prepared(_) => {
+                        unreachable!("only rasterizing into a buffer prepares textures")
                     }
                 };
                 self.push(command, rounded_clips);
@@ -2909,7 +2942,7 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
                         let geometry = geometry.transformed(self.rotation);
                         match &glyph.alpha_map {
                             fonts::GlyphAlphaMap::Static(data) => self.raster_commands.push(
-                                RasterCommand::Texture {
+                                RasterCommand::GlyphTexture {
                                     geometry,
                                     texture: Texture {
                                         data,
@@ -4043,6 +4076,7 @@ fn render_region(
         dirty_region: PhysicalRegion { rectangles, count: region.len() },
         scale_factor,
         clips: Vec::new(),
+        prepared_textures: &mut PreparedTextures::new(),
     };
     draw(&mut raster_commands);
     data

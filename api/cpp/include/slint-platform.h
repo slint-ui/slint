@@ -624,6 +624,34 @@ public:
     /// Arguments for draw_rectangle
     using DrawRectangleArgs = cbindgen_private::DrawRectangleArgs;
 
+    /// Images that the renderer prepared for a TargetPixelBuffer, kept from frame to frame.
+    /// Pass the same one to every RecordedRasterCommands::rasterize_into_buffer() call of a thread.
+    ///
+    /// **Note**: This class is still experimental - its API is subject to changes and not
+    /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
+    /// option.
+    class PreparedTextures
+    {
+    public:
+        PreparedTextures() : inner(cbindgen_private::slint_prepared_textures_new()) { }
+        PreparedTextures(const PreparedTextures &) = delete;
+        PreparedTextures &operator=(const PreparedTextures &) = delete;
+        ~PreparedTextures() { cbindgen_private::slint_prepared_textures_drop(inner); }
+
+        /// Sets how many bytes the prepared images may take. The default is 0, which prepares
+        /// no images.
+        /// When the next image doesn't fit, the images used longest ago are dropped.
+        /// Images larger than this aren't prepared.
+        void set_max_bytes(std::size_t max_bytes)
+        {
+            cbindgen_private::slint_prepared_textures_set_max_bytes(inner, max_bytes);
+        }
+
+    private:
+        friend class SoftwareRenderer;
+        void *inner;
+    };
+
     /// Abstract base class for a target pixel buffer where certain drawing operations can be
     /// delegated. Use this to implement support for hardware accelerators such as DMA2D, PPA, or
     /// PXP on Microcontrollers.
@@ -787,26 +815,32 @@ public:
 
 #    ifdef SLINT_FEATURE_EXPERIMENTAL
     /// Renders into the given TargetPixelBuffer.
+    /// Images prepared for the buffer go into \a prepared_textures.
     ///
     /// **Note**: This class is still experimental - its API is subject to changes and not
     /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
     /// option.
-    PhysicalRegion render(TargetPixelBuffer<Rgb8Pixel> *buffer) const
+    PhysicalRegion render(TargetPixelBuffer<Rgb8Pixel> *buffer,
+                          PreparedTextures &prepared_textures) const
     {
         auto wrapper = buffer->wrap();
-        auto r = cbindgen_private::slint_software_renderer_render_accel_rgb8(inner, &wrapper);
+        auto r = cbindgen_private::slint_software_renderer_render_accel_rgb8(
+                inner, &wrapper, prepared_textures.inner);
         return PhysicalRegion { r };
     }
 
     /// Renders into the given TargetPixelBuffer.
+    /// Images prepared for the buffer go into \a prepared_textures.
     ///
     /// **Note**: This class is still experimental - its API is subject to changes and not
     /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
     /// option.
-    PhysicalRegion render(TargetPixelBuffer<Rgb565Pixel> *buffer) const
+    PhysicalRegion render(TargetPixelBuffer<Rgb565Pixel> *buffer,
+                          PreparedTextures &prepared_textures) const
     {
         auto wrapper = buffer->wrap();
-        auto r = cbindgen_private::slint_software_renderer_render_accel_rgb565(inner, &wrapper);
+        auto r = cbindgen_private::slint_software_renderer_render_accel_rgb565(
+                inner, &wrapper, prepared_textures.inner);
         return PhysicalRegion { r };
     }
 
@@ -858,6 +892,30 @@ public:
             return PhysicalRegion {
                 cbindgen_private::slint_recorded_raster_commands_rasterize_rgb565(
                         inner, reinterpret_cast<uint16_t *>(buffer.data()), buffer.size())
+            };
+        }
+
+        /// Rasterizes the frame into \a buffer, like SoftwareRenderer::render() renders into a
+        /// TargetPixelBuffer. Images prepared for the buffer go into \a prepared_textures.
+        PhysicalRegion rasterize_into_buffer(TargetPixelBuffer<Rgb8Pixel> *buffer,
+                                             PreparedTextures &prepared_textures) const
+        {
+            auto wrapper = buffer->wrap();
+            return PhysicalRegion {
+                cbindgen_private::slint_recorded_raster_commands_rasterize_accel_rgb8(
+                        inner, &wrapper, prepared_textures.inner)
+            };
+        }
+
+        /// Rasterizes the frame into \a buffer, like SoftwareRenderer::render() renders into a
+        /// TargetPixelBuffer. Images prepared for the buffer go into \a prepared_textures.
+        PhysicalRegion rasterize_into_buffer(TargetPixelBuffer<Rgb565Pixel> *buffer,
+                                             PreparedTextures &prepared_textures) const
+        {
+            auto wrapper = buffer->wrap();
+            return PhysicalRegion {
+                cbindgen_private::slint_recorded_raster_commands_rasterize_accel_rgb565(
+                        inner, &wrapper, prepared_textures.inner)
             };
         }
 

@@ -7,6 +7,8 @@
 #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
 pub use crate::RecordedRasterCommands;
 pub use crate::minimal_software_window::MinimalSoftwareWindow;
+#[cfg(feature = "experimental")]
+pub use crate::prepared_textures::PreparedTextures;
 pub use crate::target_pixel::{
     Argb8888Pixel, PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
 };
@@ -307,7 +309,10 @@ impl SoftwareRenderer {
     /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
     /// in the window frame of reference. It is affected by the screen rotation.
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
-        self.render_buffer_impl(&mut TargetPixelSlice { data: buffer, pixel_stride })
+        self.render_buffer_impl(
+            &mut TargetPixelSlice { data: buffer, pixel_stride },
+            &mut crate::prepared_textures::PreparedTextures::new(),
+        )
     }
 
     /// Render the window to the given frame buffer.
@@ -322,9 +327,16 @@ impl SoftwareRenderer {
     ///
     /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
     /// in the window frame of reference. It is affected by the screen rotation.
+    ///
+    /// Images prepared for the buffer go into `prepared_textures`.
+    /// Pass the same one with every frame. A new one prepares no images.
     #[cfg(feature = "experimental")]
-    pub fn render_into_buffer(&self, buffer: &mut impl TargetPixelBuffer) -> PhysicalRegion {
-        self.render_buffer_impl(buffer)
+    pub fn render_into_buffer(
+        &self,
+        buffer: &mut impl TargetPixelBuffer,
+        prepared_textures: &mut PreparedTextures,
+    ) -> PhysicalRegion {
+        self.render_buffer_impl(buffer, prepared_textures)
     }
 
     /// Records the window's next frame, like [`Self::render`] renders it,
