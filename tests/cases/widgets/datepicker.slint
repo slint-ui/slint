@@ -34,15 +34,47 @@ export component TestCase inherits Window {
 /*
 
 ```rust
+use slint_testing::ElementHandle;
+
 let instance = TestCase::new().unwrap();
 
 instance.set_date(Date{ day: 17, month: 5, year: 2024});
 
-let mut result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::b").collect::<Vec<_>>();
+let mut result = ElementHandle::find_by_element_id(&instance, "TestCase::b").collect::<Vec<_>>();
 assert_eq!(result.len(), 1);
 let button = result.pop().unwrap();
 
 button.invoke_accessible_default_action();
 assert_eq!(instance.get_datepicker_created(), true);
+
+// Only the year buttons scrolled into view can be found, so finding the selected year
+// means that the year selection opened scrolled to it.
+let year_button = |label: &str| {
+    ElementHandle::find_by_accessible_label(&instance, label)
+        .find(|e| e.accessible_role() == Some(slint_testing::AccessibleRole::Button))
+};
+let open_years = |month_label: &str| {
+    button.invoke_accessible_default_action();
+    year_button(month_label).expect("the month and year button").invoke_accessible_default_action();
+};
+
+// A year far from the start of the list (1900).
+instance.set_date(Date{ day: 17, month: 5, year: 1955});
+open_years("May 1955");
+let year = year_button("1955").expect("the selected year is scrolled into view");
+assert_eq!(year.accessible_checked(), Some(true));
+assert!(year_button("1900").is_none(), "the list does not start at the top");
+// Choosing another year and pressing OK gives a date in that year.
+year_button("1956").expect("the next year").invoke_accessible_default_action();
+year_button("OK").expect("the OK button").invoke_accessible_default_action();
+assert_eq!(instance.get_result_date().year, 1956);
+
+// Years outside 1900..2100 are offered when the date is one of them.
+instance.set_date(Date{ day: 1, month: 1, year: 1850});
+open_years("January 1850");
+assert_eq!(year_button("1850").expect("a year before 1900").accessible_checked(), Some(true));
+instance.set_date(Date{ day: 1, month: 1, year: 2150});
+open_years("January 2150");
+assert_eq!(year_button("2150").expect("a year after 2100").accessible_checked(), Some(true));
 ```
 */

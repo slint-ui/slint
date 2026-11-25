@@ -189,7 +189,9 @@ export component Calendar {
 }
 
 component YearSelection {
-    in property <[int]> model;
+    // The years offered: `year-count` years from `first-year` on.
+    in property <int> first-year;
+    in property <int> year-count;
     in property <length> spacing;
     in property <int> visible-row-count;
     in property <int> column-count;
@@ -202,31 +204,44 @@ component YearSelection {
     callback select-year(year: int);
 
     property <length> row-height: root.height / root.visible-row-count;
-    property <int> row-count: root.model.length / root.column-count;
+    property <int> row-count: ceil(root.year-count / root.column-count);
     property <length> content-height: root.row-count * root.row-height;
     property <length> start-x: root.width / (root.column-count + 1);
     property <length> start-y: root.height / (root.visible-row-count + 1);
 
-    ScrollView {
+    // The list is long, so it opens scrolled to the selected year.
+    init => {
+        root.scroll-to-year(root.selected-year);
+    }
+
+    scroll-view := ScrollView {
         width: 100%;
         height: 100%;
         content-width: root.width;
         content-height: root.content-height;
 
-        for year[index] in root.model: CalendarDelegate {
+        for index in root.year-count: CalendarDelegate {
+            property <int> year: root.first-year + index;
+
             x: root.delegate-center-x(index) - self.width / 2;
             y: root.delegate-center-y(index) - self.height / 2;
             width: root.delegate-width;
             height: root.delegate-height;
-            text: year;
+            text: self.year;
             style: root.delegate-style;
-            selected: year == root.selected-year;
-            today: year == root.today-year;
+            selected: self.year == root.selected-year;
+            today: self.year == root.today-year;
 
             clicked => {
-                root.select-year(year);
+                root.select-year(self.year);
             }
         }
+    }
+
+    // Scrolls so that the row of `year` is in the middle, without scrolling past either end.
+    function scroll-to-year(year: int) {
+        let center-y = root.delegate-center-y(year - root.first-year);
+        scroll-view.content-y = min(0px, max(root.height - root.content-height, root.height / 2 - center-y));
     }
 
     function delegate-center-x(index: int) -> length {
@@ -298,9 +313,10 @@ export component DatePickerBase {
     property <[int]> today: SlintInternal.date_now();
     property <int> start-column: SlintInternal.month_offset(root.display-date.month, root.display-date.year);
     property <string> current-month: SlintInternal.format_date("%B %Y", root.display-date.day, root.display-date.month, root.display-date.year);
-    property <[int]> year-model: [2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035, 2036, 2037, 2038, 2039, 2040, 2041, 2042, 2043];
     property <int> selected-year: root.display-date.year;
     property <int> today-year: root.today[2];
+    property <int> first-year: min(1900, min(root.selected-year, root.today-year));
+    property <int> last-year: max(2100, max(root.selected-year, root.today-year));
     property <string> current-day: SlintInternal.format_date("%a, %b %d", root.current-date.day, root.current-date.month, root.current-date.year);
     property <[int]> input-formatted: SlintInternal.parse_date(root.current-input, root.input-format);
 
@@ -416,7 +432,8 @@ export component DatePickerBase {
                 visible-row-count: root.year-selection-row-count;
                 delegate-width: root.year-delegate-width;
                 delegate-height: root.delegate-size;
-                model: root.year-model;
+                first-year: root.first-year;
+                year-count: root.last-year - root.first-year + 1;
                 delegate-style: root.style.calendar-style.delegate-style;
                 selected-year: root.selected-year;
                 today-year: root.today-year;
