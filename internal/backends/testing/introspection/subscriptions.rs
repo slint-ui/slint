@@ -91,7 +91,7 @@ fn destroyed(request: &str) -> String {
 
 struct PropertiesSubscription {
     id: u64,
-    element: ElementHandle,
+    element: Rc<ElementPin>,
     state: Weak<IntrospectionState>,
     sink: NotificationSink,
     last_pushed: RefCell<Vec<proto::TestableProperty>>,
@@ -131,7 +131,7 @@ pub(crate) fn subscribe_element_properties(
     sink: &NotificationSink,
 ) -> Result<proto::SubscribeElementPropertiesResponse, String> {
     const REQUEST: &str = "subscribe_element_properties";
-    let element = state.element(REQUEST, element)?;
+    let element = state.pin_element(state.element(REQUEST, element)?).1;
     let subscription_id = state.subscriptions.next_id();
     let subscription = Rc::new(PropertiesSubscription {
         id: subscription_id,
@@ -249,14 +249,14 @@ fn children(state: &IntrospectionState, parent: Option<&ElementHandle>) -> Optio
 struct ChildrenSubscription {
     id: u64,
     state: Weak<IntrospectionState>,
-    parent: Option<ElementHandle>,
+    parent: Option<Rc<ElementPin>>,
     sink: NotificationSink,
     pushed: RefCell<Vec<PushedChild>>,
 }
 
 impl ChildrenSubscription {
     fn children(&self) -> Option<Children> {
-        children(&*self.state.upgrade()?, self.parent.as_ref())
+        children(&*self.state.upgrade()?, self.parent.as_deref().map(|parent| &**parent))
     }
 
     fn push_changes(&self, children: Option<&Children>) {
@@ -348,7 +348,7 @@ pub(crate) fn element_children(
     let subscription = Rc::new(ChildrenSubscription {
         id: subscription_id,
         state: Rc::downgrade(state),
-        parent,
+        parent: parent.map(|parent| state.pin_element(parent).1),
         sink: sink.clone(),
         pushed: Default::default(),
     });
@@ -705,6 +705,18 @@ mod tests {
         }
         assert!(fixture.state.element_handles.borrow().len() <= ELEMENT_HANDLE_CAP + 2);
         drop(others);
+    }
+
+    #[test]
+    fn subscriptions_pin_the_observed_element() {
+        let fixture = Fixture::new();
+        let list = fixture.element("App::list");
+        let root = fixture.element("App::root");
+        subscribe_element_properties(&fixture.state, root, &fixture.sink).unwrap();
+        fixture.subscribe_children("App::list");
+        let arena = fixture.state.element_handles.borrow();
+        assert!(arena[list].is_pinned());
+        assert!(arena[root].is_pinned());
     }
 
     #[test]
