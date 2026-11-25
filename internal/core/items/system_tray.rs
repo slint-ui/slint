@@ -58,6 +58,7 @@ pub struct Params<'a> {
     pub icon: &'a Image,
     pub tooltip: &'a str,
     pub title: &'a str,
+    pub visible: bool,
     pub menu: TrayMenu<'a>,
 }
 
@@ -241,7 +242,10 @@ impl SystemTrayIcon {
 impl Item for SystemTrayIcon {
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
         let data = &*self.data;
+        let context = self_rc.slint_context();
+        let queue = context.change_handler_queue();
         data.change_tracker.init_delayed(
+            queue,
             self_rc.downgrade(),
             |_| true,
             |self_weak, has_icon| {
@@ -257,12 +261,13 @@ impl Item for SystemTrayIcon {
                 let ctx = tray_rc.slint_context();
                 let tray = tray.as_pin_ref();
                 // Read outside the menu's tracker, which must only depend on the menu.
-                let (icon, tooltip, title) = (tray.icon(), tray.tooltip(), tray.title());
+                let (icon, tooltip, title, visible) =
+                    (tray.icon(), tray.tooltip(), tray.title(), tray.visible());
                 // Build the menu along with the icon: some tray hosts never re-read a menu
                 // they fetched while empty (#13624).
                 let handle = match tray.with_tracked_menu(|menu| {
                     SystemTrayIconHandle::new(
-                        Params { icon: &icon, tooltip: &tooltip, title: &title, menu },
+                        Params { icon: &icon, tooltip: &tooltip, title: &title, visible, menu },
                         self_weak.clone(),
                         &ctx,
                     )
@@ -280,6 +285,7 @@ impl Item for SystemTrayIcon {
         );
 
         data.visible_tracker.init_delayed(
+            queue,
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return false };
@@ -304,6 +310,7 @@ impl Item for SystemTrayIcon {
         // path reads them at fire time), so these trackers are no-ops until
         // the user mutates the property after the tray is up.
         data.icon_tracker.init_delayed(
+            queue,
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return Image::default() };
@@ -322,6 +329,7 @@ impl Item for SystemTrayIcon {
         );
 
         data.tooltip_tracker.init_delayed(
+            queue,
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return SharedString::default() };
@@ -340,6 +348,7 @@ impl Item for SystemTrayIcon {
         );
 
         data.title_tracker.init_delayed(
+            queue,
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return SharedString::default() };

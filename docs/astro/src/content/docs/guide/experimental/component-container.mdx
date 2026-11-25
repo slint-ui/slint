@@ -64,7 +64,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let factory = ComponentFactory::new(|ctx| {
         let compiler = Compiler::new();
-        let result = spin_on::spin_on(compiler.build_from_source(
+        let result = pollster::block_on(compiler.build_from_source(
             r#"
                 export component Plugin inherits Rectangle {
                     background: #3070ff;

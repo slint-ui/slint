@@ -12,7 +12,6 @@ mod remote;
 use clap::Parser;
 use i_slint_compiler::ComponentSelection;
 use i_slint_compiler::project_file::SlintEdition;
-use i_slint_live_preview::live_component::poll_ready;
 use itertools::Itertools;
 use slint_interpreter::{
     CompilationResult, ComponentDefinition, ComponentHandle, ComponentInstance, Value,
@@ -284,7 +283,8 @@ fn main() -> Result<()> {
     }
 
     if args.check {
-        let result = poll_ready(init_compiler(&args).build_from_path(args.path()));
+        let result =
+            i_slint_compiler::poll_ready(init_compiler(&args).build_from_path(args.path()));
         result.print_diagnostics();
         std::process::exit(if result.has_errors() { 1 } else { 0 });
     }
@@ -325,7 +325,8 @@ fn main() -> Result<()> {
         let instance = live.borrow().instance().clone_strong();
         instance.run()?;
     } else {
-        let result = poll_ready(init_compiler(&args).build_from_path(args.path()));
+        let result =
+            i_slint_compiler::poll_ready(init_compiler(&args).build_from_path(args.path()));
         result.print_diagnostics();
         if result.has_errors() {
             std::process::exit(-1);

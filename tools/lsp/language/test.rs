@@ -205,8 +205,10 @@ fn preview_file_recompiled_when_dependency_changes() {
     );
     ctx.session.pending_recompile.clear();
 
-    spin_on::spin_on(ctx.session.trigger_file_watcher(dep_url.clone(), FileChangeKind::Changed))
-        .unwrap();
+    i_slint_compiler::poll_ready(
+        ctx.session.trigger_file_watcher(dep_url.clone(), FileChangeKind::Changed),
+    )
+    .unwrap();
 
     // The preview file (main.slint) should be scheduled for recompilation
     // even though it's not in open_urls
@@ -294,8 +296,10 @@ mod missing_imports {
         ctx.session.open_urls.insert(main_url.clone());
 
         let dep_url = Url::from_file_path(dir.join("dep.slint")).unwrap();
-        spin_on::spin_on(ctx.session.trigger_file_watcher(dep_url, FileChangeKind::Created))
-            .unwrap();
+        i_slint_compiler::poll_ready(
+            ctx.session.trigger_file_watcher(dep_url, FileChangeKind::Created),
+        )
+        .unwrap();
 
         assert!(
             ctx.session.pending_recompile.contains(&main_url),

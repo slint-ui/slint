@@ -139,7 +139,7 @@ def test_pickers_drag_independently_and_reopen_beside_current_anchor(
         assert stop.absolute_position == stop_position
         click_picker_button(window, "Close Stop color")
         handle = control(window, "Move Fill picker")
-        gesture(window, center(handle), shifted(center(handle), x=-50, y=30))
+        gesture(window, center(handle), shifted(center(handle), x=-50, y=-30))
         click_picker_button(window, "Edit stop 1 color")
         wait_until(
             lambda: (

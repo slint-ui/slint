@@ -143,6 +143,9 @@ pub fn paragraph_from_plain_text(text: String) -> StyledTextParagraph {
 /// This is the character for private use that is used to make interpolation possible in markdown.
 pub const MARKDOWN_INTERPOLATION_PLACEHOLDER: char = '\u{e541}';
 
+/// The bullets of unordered list items, by nesting level.
+pub const LIST_BULLETS: [char; 3] = ['•', '◦', '▪'];
+
 #[cfg(feature = "markdown")]
 fn begin_paragraph(indentation: u32, list_item_type: Option<ListItemType>) -> StyledTextParagraph {
     let mut text = String::with_capacity(indentation as usize * 4);
@@ -151,14 +154,8 @@ fn begin_paragraph(indentation: u32, list_item_type: Option<ListItemType>) -> St
     }
     match list_item_type {
         Some(ListItemType::Unordered) => {
-            let remainder = indentation % 3;
-            if remainder == 0 {
-                text.push_str("• ")
-            } else if remainder == 1 {
-                text.push_str("◦ ")
-            } else {
-                text.push_str("▪ ")
-            }
+            text.push(LIST_BULLETS[indentation as usize % LIST_BULLETS.len()]);
+            text.push(' ');
         }
         Some(ListItemType::Ordered(num)) => text.push_str(&alloc::format!("{}. ", num)),
         None => {}

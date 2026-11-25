@@ -134,7 +134,7 @@ clap = { workspace = true }
 crossbeam-channel = "0.5"                                                                                                # must match the version used by lsp-server
 lsp-server = "0.10"
 tokio = { version = "1.50.0", features = ["rt", "sync", "time", "macros", "io-std", "io-util", "net", "fs", "process"] }
-mdns-sd = { version = "0.21.6", default-features = false }
+mdns-sd = { version = "0.22.0", default-features = false }
 # Unicode XID property lookup used by the host-language accessor scanner to
 # tokenize identifiers in Rust/C++ source rather than scanning byte-by-byte.
 icu_properties = { version = "2.2.0", features = ["compiled_data"] }
@@ -153,7 +153,6 @@ tokio = { version = "1.50.0", features = ["rt", "sync", "macros"] }
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
 i-slint-editor-preview = { path = "../../internal/editor-preview", features = ["testing"] }
-spin_on = { workspace = true }
 tempfile = "3"
 # The remote connector tests talk to the real viewer-side connection.
 i-slint-live-preview = { path = "../../internal/live-preview", features = ["remote"] }

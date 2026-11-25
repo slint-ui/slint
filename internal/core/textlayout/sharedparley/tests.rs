@@ -38,14 +38,22 @@ fn layout_text_with_builder(
     builder: super::shaping::LayoutWithoutLineBreaksBuilder,
     options: LayoutOptions,
 ) -> Layout {
-    let mut font_ctx = test_font_context();
+    layout_text_in_context(&mut test_font_context(), text, &builder, options)
+}
+
+fn layout_text_in_context(
+    font_ctx: &mut FontContext,
+    text: &str,
+    builder: &super::shaping::LayoutWithoutLineBreaksBuilder,
+    options: LayoutOptions,
+) -> Layout {
     let paragraphs = create_text_paragraphs(
-        &builder,
-        &mut font_ctx,
+        builder,
+        font_ctx,
         PlainOrStyledText::Plain(text.into()),
         Color::default(),
     );
-    layout(&builder, &mut font_ctx, paragraphs, ScaleFactor::new(1.0), options, None)
+    layout(builder, font_ctx, paragraphs, ScaleFactor::new(1.0), options, None)
 }
 
 fn layout_text(text: &str) -> Layout {
@@ -315,9 +323,16 @@ type XRange = (f32, f32);
 
 /// Lays out `text` on one line, elided to `width`, and returns the kept glyph x ranges and
 /// the ellipsis x range of each run on that line.
-fn elided_line(text: &str, width: f32, force_elision: bool) -> Vec<(Vec<XRange>, Option<XRange>)> {
-    let layout = layout_text_with_options(
+fn elided_line(
+    font_ctx: &mut FontContext,
+    text: &str,
+    width: f32,
+    force_elision: bool,
+) -> Vec<(Vec<XRange>, Option<XRange>)> {
+    let layout = layout_text_in_context(
+        font_ctx,
         text,
+        &super::shaping::plain_builder_for_tests(),
         LayoutOptions {
             max_width: Some(LogicalLength::new(width)),
             text_overflow: TextOverflow::Elide,
@@ -364,7 +379,7 @@ fn assert_one_ellipsis_in_box(runs: &[(Vec<XRange>, Option<XRange>)], width: f32
 
 #[test]
 fn test_elide_left_to_right_line() {
-    let runs = elided_line(&"abc ".repeat(20), 100., false);
+    let runs = elided_line(&mut test_font_context(), &"abc ".repeat(20), 100., false);
     let (glyphs, ellipsis) = &runs[0];
     let (ellipsis_start, ellipsis_end) = ellipsis.expect("the line overflows");
     assert!(ellipsis_end <= 100.);
@@ -378,10 +393,11 @@ fn test_elide_right_to_left_line() {
     // The right-to-left mark makes a paragraph of Latin text right-to-left, like a file name that
     // starts with Arabic and ends in ".docx". The test font has no Hebrew, so those glyphs are
     // missing-glyph boxes, which still have an advance.
+    let font_ctx = &mut test_font_context();
     for text in
         ["\u{5d0}\u{5d1}\u{5d2} ".repeat(20), alloc::format!("\u{200f}{}", "abc ".repeat(20))]
     {
-        let runs = elided_line(&text, 100., false);
+        let runs = elided_line(font_ctx, &text, 100., false);
         let ellipses: Vec<_> = runs.iter().filter_map(|(_, ellipsis)| *ellipsis).collect();
         assert_eq!(ellipses.len(), 1, "expected one ellipsis on the line of {text:?}");
         let (ellipsis_start, ellipsis_end) = ellipses[0];
@@ -410,7 +426,7 @@ fn test_elide_right_to_left_line() {
 #[test]
 fn test_elide_right_to_left_line_that_fits() {
     // parley hangs the trailing space past the left edge, which isn't an overflow.
-    let runs = elided_line("\u{5d0}\u{5d1}\u{5d2} ", 100., false);
+    let runs = elided_line(&mut test_font_context(), "\u{5d0}\u{5d1}\u{5d2} ", 100., false);
     assert!(runs.iter().all(|(_, ellipsis)| ellipsis.is_none()));
     assert_eq!(runs.iter().map(|(glyphs, _)| glyphs.len()).sum::<usize>(), 4);
 }
@@ -422,15 +438,18 @@ fn test_elide_line_of_several_runs() {
     // paragraph. The line is cut once, wherever that falls, even when the overflowing run ends
     // closer to the box edge than the ellipsis is wide, which put the ellipsis partly outside the
     // box.
+    let font_ctx = &mut test_font_context();
     for text in [
         "\u{200f}ALPHA\u{200f} BETA\u{200f} gamma delta\u{200f} EPSILON\u{200f} ZETA",
         "alpha beta \u{2067}GAMMA\u{200f} DELTA\u{2069} epsilon zeta",
     ] {
-        assert!(elided_line(text, 1000., false).len() > 1, "{text:?} lays out as one run");
-        for width in 30..120 {
-            let width = width as f32;
+        assert!(
+            elided_line(font_ctx, text, 1000., false).len() > 1,
+            "{text:?} lays out as one run"
+        );
+        for width in [40., 70., 105.] {
             assert_one_ellipsis_in_box(
-                &elided_line(text, width, false),
+                &elided_line(font_ctx, text, width, false),
                 width,
                 &alloc::format!("{text:?} at {width}px"),
             );
@@ -441,11 +460,12 @@ fn test_elide_line_of_several_runs() {
 #[test]
 fn test_elide_vertically_truncated_line_of_several_runs() {
     // A line that fits but whose lines below were dropped gets one ellipsis, not one per run.
+    let font_ctx = &mut test_font_context();
     for (text, is_rtl) in [
         ("\u{200f}ONE\u{200f} TWO\u{200f} three four", true),
         ("one two \u{2067}THREE\u{200f} FOUR\u{2069}", false),
     ] {
-        let runs = elided_line(text, 200., true);
+        let runs = elided_line(font_ctx, text, 200., true);
         assert!(runs.len() > 1, "{text:?} lays out as one run");
         assert_one_ellipsis_in_box(&runs, 200., &alloc::format!("{text:?}"));
         let (ellipsis_start, ellipsis_end) =

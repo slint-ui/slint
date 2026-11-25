@@ -11,8 +11,15 @@ use super::{Fixed, PhysicalLength, PhysicalRect};
 use crate::scene::{
     GradientFactor, GradientPosition, LinearGradientPosition, PremultipliedGradientStop,
 };
+#[cfg(any(test, feature = "image-pixel-format-rgb565"))]
+use crate::target_pixel::Rgb565Pixel;
+use crate::target_pixel::{PremultipliedRgbaColor, RGBA_CHUNK, RgbaTexel, TargetPixel};
+#[cfg(test)]
+use crate::target_pixel::{Rgb565BigEndianPixel, dither_rgb565};
 use derive_more::{Add, Mul, Sub};
-use i_slint_core::graphics::{Rgb8Pixel, TexturePixelFormat};
+#[cfg(test)]
+use i_slint_core::graphics::Rgb8Pixel;
+use i_slint_core::graphics::{Rgba8Pixel, TexturePixelFormat};
 use i_slint_core::lengths::{PointLengths, SizeLengths};
 use i_slint_core::{Color, InternalToken};
 #[allow(unused_imports)]
@@ -86,11 +93,22 @@ pub(super) fn draw_texture_line(
         end = end.min(len);
         let mut begin = 0;
         let row_fract = row.fract();
-        let contiguous = delta == Fixed::from_integer(1)
-            && alpha == 0xff
-            && has_contiguous_path(format, colorize);
+        let contiguous =
+            delta == Fixed::from_integer(1) && alpha == 0xff && has_contiguous_path(format);
+        let rgba = colorize.alpha() == 0
+            && matches!(format, TexturePixelFormat::Rgba | TexturePixelFormat::RgbaPremultiplied);
         while begin < len {
-            if contiguous {
+            if rgba && delta == Fixed::from_integer(1) {
+                let row = &data.as_chunks::<4>().0[row_offset + pos.truncate() as usize..];
+                let (pixels, row) = (&mut line_buffer[begin..end], &row[..end - begin]);
+                if format == TexturePixelFormat::Rgba {
+                    let row: &[Rgba8Pixel] = bytemuck::cast_slice(row);
+                    TargetPixel::blend_rgba_slice(pixels, row, alpha, InternalToken);
+                } else {
+                    let row: &[PremultipliedRgbaColor] = bytemuck::cast_slice(row);
+                    TargetPixel::blend_rgba_slice(pixels, row, alpha, InternalToken);
+                }
+            } else if contiguous {
                 draw_contiguous_pixels(
                     &mut line_buffer[begin..end],
                     format,
@@ -197,17 +215,32 @@ pub(super) fn draw_texture_line(
         }
     };
 
-    fn has_contiguous_path(format: TexturePixelFormat, colorize: Color) -> bool {
+    /// Blends the texture pixels that `texel` returns one after the other.
+    fn fetch_blend_rgba<S: RgbaTexel>(
+        line_buffer: &mut [impl TargetPixel],
+        alpha: u8,
+        mut texel: impl FnMut() -> S,
+    ) {
+        let mut src = [S::zeroed(); RGBA_CHUNK];
+        for pixels in line_buffer.chunks_mut(RGBA_CHUNK) {
+            for p in &mut src[..pixels.len()] {
+                *p = texel();
+            }
+            TargetPixel::blend_rgba_slice(pixels, &src[..pixels.len()], alpha, InternalToken);
+        }
+    }
+
+    fn has_contiguous_path(format: TexturePixelFormat) -> bool {
         match format {
             TexturePixelFormat::Rgb => true,
             #[cfg(feature = "image-pixel-format-rgb565")]
             TexturePixelFormat::Rgb565 => true,
             #[cfg(feature = "image-pixel-format-gray8")]
             TexturePixelFormat::Gray8 => true,
-            TexturePixelFormat::Rgba | TexturePixelFormat::RgbaPremultiplied => {
-                colorize.alpha() == 0
-            }
-            TexturePixelFormat::AlphaMap | TexturePixelFormat::SignedDistanceField => false,
+            TexturePixelFormat::Rgba
+            | TexturePixelFormat::RgbaPremultiplied
+            | TexturePixelFormat::AlphaMap
+            | TexturePixelFormat::SignedDistanceField => false,
         }
     }
 
@@ -235,40 +268,11 @@ pub(super) fn draw_texture_line(
                     *pix = TargetPixel::from_rgb(v, v, v);
                 }
             }
-            TexturePixelFormat::Rgba => {
-                for (pix, p) in line_buffer.iter_mut().zip(src.as_chunks::<4>().0) {
-                    blend_rgba(pix, p[3], p);
-                }
-            }
-            TexturePixelFormat::RgbaPremultiplied => {
-                for (pix, p) in line_buffer.iter_mut().zip(src.as_chunks::<4>().0) {
-                    blend_premultiplied(pix, p);
-                }
-            }
-            TexturePixelFormat::AlphaMap | TexturePixelFormat::SignedDistanceField => {
+            TexturePixelFormat::Rgba
+            | TexturePixelFormat::RgbaPremultiplied
+            | TexturePixelFormat::AlphaMap
+            | TexturePixelFormat::SignedDistanceField => {
                 unreachable!("rejected by has_contiguous_path")
-            }
-        }
-    }
-
-    #[inline(always)]
-    fn blend_rgba(pix: &mut impl TargetPixel, alpha: u8, p: &[u8]) {
-        match alpha {
-            0 => {}
-            0xff => *pix = TargetPixel::from_rgb(p[0], p[1], p[2]),
-            a => pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                a, p[0], p[1], p[2],
-            ))),
-        }
-    }
-
-    #[inline(always)]
-    fn blend_premultiplied(pix: &mut impl TargetPixel, p: &[u8]) {
-        match p[3] {
-            0 => {}
-            0xff => *pix = TargetPixel::from_rgb(p[0], p[1], p[2]),
-            alpha => {
-                pix.blend(PremultipliedRgbaColor { alpha, red: p[0], green: p[1], blue: p[2] })
             }
         }
     }
@@ -284,17 +288,11 @@ pub(super) fn draw_texture_line(
     ) {
         match format {
             TexturePixelFormat::Rgb => {
-                for pix in line_buffer {
-                    let pos = pos(3).0;
-                    let p: &[u8] = &data[pos..pos + 3];
-                    if alpha == 0xff {
-                        *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
-                    } else {
-                        pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                            alpha, p[0], p[1], p[2],
-                        )))
-                    }
-                }
+                let texels = data.as_chunks::<3>().0;
+                fetch_blend_rgba(line_buffer, alpha, || {
+                    let [r, g, b] = texels[pos(3).0 / 3];
+                    Rgba8Pixel::new(r, g, b, 0xff)
+                })
             }
             #[cfg(feature = "image-pixel-format-rgb565")]
             TexturePixelFormat::Rgb565 => {
@@ -317,49 +315,21 @@ pub(super) fn draw_texture_line(
                     }
                 }
             }
-            TexturePixelFormat::Rgba => {
-                if color.alpha() == 0 {
-                    for pix in line_buffer {
-                        let pos = pos(4).0;
-                        let p: &[u8] = &data[pos..pos + 4];
-                        blend_rgba(pix, ((p[3] as u16 * alpha as u16) / 255) as u8, p);
-                    }
-                } else {
-                    let opaque = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
-                    for pix in line_buffer {
-                        let pos = pos(4).0;
-                        let coverage = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
-                        blend_coverage(pix, opaque, color, coverage);
-                    }
-                }
+            TexturePixelFormat::Rgba if color.alpha() == 0 => {
+                let texels: &[Rgba8Pixel] = bytemuck::cast_slice(data.as_chunks::<4>().0);
+                fetch_blend_rgba(line_buffer, alpha, || texels[pos(4).0 / 4])
             }
-            TexturePixelFormat::RgbaPremultiplied => {
-                if color.alpha() > 0 {
-                    let opaque = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
-                    for pix in line_buffer {
-                        let pos = pos(4).0;
-                        let coverage = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
-                        blend_coverage(pix, opaque, color, coverage);
-                    }
-                } else if alpha == 0xff {
-                    for pix in line_buffer {
-                        let pos = pos(4).0;
-                        blend_premultiplied(pix, &data[pos..pos + 4]);
-                    }
-                } else {
-                    for pix in line_buffer {
-                        let pos = pos(4).0;
-                        if data[pos + 3] == 0 {
-                            continue;
-                        }
-                        let c = PremultipliedRgbaColor {
-                            alpha: (data[pos + 3] as u16 * alpha as u16 / 255) as u8,
-                            red: (data[pos + 0] as u16 * alpha as u16 / 255) as u8,
-                            green: (data[pos + 1] as u16 * alpha as u16 / 255) as u8,
-                            blue: (data[pos + 2] as u16 * alpha as u16 / 255) as u8,
-                        };
-                        pix.blend(c);
-                    }
+            TexturePixelFormat::RgbaPremultiplied if color.alpha() == 0 => {
+                let texels: &[PremultipliedRgbaColor] =
+                    bytemuck::cast_slice(data.as_chunks::<4>().0);
+                fetch_blend_rgba(line_buffer, alpha, || texels[pos(4).0 / 4])
+            }
+            TexturePixelFormat::Rgba | TexturePixelFormat::RgbaPremultiplied => {
+                let opaque = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
+                for pix in line_buffer {
+                    let pos = pos(4).0;
+                    let coverage = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
+                    blend_coverage(pix, opaque, color, coverage);
                 }
             }
             TexturePixelFormat::AlphaMap => {
@@ -1462,17 +1432,6 @@ impl GradientNoise {
     }
 }
 
-/// See [`TargetPixel::blend_dithered`].
-fn dither_rgb565(color: PremultipliedRgbaColor, noise: u8) -> PremultipliedRgbaColor {
-    let dither = |v: u8, bits: u8| v.saturating_add(noise >> bits).min(color.alpha);
-    PremultipliedRgbaColor {
-        red: dither(color.red, 5),
-        green: dither(color.green, 6),
-        blue: dither(color.blue, 5),
-        alpha: color.alpha,
-    }
-}
-
 fn blend_gradient_slice(
     slice: &mut [impl TargetPixel],
     color: PremultipliedRgbaColor,
@@ -1481,293 +1440,6 @@ fn blend_gradient_slice(
     for pix in slice {
         pix.blend_dithered(color, noise.next(), InternalToken);
     }
-}
-
-/// A color whose component have been pre-multiplied by alpha
-///
-/// The renderer operates faster on pre-multiplied color since it
-/// caches the multiplication of its component
-///
-/// PremultipliedRgbaColor can be constructed from a [`Color`] with
-/// the [`From`] trait. This conversion will pre-multiply the color
-/// components
-#[allow(missing_docs)]
-#[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
-#[repr(C)]
-pub struct PremultipliedRgbaColor {
-    pub red: u8,
-    pub green: u8,
-    pub blue: u8,
-    pub alpha: u8,
-}
-
-/// Convert a non-premultiplied color to a premultiplied one
-impl From<Color> for PremultipliedRgbaColor {
-    fn from(col: Color) -> Self {
-        Self::premultiply(col)
-    }
-}
-
-impl PremultipliedRgbaColor {
-    /// Convert a non premultiplied color to a premultiplied one
-    fn premultiply(col: Color) -> Self {
-        let a = col.alpha() as u16;
-        Self {
-            alpha: col.alpha(),
-            red: (col.red() as u16 * a / 255) as u8,
-            green: (col.green() as u16 * a / 255) as u8,
-            blue: (col.blue() as u16 * a / 255) as u8,
-        }
-    }
-}
-
-/// Trait for the pixels in the buffer
-pub trait TargetPixel: Sized + Copy {
-    /// Blend a single pixel with a color
-    fn blend(&mut self, color: PremultipliedRgbaColor);
-    /// Blend a color to all the pixel in the slice.
-    fn blend_slice(slice: &mut [Self], color: PremultipliedRgbaColor) {
-        if color.alpha == u8::MAX {
-            slice.fill(Self::from_rgb(color.red, color.green, color.blue))
-        } else {
-            for x in slice {
-                Self::blend(x, color);
-            }
-        }
-    }
-    /// Create a pixel from the red, gree, blue component in the range 0..=255
-    fn from_rgb(red: u8, green: u8, blue: u8) -> Self;
-
-    /// Pixel which will be filled as the background in case the slint view has transparency
-    fn background() -> Self {
-        Self::from_rgb(0, 0, 0)
-    }
-
-    /// Like `blend`, with `noise` in 0..=255 (a fraction of one quantization step).
-    /// Formats with less than 8 bits per channel can use it to dither.
-    #[doc(hidden)]
-    #[inline]
-    fn blend_dithered(&mut self, color: PremultipliedRgbaColor, _noise: u8, _: InternalToken) {
-        self.blend(color)
-    }
-}
-
-impl TargetPixel for Rgb8Pixel {
-    fn blend(&mut self, color: PremultipliedRgbaColor) {
-        let a = (u8::MAX - color.alpha) as u16;
-        self.r = (self.r as u16 * a / 255) as u8 + color.red;
-        self.g = (self.g as u16 * a / 255) as u8 + color.green;
-        self.b = (self.b as u16 * a / 255) as u8 + color.blue;
-    }
-
-    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        Self::new(r, g, b)
-    }
-}
-
-impl TargetPixel for PremultipliedRgbaColor {
-    fn blend(&mut self, color: PremultipliedRgbaColor) {
-        let a = (u8::MAX - color.alpha) as u16;
-        self.red = (self.red as u16 * a / 255) as u8 + color.red;
-        self.green = (self.green as u16 * a / 255) as u8 + color.green;
-        self.blue = (self.blue as u16 * a / 255) as u8 + color.blue;
-        self.alpha = (self.alpha as u16 + color.alpha as u16
-            - (self.alpha as u16 * color.alpha as u16) / 255) as u8;
-    }
-
-    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        Self { red: r, green: g, blue: b, alpha: 255 }
-    }
-
-    fn background() -> Self {
-        Self { red: 0, green: 0, blue: 0, alpha: 0 }
-    }
-}
-
-pub use i_slint_core::graphics::Rgb565Pixel;
-
-const R_MASK: u16 = 0b1111_1000_0000_0000;
-const G_MASK: u16 = 0b0000_0111_1110_0000;
-const B_MASK: u16 = 0b0000_0000_0001_1111;
-
-impl TargetPixel for Rgb565Pixel {
-    fn blend(&mut self, color: PremultipliedRgbaColor) {
-        let a = (u8::MAX - color.alpha) as u32;
-        // convert to 5 bits
-        let a = (a + 4) >> 3;
-
-        // 00000ggg_ggg00000_rrrrr000_000bbbbb
-        let expanded = (self.0 & (R_MASK | B_MASK)) as u32 | (((self.0 & G_MASK) as u32) << 16);
-
-        // gggggggg_000rrrrr_rrr000bb_bbbbbb00
-        let c =
-            ((color.red as u32) << 13) | ((color.green as u32) << 24) | ((color.blue as u32) << 2);
-        // gggggg00_000rrrrr_000000bb_bbb00000
-        let c = c & 0b11111100_00011111_00000011_11100000;
-
-        let res = expanded * a + c;
-
-        self.0 = ((res >> 21) as u16 & G_MASK) | ((res >> 5) as u16 & (R_MASK | B_MASK));
-    }
-
-    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        // This calls the inherent from_rgb, not this trait method.
-        Rgb565Pixel::from_rgb(r, g, b)
-    }
-
-    fn blend_dithered(&mut self, color: PremultipliedRgbaColor, noise: u8, _: InternalToken) {
-        self.blend(dither_rgb565(color, noise))
-    }
-}
-
-// cSpell: ignore RRRRRGGG GGGBBBBB bswap
-
-/// A 16bit RGB565 pixel stored in big-endian byte order.
-///
-/// The in-memory byte layout is `[RRRRRGGG, GGGBBBBB]` regardless of
-/// host endianness — the format expected by most SPI display
-/// controllers (ILI9341, ILI9342C, ST7789, etc.) without any
-/// post-render byte swapping.
-#[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Rgb565BigEndianPixel(pub u16);
-
-impl Rgb565BigEndianPixel {
-    /// Return the red component as a u8.
-    ///
-    /// The bits are shifted so that the result is between 0 and 255
-    pub fn red(self) -> u8 {
-        Rgb565Pixel(u16::from_be(self.0)).red()
-    }
-    /// Return the green component as a u8.
-    ///
-    /// The bits are shifted so that the result is between 0 and 255
-    pub fn green(self) -> u8 {
-        Rgb565Pixel(u16::from_be(self.0)).green()
-    }
-    /// Return the blue component as a u8.
-    ///
-    /// The bits are shifted so that the result is between 0 and 255
-    pub fn blue(self) -> u8 {
-        Rgb565Pixel(u16::from_be(self.0)).blue()
-    }
-}
-
-impl TargetPixel for Rgb565BigEndianPixel {
-    fn blend(&mut self, color: PremultipliedRgbaColor) {
-        // Reuse the canonical native-endian Rgb565Pixel::blend by decoding
-        // from BE byte order, blending, and re-encoding. On targets with a
-        // byte-swap instruction (ARM REV16, RISC-V Zbb rev8, x86 bswap) each
-        // `to_be`/`from_be` is one cycle on a little-endian host and a no-op
-        // on a big-endian host. Benchmarking this against a direct-BE
-        // bit-reassembly variant on Cortex-M33 showed the swap-around-native
-        // form generates tighter code.
-        let mut native = Rgb565Pixel(u16::from_be(self.0));
-        native.blend(color);
-        self.0 = native.0.to_be();
-    }
-
-    fn blend_dithered(&mut self, color: PremultipliedRgbaColor, noise: u8, _: InternalToken) {
-        self.blend(dither_rgb565(color, noise))
-    }
-
-    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        Self(Rgb565Pixel::from_rgb(r, g, b).0.to_be())
-    }
-}
-
-impl From<Rgb8Pixel> for Rgb565BigEndianPixel {
-    fn from(p: Rgb8Pixel) -> Self {
-        Self(Rgb565Pixel::from(p).0.to_be())
-    }
-}
-
-impl From<Rgb565BigEndianPixel> for Rgb8Pixel {
-    fn from(p: Rgb565BigEndianPixel) -> Self {
-        Rgb565Pixel(u16::from_be(p.0)).into()
-    }
-}
-
-#[test]
-fn rgb565() {
-    let pix565 = Rgb565Pixel::from_rgb(0xff, 0x25, 0);
-    let pix888: Rgb8Pixel = pix565.into();
-    assert_eq!(pix565, pix888.into());
-
-    let pix565 = Rgb565Pixel::from_rgb(0x56, 0x42, 0xe3);
-    let pix888: Rgb8Pixel = pix565.into();
-    assert_eq!(pix565, pix888.into());
-}
-
-#[test]
-fn rgb565_full_component_expands_to_255() {
-    // The C++ Rgb565Pixel accessors replicate the high bits the same way, so an RGB565 image
-    // has to reach pure white on every renderer, not #f8fcf8.
-    let white = Rgb565Pixel::from_rgb(0xff, 0xff, 0xff);
-    assert_eq!(white.red(), 0xff);
-    assert_eq!(white.green(), 0xff);
-    assert_eq!(white.blue(), 0xff);
-
-    let black = Rgb565Pixel::from_rgb(0, 0, 0);
-    assert_eq!(black.red(), 0);
-    assert_eq!(black.green(), 0);
-    assert_eq!(black.blue(), 0);
-
-    let white_be = Rgb565BigEndianPixel::from_rgb(0xff, 0xff, 0xff);
-    assert_eq!(white_be.red(), 0xff);
-    assert_eq!(white_be.green(), 0xff);
-    assert_eq!(white_be.blue(), 0xff);
-}
-
-#[test]
-fn rgb565_be() {
-    // BE should be byte-swapped LE for any color
-    for &(r, g, b) in &[(0xff, 0x25, 0u8), (0x56, 0x42, 0xe3), (0, 0xff, 0), (0, 0, 0xff)] {
-        let le = Rgb565Pixel::from_rgb(r, g, b);
-        let be = Rgb565BigEndianPixel::from_rgb(r, g, b);
-        assert_eq!(le.0.swap_bytes(), be.0, "mismatch for ({r}, {g}, {b})");
-    }
-
-    // Round-trip through Rgb8Pixel
-    let pix_be = Rgb565BigEndianPixel::from_rgb(0xff, 0x25, 0);
-    let pix888: Rgb8Pixel = pix_be.into();
-    assert_eq!(pix_be, pix888.into());
-
-    let pix_be = Rgb565BigEndianPixel::from_rgb(0x56, 0x42, 0xe3);
-    let pix888: Rgb8Pixel = pix_be.into();
-    assert_eq!(pix_be, pix888.into());
-}
-
-#[test]
-fn rgb565_round_trips_through_from_rgb() {
-    // Drawing an RGB565 image relies on this to copy pixels unchanged to an RGB565 target.
-    for value in 0..=u16::MAX {
-        let p = Rgb565Pixel(value);
-        assert_eq!(<Rgb565Pixel as TargetPixel>::from_rgb(p.red(), p.green(), p.blue()), p);
-        let be = Rgb565BigEndianPixel::from_rgb(p.red(), p.green(), p.blue());
-        assert_eq!(be.0, value.to_be());
-    }
-}
-
-#[test]
-fn rgb565_be_blend() {
-    // Blending a BE pixel should produce the same visual result as LE
-    let color = PremultipliedRgbaColor { red: 127, green: 0, blue: 0, alpha: 127 };
-
-    let mut le = Rgb565Pixel::from_rgb(0, 0, 255);
-    le.blend(color);
-    let mut be = Rgb565BigEndianPixel::from_rgb(0, 0, 255);
-    be.blend(color);
-    assert_eq!(le.0.swap_bytes(), be.0);
-
-    // Blend with green over a white background
-    let color = PremultipliedRgbaColor { red: 0, green: 200, blue: 0, alpha: 200 };
-
-    let mut le = Rgb565Pixel::from_rgb(255, 255, 255);
-    le.blend(color);
-    let mut be = Rgb565BigEndianPixel::from_rgb(255, 255, 255);
-    be.blend(color);
-    assert_eq!(le.0.swap_bytes(), be.0);
 }
 
 #[test]

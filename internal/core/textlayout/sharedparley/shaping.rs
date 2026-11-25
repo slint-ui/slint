@@ -144,10 +144,10 @@ impl LayoutWithoutLineBreaksBuilder {
             },
         ));
         if self.text_wrap == TextWrap::NoWrap {
-            // Parley 0.9 removed the width parameter from `Layout::align()` and instead
-            // uses the `max_advance` set by `break_all_lines()` as the alignment container
-            // width. To allow passing `max_physical_width` to `break_all_lines` for alignment
-            // purposes without triggering actual line wrapping, we must set `TextWrapMode::NoWrap`.
+            // Parley uses the `max_advance` passed to `break_all_lines()` as the alignment
+            // container width. To allow passing `max_physical_width` to `break_all_lines` for
+            // alignment purposes without triggering actual line wrapping, we must set
+            // `TextWrapMode::NoWrap`.
             builder.push_default(parley::StyleProperty::TextWrapMode(
                 parley::style::TextWrapMode::NoWrap,
             ));

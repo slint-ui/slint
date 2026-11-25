@@ -638,18 +638,18 @@ export component Foo2 inherits 🔺Window  {
             assert!(config.open_import_callback.is_some());
             assert!(config.compiler_config.open_import_callback.is_none());
             assert!(cache.compiler_configuration().open_import_callback.is_none());
-            spin_on::spin_on(cache.reconfigure(
+            i_slint_compiler::poll_ready(cache.reconfigure(
                 config,
                 &HashSet::new(),
                 &mut BuildDiagnostics::default(),
             ));
             let import_callback =
                 cache.type_loader.compiler_config.open_import_callback.as_ref().unwrap();
-            assert!(spin_on::spin_on(import_callback(path.clone())).unwrap().is_ok());
+            assert!(i_slint_compiler::poll_ready(import_callback(path.clone())).unwrap().is_ok());
             assert_eq!(cache.document_version_by_path(&path), Some(42));
 
             fail_import.set(true);
-            assert!(spin_on::spin_on(import_callback(path.clone())).unwrap().is_err());
+            assert!(i_slint_compiler::poll_ready(import_callback(path.clone())).unwrap().is_err());
             assert_eq!(cache.document_version_by_path(&path), None);
         }
     }
@@ -661,15 +661,24 @@ export component Foo2 inherits 🔺Window  {
         let mut cache = DocumentCache::new(config.clone());
         let url = crate::test::test_file_name("edition.slint").to_url().unwrap();
         let mut diag = BuildDiagnostics::default();
-        spin_on::spin_on(cache.load_url(&url, None, "export component Main {}".into(), &mut diag))
-            .unwrap();
+        i_slint_compiler::poll_ready(cache.load_url(
+            &url,
+            None,
+            "export component Main {}".into(),
+            &mut diag,
+        ))
+        .unwrap();
         let edition = |cache: &DocumentCache| {
             cache.get_document(&url).unwrap().node.as_ref().unwrap().source_file.edition()
         };
         assert_eq!(edition(&cache), Some((1, 18).into()));
 
         config.compiler_config.edition = Some((1, 19).into());
-        spin_on::spin_on(cache.reconfigure(config, &HashSet::from([url.clone()]), &mut diag));
+        i_slint_compiler::poll_ready(cache.reconfigure(
+            config,
+            &HashSet::from([url.clone()]),
+            &mut diag,
+        ));
         assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
         assert_eq!(edition(&cache), Some((1, 19).into()));
     }

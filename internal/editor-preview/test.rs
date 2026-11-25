@@ -140,7 +140,7 @@ pub fn recompile_test_with_sources(
 
     let url = main_test_file_name().to_url().unwrap();
     let source_code = code.get(&url).unwrap().clone();
-    let (diagnostics, type_loader) = spin_on::spin_on(parse_source(
+    let (diagnostics, type_loader) = i_slint_compiler::poll_ready(parse_source(
         Vec::new(),
         std::collections::HashMap::new(),
         url,
@@ -245,7 +245,7 @@ fn load_content_with_document_cache(
     file_name: &str,
 ) -> (crate::DocumentCache, lsp_types::Url, HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>>) {
     // Pre-load std-widgets.slint:
-    spin_on::spin_on(document_cache.preload_builtins());
+    i_slint_compiler::poll_ready(document_cache.preload_builtins());
 
     let dummy_absolute_path = if cfg!(target_family = "windows") {
         format!("c://foo/{file_name}")
@@ -255,7 +255,7 @@ fn load_content_with_document_cache(
     let url = SourcePath::new(dummy_absolute_path).to_url().unwrap();
     let mut session = session_with(document_cache);
     let (extra_files, diag) =
-        spin_on::spin_on(session.load_document_impl(content, url.clone(), Some(42)));
+        i_slint_compiler::poll_ready(session.load_document_impl(content, url.clone(), Some(42)));
 
     let diag = crate::editor_session::convert_diagnostics(
         &extra_files,
@@ -332,8 +332,11 @@ pub fn load(
 ) -> (lsp_types::Url, HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>>) {
     let url = SourcePath::new(path).to_url().unwrap();
 
-    let (main_file, diag) =
-        spin_on::spin_on(session.load_document_impl(content.into(), url.clone(), Some(1)));
+    let (main_file, diag) = i_slint_compiler::poll_ready(session.load_document_impl(
+        content.into(),
+        url.clone(),
+        Some(1),
+    ));
 
     (
         url,
