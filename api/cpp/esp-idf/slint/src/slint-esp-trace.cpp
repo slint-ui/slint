@@ -230,7 +230,9 @@ void finish()
     if (chunk_len > 0) {
         send(chunk, chunk_len, sequence);
     }
-    write_all(reinterpret_cast<const uint8_t *>("\x1e" "E\n"), 3);
+    write_all(reinterpret_cast<const uint8_t *>("\x1e"
+                                                "E\n"),
+              3);
 }
 
 // Returns whether records are being kept now, and ends the capture when it's over.
@@ -446,7 +448,6 @@ void slint_esp_trace_field(uint32_t name, uint64_t value)
 {
     push_field(name, value);
 }
-
 }
 
 #endif
