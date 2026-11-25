@@ -1109,7 +1109,11 @@ mod tests {
                 selection: Default::default(),
                 take_focus: true,
             },
-            PreviewToLspMessage::SendWorkspaceEdit { label: None, edit: Default::default() },
+            PreviewToLspMessage::SendWorkspaceEdit {
+                label: None,
+                edit: Default::default(),
+                notify_on_completion: false,
+            },
             PreviewToLspMessage::UpdateUserSettings {
                 name: "remote".into(),
                 contents: "{}".into(),

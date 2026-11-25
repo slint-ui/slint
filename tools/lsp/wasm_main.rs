@@ -12,6 +12,8 @@ mod lsp_to_editor;
 #[cfg(feature = "preview-engine")]
 mod preview;
 mod server_notifier;
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+mod workspace_edit;
 
 pub use i_slint_editor_preview as editor_preview;
 pub use i_slint_editor_preview::util;
@@ -222,6 +224,7 @@ pub fn create(
         })
     }));
     let mut session = crate::editor_preview::EditorSession::new(compiler_config);
+    session.preview_config.workspace_edit_completion = true;
     session.attach_preview(to_preview, None, None);
     session.set_workspace_roots(language::workspace_roots(&init_param));
 
@@ -237,30 +240,6 @@ pub fn create(
         }),
         rh: Rc::new(rh),
     })
-}
-
-fn forward_workspace_edit(
-    server_notifier: ServerNotifier,
-    label: Option<String>,
-    edit: Result<lsp_types::WorkspaceEdit>,
-) {
-    let Ok(edit) = edit else {
-        return;
-    };
-
-    wasm_bindgen_futures::spawn_local(async move {
-        let fut = server_notifier.send_request::<lsp_types::request::ApplyWorkspaceEdit>(
-            lsp_types::ApplyWorkspaceEditParams { label, edit },
-        );
-        if let Ok(fut) = fut {
-            // We ignore errors: If the LSP can not be reached, then all is lost
-            // anyway. The other thing that might go wrong is that our Workspace Edit
-            // refers to some outdated text. In that case the update is most likely
-            // in flight already and will cause the preview to re-render, which also
-            // invalidates all our state
-            let _ = fut.await;
-        }
-    });
 }
 
 #[wasm_bindgen]
@@ -315,8 +294,15 @@ impl SlintServer {
             M::UpdateUserSettings { name, contents } => {
                 crate::language::store_user_settings(&name, &contents);
             }
-            M::SendWorkspaceEdit { label, edit } => {
-                forward_workspace_edit(ctx.server_notifier.clone(), label, Ok(edit));
+            M::SendWorkspaceEdit { label, edit, notify_on_completion } => {
+                wasm_bindgen_futures::spawn_local(workspace_edit::apply(
+                    ctx.server_notifier.clone(),
+                    ctx.session.primary_preview().to_preview().clone(),
+                    i_slint_live_preview::protocol::PreviewTarget::EmbeddedWasm,
+                    label,
+                    edit,
+                    notify_on_completion,
+                ));
             }
             M::SendShowMessage { message } => {
                 let _ = ctx

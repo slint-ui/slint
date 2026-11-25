@@ -2238,6 +2238,7 @@ enum {}
             },
             rust_macro_editions: Default::default(),
             format_utf8: false,
+            workspace_edit_completion: true,
         };
 
         // Configuration flows independently of user settings; a settings file

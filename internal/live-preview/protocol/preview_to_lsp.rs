@@ -46,7 +46,13 @@ pub enum PreviewToLspMessage {
     /// file named `name`; it never interprets the payload.
     UpdateUserSettings { name: String, contents: String },
     /// Pass a `WorkspaceEdit` on to the editor
-    SendWorkspaceEdit { label: Option<String>, edit: lsp_types::WorkspaceEdit },
+    SendWorkspaceEdit {
+        label: Option<String>,
+        edit: lsp_types::WorkspaceEdit,
+        /// Requests `WorkspaceEditFinished`. Older previews omit this field.
+        #[serde(default)]
+        notify_on_completion: bool,
+    },
     /// Pass a `ShowMessage` notification on to the editor
     SendShowMessage { message: lsp_types::ShowMessageParams },
     /// Send a telemetry event
@@ -202,6 +208,24 @@ pub trait PreviewToLsp {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn old_servers_accept_edits_that_request_completion() {
+        #[derive(serde::Deserialize)]
+        enum LegacyMessage {
+            SendWorkspaceEdit { label: Option<String>, edit: lsp_types::WorkspaceEdit },
+        }
+        let message = PreviewToLspMessage::SendWorkspaceEdit {
+            label: Some("Resize".into()),
+            edit: Default::default(),
+            notify_on_completion: true,
+        };
+        let LegacyMessage::SendWorkspaceEdit { label, edit } =
+            serde_json::from_value(serde_json::to_value(&message).unwrap()).unwrap();
+        assert_eq!(label.as_deref(), Some("Resize"));
+        assert_eq!(edit, lsp_types::WorkspaceEdit::default());
+        assert!(!message.is_allowed_from_remote_viewer());
+    }
 
     #[test]
     fn diagnostics_survive_the_wire_format() {

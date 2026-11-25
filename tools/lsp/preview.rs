@@ -109,6 +109,12 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         }
         Message::SetConfiguration { config } => config_changed(config),
         Message::SetUserSettings { name, contents } => set_user_settings(name, contents),
+        Message::WorkspaceEditFinished { applied } => {
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.undo_redo_stack.finish(applied);
+                undo_redo::set_undo_redo_enabled(state);
+            });
+        }
         Message::ShowPreview(component) => {
             tracing::debug!(
                 "Preview: ShowPreview for url={}, component={:?}",
@@ -208,7 +214,6 @@ pub struct PreviewState {
     document_cache: Rc<RefCell<Option<Rc<editor_preview::DocumentCache>>>>,
     selected: Option<element_selection::ElementSelection>,
     notify_editor_about_selection_after_update: bool,
-    workspace_edit_sent: bool,
     known_components: Vec<ComponentInformation>,
     preview_loading_delay_timer: Option<slint::Timer>,
     initial_live_data: preview_data::PreviewDataMap,
@@ -390,17 +395,17 @@ fn apply_live_preview_data() {
 
 fn set_contents(url: &VersionedUrl, content: String) {
     if let Some(current) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
-            undo_redo::set_undo_redo_enabled(preview_state);
-        }
-
         let old = preview_state.source_code.insert(
             url.url().clone(),
             SourceCodeCacheEntry { version: *url.version(), code: content.clone() },
         );
 
-        if Some(content) == old.map(|o| o.code) {
+        if old.is_some_and(|old| old.code == content) {
             return None;
+        }
+
+        if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
+            undo_redo::set_undo_redo_enabled(preview_state);
         }
 
         if preview_state.dependencies.contains(url.url()) {
@@ -1150,6 +1155,9 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
     let Ok(result) = text_edit::apply_workspace_edit(&document_cache, &edit) else {
         return false;
     };
+    if result.is_empty() {
+        return true;
+    }
     let file_hashes = undo_redo::compute_file_hashes(&result);
 
     if test_edit {
@@ -1164,19 +1172,10 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
     let reverse_edit = text_edit::reversed_edit(&document_cache, &edit);
 
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if std::mem::replace(&mut preview_state.workspace_edit_sent, true) {
+        if !preview_state.undo_redo_stack.begin_edit(label.clone(), reverse_edit, file_hashes) {
             return false;
         }
-        preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
-        undo_redo::set_undo_redo_enabled(preview_state);
-        preview_state
-            .to_lsp
-            .borrow()
-            .as_ref()
-            .unwrap()
-            .send(&PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit })
-            .unwrap();
-        true
+        undo_redo::send_pending_edit(preview_state, label, edit)
     })
 }
 
@@ -1307,6 +1306,9 @@ fn update_previewed_component(preview_url: &Url, previewed_component: Option<Str
 fn config_changed(config: PreviewConfig) {
     let Some((current, config)) = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         (preview_state.config != config).then(|| {
+            preview_state
+                .undo_redo_stack
+                .set_completion_supported(config.workspace_edit_completion);
             preview_state.config = config.clone();
 
             (preview_state.current_component(), preview_state.config.clone())
@@ -2086,7 +2088,8 @@ fn update_preview_area(
     format: editor_preview::ByteFormat,
 ) -> Result<(), PlatformError> {
     let app_window = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
-        preview_state.workspace_edit_sent = false;
+        preview_state.undo_redo_stack.preview_updated();
+        undo_redo::set_undo_redo_enabled(preview_state);
 
         let app_window = preview_state.app_window.as_ref().unwrap();
         let api = preview_state.api.upgrade().unwrap();
@@ -2269,6 +2272,478 @@ mod tests {
         let resources = compiled.unwrap().resources;
         assert!(resources.contains(&main.join("logo.png").unwrap()), "{resources:?}");
         assert!(!resources.contains(&main), "{resources:?}");
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    mod workspace_edits {
+        use super::*;
+        use std::task::{Context, Poll, Waker};
+
+        fn setup() -> (Rc<RefCell<Vec<PreviewToLspMessage>>>, lsp_types::WorkspaceEdit) {
+            setup_with_completion_support(true)
+        }
+
+        fn setup_with_completion_support(
+            supported: bool,
+        ) -> (Rc<RefCell<Vec<PreviewToLspMessage>>>, lsp_types::WorkspaceEdit) {
+            i_slint_backend_testing::init_no_event_loop();
+            let messages = Rc::new(RefCell::new(Vec::new()));
+            reset_preview_state(messages.clone());
+            lsp_to_preview(LspToPreviewMessage::SetConfiguration {
+                config: PreviewConfig {
+                    workspace_edit_completion: supported,
+                    ..Default::default()
+                },
+            });
+            let source = "export component Main inherits Window { width: 100px; }";
+            let (cache, url, diagnostics) =
+                editor_preview::test::loaded_document_cache(source.into());
+            assert!(diagnostics.values().all(Vec::is_empty), "{diagnostics:?}");
+            let edit = width_edit(url.clone(), "200");
+            let window = ui::AppWindow::Preview(ui::PreviewUi::new().unwrap());
+            undo_redo::setup(&window.api());
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.document_cache.replace(Some(Rc::new(cache)));
+                state
+                    .source_code
+                    .insert(url, SourceCodeCacheEntry { version: Some(42), code: source.into() });
+                state.api = window.api_weak();
+                state.app_window = Some(window);
+            });
+            (messages, edit)
+        }
+
+        fn width_edit(url: lsp_types::Url, width: &str) -> lsp_types::WorkspaceEdit {
+            let offset = "export component Main inherits Window { width: ".len() as u32;
+            editor_preview::editing::create_workspace_edit(
+                url,
+                Some(42),
+                vec![lsp_types::TextEdit::new(
+                    lsp_types::Range::new(
+                        lsp_types::Position::new(0, offset),
+                        lsp_types::Position::new(0, offset + 3),
+                    ),
+                    width.into(),
+                )],
+            )
+        }
+
+        fn reject_edit(message: PreviewToLspMessage) {
+            reply_to_edit(message, Ok(serde_json::json!({"applied": false})), || {});
+        }
+
+        fn reply_to_edit(
+            message: PreviewToLspMessage,
+            result: Result<serde_json::Value, &str>,
+            before_reply: impl FnOnce(),
+        ) {
+            let mut ctx = crate::language::test::mock_context();
+            let (sender, receiver) = crossbeam_channel::unbounded();
+            let queue = crate::OutgoingRequestQueue::default();
+            ctx.server_notifier = crate::ServerNotifier::new(sender, queue.clone());
+            let (transport, replies) = editor_preview::test::preview_capture();
+            ctx.session.replace_preview_transport(0, transport);
+            let mut dispatch = std::pin::pin!(crate::handle_preview_to_lsp_message(
+                message,
+                i_slint_live_preview::protocol::PreviewTarget::Dummy,
+                &mut ctx
+            ));
+            let mut task_context = Context::from_waker(Waker::noop());
+            assert!(matches!(dispatch.as_mut().poll(&mut task_context), Poll::Pending));
+            let lsp_server::Message::Request(request) = receiver.try_recv().unwrap() else {
+                panic!("Expected workspace/applyEdit");
+            };
+            assert_eq!(request.method, "workspace/applyEdit");
+            before_reply();
+            assert!(crate::complete_request(
+                &queue,
+                match result {
+                    Ok(result) => lsp_server::Response::new_ok(request.id, result),
+                    Err(message) => lsp_server::Response::new_err(
+                        request.id,
+                        lsp_server::ErrorCode::RequestFailed as i32,
+                        message.into(),
+                    ),
+                },
+            ));
+            i_slint_compiler::poll_ready(dispatch).unwrap();
+            assert!(queue.lock().unwrap().is_empty());
+            assert_eq!(replies.borrow().len(), 1);
+            for reply in replies.as_ref().borrow_mut().drain(..) {
+                lsp_to_preview(reply);
+            }
+        }
+
+        fn refresh_preview() {
+            update_preview_area(
+                None,
+                LoadBehavior::Reload,
+                None,
+                Default::default(),
+                editor_preview::ByteFormat::Utf8,
+            )
+            .unwrap();
+        }
+
+        fn update_source(edit: &lsp_types::WorkspaceEdit) {
+            let edited = text_edit::apply_workspace_edit(&document_cache().unwrap(), edit).unwrap();
+            assert_eq!(edited.len(), 1);
+            update_source_text(edited[0].contents.clone());
+        }
+
+        fn update_source_text(contents: String) {
+            let (cache, url, diagnostics) =
+                editor_preview::test::loaded_document_cache(contents.clone());
+            assert!(diagnostics.values().all(Vec::is_empty), "{diagnostics:?}");
+            set_contents(&VersionedUrl::new(url, Some(43)), contents);
+            PREVIEW_STATE
+                .with_borrow_mut(|state| state.document_cache.replace(Some(Rc::new(cache))));
+        }
+
+        fn take_edit(messages: &RefCell<Vec<PreviewToLspMessage>>) -> PreviewToLspMessage {
+            let mut messages = messages.borrow_mut();
+            assert_eq!(messages.len(), 1);
+            messages.remove(0)
+        }
+
+        fn edit_from(message: &PreviewToLspMessage) -> &lsp_types::WorkspaceEdit {
+            let PreviewToLspMessage::SendWorkspaceEdit { edit, .. } = message else {
+                panic!("Expected an edit");
+            };
+            edit
+        }
+
+        fn accept_edit(message: PreviewToLspMessage) {
+            let edit = edit_from(&message).clone();
+            reply_to_edit(message, Ok(serde_json::json!({"applied": true})), || {});
+            update_source(&edit);
+            refresh_preview();
+        }
+
+        fn history_enabled() -> (bool, bool) {
+            PREVIEW_STATE.with_borrow(|state| {
+                let api = state.api.upgrade().unwrap();
+                (api.get_undo_enabled(), api.get_redo_enabled())
+            })
+        }
+
+        fn invoke_undo_redo(redo: bool) {
+            let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade().unwrap());
+            if redo {
+                api.invoke_redo();
+            } else {
+                api.invoke_undo();
+            }
+        }
+
+        #[test]
+        fn rejected_edit_does_not_block_followup() {
+            let (messages, edit) = setup();
+            assert!(send_workspace_edit("First edit".into(), edit.clone(), true));
+            assert_eq!(messages.borrow().len(), 1);
+            let first_edit = messages.as_ref().borrow_mut().remove(0);
+            reject_edit(first_edit);
+            assert!(
+                send_workspace_edit("Follow-up edit".into(), edit, true),
+                "The client rejected the completed edit, but the preview still blocks the next edit"
+            );
+            assert_eq!(messages.borrow().len(), 1);
+        }
+
+        #[test]
+        fn rejected_edit_recovers_after_preview_update() {
+            let (messages, edit) = setup();
+            assert!(send_workspace_edit("First edit".into(), edit.clone(), true));
+            let first_edit = messages.as_ref().borrow_mut().remove(0);
+            reject_edit(first_edit);
+            update_preview_area(
+                None,
+                LoadBehavior::Reload,
+                None,
+                Default::default(),
+                editor_preview::ByteFormat::Utf8,
+            )
+            .unwrap();
+            assert!(send_workspace_edit("Follow-up edit".into(), edit, true));
+            assert_eq!(messages.borrow().len(), 1);
+        }
+
+        #[test]
+        fn in_flight_edit_blocks_followup() {
+            let (messages, edit) = setup();
+            assert!(send_workspace_edit("First edit".into(), edit.clone(), true));
+            assert!(!send_workspace_edit("Follow-up edit".into(), edit, true));
+            assert_eq!(messages.borrow().len(), 1);
+        }
+
+        #[test]
+        fn request_errors_allow_followup() {
+            let (messages, edit) = setup();
+            for response in [Err("Client error"), Ok(serde_json::json!({"unexpected": true}))] {
+                assert!(send_workspace_edit("Edit".into(), edit.clone(), true));
+                reply_to_edit(take_edit(&messages), response, || {});
+                assert_eq!(history_enabled(), (false, false));
+            }
+            assert!(send_workspace_edit("Follow-up edit".into(), edit, true));
+        }
+
+        #[test]
+        fn disconnected_client_allows_followup() {
+            let (messages, edit) = setup();
+            assert!(send_workspace_edit("Edit".into(), edit.clone(), true));
+            let mut ctx = crate::language::test::mock_context();
+            let (transport, replies) = editor_preview::test::preview_capture();
+            ctx.session.replace_preview_transport(0, transport);
+            i_slint_compiler::poll_ready(crate::handle_preview_to_lsp_message(
+                take_edit(&messages),
+                i_slint_live_preview::protocol::PreviewTarget::Dummy,
+                &mut ctx,
+            ))
+            .unwrap();
+            assert_eq!(replies.borrow().len(), 1);
+            for reply in replies.as_ref().borrow_mut().drain(..) {
+                lsp_to_preview(reply);
+            }
+            assert!(send_workspace_edit("Follow-up edit".into(), edit, true));
+        }
+
+        #[test]
+        fn preview_transport_failure_allows_retry() {
+            struct FailingTransport;
+            impl PreviewToLsp for FailingTransport {
+                fn send(&self, _: &PreviewToLspMessage) -> editor_preview::Result<()> {
+                    Err("Disconnected".into())
+                }
+            }
+            let (messages, edit) = setup();
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                *state.to_lsp.borrow_mut() = Some(Rc::new(FailingTransport));
+            });
+            assert!(!send_workspace_edit("Edit".into(), edit.clone(), true));
+            assert_eq!(history_enabled(), (false, false));
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                *state.to_lsp.borrow_mut() = Some(Rc::new(CapturePreviewToLsp { messages }));
+            });
+            assert!(send_workspace_edit("Retry".into(), edit, true));
+        }
+
+        #[test]
+        fn preview_update_does_not_release_an_unanswered_edit() {
+            let (messages, edit) = setup();
+            assert!(send_workspace_edit("Edit".into(), edit.clone(), true));
+            reply_to_edit(take_edit(&messages), Ok(serde_json::json!({"applied": false})), || {
+                refresh_preview();
+                assert!(!send_workspace_edit("Too early".into(), edit.clone(), true));
+            });
+            assert!(send_workspace_edit("Retry".into(), edit, true));
+        }
+
+        fn check_accepted_edit_order(update_first: bool) {
+            let (messages, edit) = setup();
+            assert!(send_workspace_edit("Edit".into(), edit.clone(), true));
+            reply_to_edit(take_edit(&messages), Ok(serde_json::json!({"applied": true})), || {
+                if update_first {
+                    update_source(&edit);
+                    refresh_preview();
+                } else {
+                    refresh_preview();
+                }
+                assert_eq!(history_enabled(), (false, false));
+            });
+            if !update_first {
+                assert_eq!(history_enabled(), (false, false));
+                update_source(&edit);
+                refresh_preview();
+            }
+            assert_eq!(history_enabled(), (true, false));
+            invoke_undo_redo(false);
+            assert_eq!(messages.borrow().len(), 1);
+        }
+
+        #[test]
+        fn accepted_edit_waits_for_source_and_preview() {
+            check_accepted_edit_order(false);
+        }
+
+        #[test]
+        fn source_and_preview_can_update_before_acceptance() {
+            check_accepted_edit_order(true);
+        }
+
+        fn check_edit_without_text_changes(completion_supported: bool) {
+            let (messages, edit) = setup_with_completion_support(completion_supported);
+            let (_, url, _) = editor_preview::test::loaded_document_cache(
+                "export component Main inherits Window { width: 100px; }".into(),
+            );
+            assert!(send_workspace_edit("Unchanged".into(), width_edit(url, "100"), false));
+            assert!(send_workspace_edit("Follow-up".into(), edit.clone(), true));
+            assert_eq!(edit_from(&take_edit(&messages)), &edit);
+        }
+
+        #[test]
+        fn edit_without_text_changes_does_not_block_followup() {
+            check_edit_without_text_changes(true);
+        }
+
+        #[test]
+        fn legacy_edit_without_text_changes_does_not_block_followup() {
+            check_edit_without_text_changes(false);
+        }
+
+        #[test]
+        fn rejected_undo_and_redo_preserve_history() {
+            let (messages, edit) = setup();
+            assert!(send_workspace_edit("Edit".into(), edit, true));
+            accept_edit(take_edit(&messages));
+            for redo in [false, true] {
+                let expected = history_enabled();
+                invoke_undo_redo(redo);
+                let rejected = take_edit(&messages);
+                let expected_edit = edit_from(&rejected).clone();
+                reject_edit(rejected);
+                assert_eq!(history_enabled(), expected);
+                invoke_undo_redo(redo);
+                let retried = take_edit(&messages);
+                assert_eq!(edit_from(&retried), &expected_edit);
+                accept_edit(retried);
+                assert_eq!(history_enabled(), (redo, !redo));
+            }
+        }
+
+        #[test]
+        fn rejected_new_edit_preserves_redo() {
+            let (messages, edit) = setup();
+            assert!(send_workspace_edit("Edit".into(), edit.clone(), true));
+            accept_edit(take_edit(&messages));
+            invoke_undo_redo(false);
+            accept_edit(take_edit(&messages));
+            assert_eq!(history_enabled(), (false, true));
+            assert!(send_workspace_edit("Rejected".into(), edit, true));
+            reject_edit(take_edit(&messages));
+            assert_eq!(history_enabled(), (false, true));
+            invoke_undo_redo(true);
+            accept_edit(take_edit(&messages));
+            assert_eq!(history_enabled(), (true, false));
+        }
+
+        #[test]
+        fn external_change_invalidates_pending_history() {
+            let (messages, edit) = setup();
+            assert!(send_workspace_edit("Edit".into(), edit.clone(), true));
+            reply_to_edit(take_edit(&messages), Ok(serde_json::json!({"applied": true})), || {
+                update_source_text(
+                    "export component Main inherits Window { width: 300px; }".into(),
+                );
+                refresh_preview();
+            });
+            assert_eq!(history_enabled(), (false, false));
+            assert!(send_workspace_edit("Next".into(), edit, true));
+        }
+
+        #[test]
+        fn external_change_after_preview_update_requires_another_update() {
+            let (messages, edit) = setup();
+            assert!(send_workspace_edit("Edit".into(), edit.clone(), true));
+            reply_to_edit(take_edit(&messages), Ok(serde_json::json!({"applied": true})), || {
+                update_source(&edit);
+                refresh_preview();
+                update_source_text(
+                    "export component Main inherits Window { width: 300px; }".into(),
+                );
+            });
+            assert!(!send_workspace_edit("Too early".into(), edit.clone(), true));
+            refresh_preview();
+            assert_eq!(history_enabled(), (false, false));
+            assert!(send_workspace_edit("Next".into(), edit, true));
+        }
+
+        #[test]
+        fn source_updates_before_dispatch_do_not_release_an_edit() {
+            let (_, edit) = setup();
+            assert!(send_workspace_edit("First".into(), edit.clone(), true));
+            update_source_text("export component Main inherits Window { width: 300px; }".into());
+            refresh_preview();
+            assert!(!send_workspace_edit("Too early".into(), edit, true));
+        }
+
+        #[test]
+        fn legacy_server_updates_allow_followup() {
+            let (_, edit) = setup_with_completion_support(false);
+            let reverse = text_edit::reversed_edit(&document_cache().unwrap(), &edit).unwrap();
+            assert!(send_workspace_edit("Edit".into(), edit.clone(), true));
+            refresh_preview();
+            assert!(!send_workspace_edit("Too early".into(), edit.clone(), true));
+            update_source(&edit);
+            refresh_preview();
+            assert_eq!(history_enabled(), (true, false));
+            assert!(send_workspace_edit("Follow-up".into(), reverse, true));
+        }
+
+        #[test]
+        fn legacy_server_updates_commit_undo_and_redo() {
+            let (messages, edit) = setup_with_completion_support(false);
+            assert!(send_workspace_edit("Edit".into(), edit.clone(), true));
+            take_edit(&messages);
+            update_source(&edit);
+            refresh_preview();
+            for redo in [false, true] {
+                invoke_undo_redo(redo);
+                let message = take_edit(&messages);
+                update_source(edit_from(&message));
+                refresh_preview();
+                assert_eq!(history_enabled(), (redo, !redo));
+            }
+        }
+
+        #[test]
+        fn rejection_after_source_changes_invalidates_history() {
+            let (messages, edit) = setup();
+            let reverse = text_edit::reversed_edit(&document_cache().unwrap(), &edit).unwrap();
+            assert!(send_workspace_edit("First".into(), edit, true));
+            accept_edit(take_edit(&messages));
+            assert_eq!(history_enabled(), (true, false));
+            assert!(send_workspace_edit("Rejected".into(), reverse.clone(), true));
+            reply_to_edit(take_edit(&messages), Ok(serde_json::json!({"applied": false})), || {
+                update_source(&reverse);
+            });
+            refresh_preview();
+            assert_eq!(history_enabled(), (false, false));
+            invoke_undo_redo(false);
+            assert!(messages.borrow().is_empty());
+        }
+
+        fn check_source_changes_after_rejection(redo_only: bool) {
+            let (messages, edit) = setup();
+            let mut rejected = text_edit::reversed_edit(&document_cache().unwrap(), &edit).unwrap();
+            assert!(send_workspace_edit("First".into(), edit.clone(), true));
+            accept_edit(take_edit(&messages));
+            if redo_only {
+                invoke_undo_redo(false);
+                accept_edit(take_edit(&messages));
+                rejected = edit;
+            }
+            let expected = (!redo_only, redo_only);
+            assert_eq!(history_enabled(), expected);
+
+            assert!(send_workspace_edit("Rejected".into(), rejected.clone(), true));
+            reject_edit(take_edit(&messages));
+            assert_eq!(history_enabled(), expected);
+            update_source(&rejected);
+            refresh_preview();
+            assert_eq!(history_enabled(), (false, false));
+            invoke_undo_redo(redo_only);
+            assert!(messages.borrow().is_empty());
+        }
+
+        #[test]
+        fn source_changes_after_rejection_invalidate_redo() {
+            check_source_changes_after_rejection(true);
+        }
+
+        #[test]
+        fn source_changes_after_rejection_invalidate_undo() {
+            check_source_changes_after_rejection(false);
+        }
     }
 
     #[test]
