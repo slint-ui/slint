@@ -50,16 +50,20 @@ impl Subscriptions {
     }
 }
 
-/// Initializes `tracker`, and returns the result of the first `eval`, which `notify` doesn't get.
+/// Initializes `tracker` on the current context's change handler queue,
+/// and returns the result of the first `eval`, which `notify` doesn't get.
 fn init_tracker<Data: 'static, T: Default + PartialEq + 'static>(
     tracker: &ChangeTracker,
     data: Data,
     eval: impl Fn(&Data) -> T + 'static,
     notify: impl Fn(&Data, &T) + 'static,
-) -> Rc<T> {
+) -> Result<Rc<T>, String> {
+    let context = i_slint_core::SlintContext::current()
+        .ok_or_else(|| "Subscriptions need a Slint context".to_string())?;
     let first = Rc::new(RefCell::new(None));
     let first_slot = Rc::downgrade(&first);
     tracker.init(
+        context.change_handler_queue(),
         data,
         move |data| {
             let value = Rc::new(eval(data));
@@ -70,7 +74,7 @@ fn init_tracker<Data: 'static, T: Default + PartialEq + 'static>(
         },
         move |data, value: &Rc<T>| notify(data, value),
     );
-    first.take().expect("ChangeTracker::init evaluates right away")
+    Ok(first.take().expect("ChangeTracker::init evaluates right away"))
 }
 
 fn remove(state: &Weak<IntrospectionState>, id: u64) {
@@ -169,7 +173,7 @@ pub(crate) fn subscribe_element_properties(
         subscription.clone(),
         |subscription| subscription.properties(),
         |subscription, properties| subscription.push_changes(properties.as_deref()),
-    );
+    )?;
     let Some(properties) = properties.as_ref() else {
         if subscription.element.is_valid() {
             return Ok(proto::SubscribeElementPropertiesResponse::default());
@@ -383,7 +387,7 @@ pub(crate) fn element_children(
         subscription.clone(),
         |subscription| subscription.children(),
         |subscription, children| subscription.push_changes(children.as_ref()),
-    );
+    )?;
     let children = Option::as_ref(&children).ok_or_else(|| destroyed(REQUEST))?;
     let (mut response, pushed) = response(state, children);
     if !response.truncated {
@@ -494,8 +498,12 @@ mod tests {
         }
     }
 
+    fn run_change_handlers() {
+        i_slint_core::SlintContext::current().unwrap().run_change_handlers();
+    }
+
     fn notifications(pushed: &RefCell<Vec<proto::SubscriptionNotification>>) -> Vec<Notification> {
-        ChangeTracker::run_change_handlers();
+        run_change_handlers();
         pushed.take().into_iter().map(|notification| notification.msg.unwrap()).collect()
     }
 
@@ -596,7 +604,7 @@ mod tests {
 
         let next = App::new().unwrap();
         fixture.state.add_window(&window_adapter_for_test(&next));
-        ChangeTracker::run_change_handlers();
+        run_change_handlers();
         let (roots_changed, ended): (Vec<_>, Vec<_>) = fixture
             .pushed
             .take()
@@ -794,7 +802,7 @@ mod tests {
         );
 
         fixture.rows.push(3);
-        ChangeTracker::run_change_handlers();
+        run_change_handlers();
         let ids: Vec<_> = fixture.pushed.take().iter().map(|n| n.subscription_id).collect();
         assert_eq!(ids, [again.subscription_id]);
     }
@@ -810,7 +818,7 @@ mod tests {
 
         fixture.rows.push(3);
         fixture.app.set_counter(2);
-        ChangeTracker::run_change_handlers();
+        run_change_handlers();
         assert!(fixture.state.subscriptions.trackers.borrow().is_empty());
         assert!(fixture.state.subscriptions.children_of.borrow().is_empty());
         assert_eq!(fixture.state.pinned_count.get(), 0);
