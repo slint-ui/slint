@@ -70,6 +70,14 @@ impl SkiaRendererAdapter {
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
 
+        #[cfg(skia_graphite)]
+        if std::env::var_os("SLINT_SKIA_GRAPHITE").is_some() {
+            return super::skia_graphite_dmabuf::SkiaGraphiteDmabufRendererAdapter::new(
+                drm_output,
+                requested_graphics_api,
+            );
+        }
+
         #[cfg(skia_wgpu_30)]
         if super::dmabuf::prefer_dmabuf() {
             return super::skia_dmabuf::SkiaDmabufRendererAdapter::new(

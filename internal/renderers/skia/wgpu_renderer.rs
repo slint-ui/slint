@@ -407,13 +407,34 @@ impl SkiaGraphiteWGPU30Renderer {
     /// For backdrop blur, the texture also needs `COPY_SRC` or `TEXTURE_BINDING` usage.
     /// Without either, the blur has no backdrop.
     pub fn render_to_texture(&self, texture: &wgpu_30::Texture) -> Result<(), PlatformError> {
+        self.render_to_texture_transformed(texture, 0., (0., 0.))
+    }
+
+    /// Like [`Self::render_to_texture`], with the scene rotated by `rotation_angle_degrees`
+    /// around the origin and then moved by `translation`,
+    /// for a screen that is mounted in another orientation than the window's.
+    pub fn render_to_texture_transformed(
+        &self,
+        texture: &wgpu_30::Texture,
+        rotation_angle_degrees: f32,
+        translation: (f32, f32),
+    ) -> Result<(), PlatformError> {
         let surface = self.surface();
         self.renderer.invoke_rendering_notifier_setup(&*surface)?;
         let window_adapter = self.renderer.window_adapter()?;
         let window = window_adapter.window();
         surface.render_to_texture(texture, &mut |canvas| {
             self.renderer
-                .render_to_canvas(canvas, 0., (0., 0.), None, 0, Some(&*surface), window, true)
+                .render_to_canvas(
+                    canvas,
+                    rotation_angle_degrees,
+                    translation,
+                    None,
+                    0,
+                    Some(&*surface),
+                    window,
+                    true,
+                )
                 .map(|_| ())
         })
     }

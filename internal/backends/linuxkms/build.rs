@@ -53,7 +53,9 @@ fn main() {
             feature = "unstable-wgpu-30",
             feature = "renderer-vello"
         ) },
+        skia_graphite: { all(slint_unstable_skia_graphite, skia_wgpu_30) },
     }
+    println!("cargo:rustc-check-cfg=cfg(slint_unstable_skia_graphite)");
 
     // Like the Qt backend, a missing library is a warning, not an error, so that
     // --all-features builds work everywhere. libdlmclient.pc ships with the AGL

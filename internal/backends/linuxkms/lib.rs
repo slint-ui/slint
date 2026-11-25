@@ -83,6 +83,8 @@ mod renderer {
     pub mod femtovg_wgpu;
     #[cfg(skia_wgpu_30)]
     pub mod skia_dmabuf;
+    #[cfg(skia_graphite)]
+    pub mod skia_graphite_dmabuf;
 
     #[cfg(feature = "renderer-software")]
     pub mod sw;
