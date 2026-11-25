@@ -259,6 +259,7 @@ pub enum MemberReference {
     /// The property or callback is withing a global
     Global { global_index: GlobalIdx, member: LocalMemberIndex },
 
+    /// A member of the source instance referenced by a repeated collection view.
     Repeated {
         parent_level: usize,
         sub_component_path: Vec<SubComponentInstanceIdx>,

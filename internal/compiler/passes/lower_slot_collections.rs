@@ -226,9 +226,8 @@ pub(super) fn lower_slot_collections(
                         .is_some_and(|repeated| repeated.is_listview.is_some())
                 })
             {
-                let operation = "Generating collection views";
                 diag.push_error(
-                    format!("{operation} from virtualized 'ListView' children is not supported; use model data for the views instead"),
+                    "Generating collection views from virtualized 'ListView' children is not supported; use model data for the views instead".into(),
                     &*child.borrow(),
                 );
                 continue;
