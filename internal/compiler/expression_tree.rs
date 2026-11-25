@@ -1986,7 +1986,9 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             if let Some(repeater) = repeater {
                 crate::namedreference::pretty_print_element_ref(f, repeater)?;
             }
-            write!(f, "[{index:?}].{}", property.name())
+            write!(f, "[")?;
+            pretty_print(f, index)?;
+            write!(f, "].{}", property.name())
         }
         Expression::ElementReference(a) => write!(f, "{a:?}"),
         Expression::RepeaterIndexReference { element } => {

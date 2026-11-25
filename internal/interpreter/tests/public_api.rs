@@ -107,8 +107,7 @@ fn compile_collection_case(name: &str, component: &str) -> ComponentInstance {
 
 #[cfg(feature = "internal")]
 #[test]
-fn repeated_collection_views_follow_page_instances() {
-    use i_slint_backend_testing::{AccessibleRole, ElementHandle};
+fn indexed_collection_reads_follow_model_edits() {
     i_slint_backend_testing::init_no_event_loop();
     let indexed = compile_collection_case("slot_collection_indexed.slint", "TestCase");
     assert_eq!(indexed.get_property("test").unwrap(), Value::Bool(true));
@@ -124,6 +123,13 @@ fn repeated_collection_views_follow_page_instances() {
     indexed.set_property("index", Value::Number(-1.)).unwrap();
     assert_eq!(indexed.get_property("static-title").unwrap(), Value::String("".into()));
     assert_eq!(indexed.get_property("repeated-title").unwrap(), Value::String("".into()));
+}
+
+#[cfg(feature = "internal")]
+#[test]
+fn repeated_collection_views_follow_page_instances() {
+    use i_slint_backend_testing::{AccessibleRole, ElementHandle};
+    i_slint_backend_testing::init_no_event_loop();
     let focused = compile_collection_case("slot_collection_dynamic_views.slint", "FocusTest");
     for index in [1, 0] {
         ElementHandle::find_by_accessible_label(&focused, &format!("Focus {index}"))
