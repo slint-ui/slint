@@ -65,9 +65,14 @@ impl ParsedSVG {
 
         let (target_size, transform) = match size {
             Some(size) => {
-                let target_size = tiny_skia::IntSize::from_wh(size.width, size.height)
-                    .ok_or(usvg::Error::InvalidSize)?;
-                let target_size = tree.size().to_int_size().scale_to(target_size);
+                let source_size = tree.size().to_int_size();
+                let target_size = super::aspect_preserving_render_size(
+                    [source_size.width(), source_size.height()].into(),
+                    size,
+                );
+                let target_size =
+                    tiny_skia::IntSize::from_wh(target_size.width, target_size.height)
+                        .ok_or(usvg::Error::InvalidSize)?;
                 let target_size_f = target_size.to_size();
 
                 let transform = tiny_skia::Transform::from_scale(
