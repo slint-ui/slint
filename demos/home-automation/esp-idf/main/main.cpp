@@ -92,6 +92,7 @@ extern "C" void app_main(void)
             .byte_swap = false,
             .panel_type = SlintDisplayPanelType::MipiDsiDpi,
             .rasterize_in_separate_task = true,
+            .use_ppa = true,
     });
 
     auto ui = AppWindow::create();

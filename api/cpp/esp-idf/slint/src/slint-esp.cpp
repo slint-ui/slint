@@ -27,6 +27,11 @@ static const char *TAG = "slint_platform";
 
 #include "slint-esp-trace.h"
 
+#ifdef SLINT_ESP_PPA
+#    include <type_traits>
+#    include "slint-esp-ppa-buffer.h"
+#endif
+
 using RepaintBufferType = slint::platform::SoftwareRenderer::RepaintBufferType;
 
 class EspWindowAdapter : public slint::platform::WindowAdapter
@@ -70,6 +75,9 @@ struct EspPlatform : public slint::platform::Platform
         use_cpu_textures = config.use_cpu_textures;
         prepared_textures_kib = config.prepared_textures_kib;
 #endif
+#ifdef SLINT_ESP_PPA
+        use_ppa = config.use_ppa;
+#endif
     }
 
     std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override;
@@ -100,6 +108,9 @@ private:
 #ifdef SLINT_ESP_CPU_TEXTURES
     bool use_cpu_textures = false;
     uint32_t prepared_textures_kib = 8192;
+#endif
+#ifdef SLINT_ESP_PPA
+    bool use_ppa = false;
 #endif
     class EspWindowAdapter *m_window = nullptr;
 
@@ -316,9 +327,15 @@ void EspPlatform<PixelType>::run_event_loop()
 
 #ifdef SLINT_ESP_CPU_TEXTURES
     CpuTextureFrameBuffer cpu_textures;
+#endif
+#if defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA)
     // Used only by the thread that rasterizes.
     slint::platform::SoftwareRenderer::PreparedTextures prepared_textures;
     prepared_textures.set_max_bytes(std::size_t(prepared_textures_kib) * 1024);
+#endif
+#ifdef SLINT_ESP_PPA
+    // Registered and used only by the thread that rasterizes.
+    std::optional<PpaFrameBuffer> ppa;
 #endif
 
     TickType_t max_ticks_to_wait = portMAX_DELAY;
@@ -388,22 +405,60 @@ void EspPlatform<PixelType>::run_event_loop()
     SemaphoreHandle_t frame_presented = xSemaphoreCreateBinary();
     xSemaphoreGive(frame_presented);
     auto raster_task = [this, &recorded, frame_recorded, frame_presented
+#    if defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA)
+                        ,
+                        stride, &prepared_textures
+#    endif
 #    ifdef SLINT_ESP_CPU_TEXTURES
                         ,
-                        stride, &cpu_textures, &prepared_textures
+                        &cpu_textures
+#    endif
+#    ifdef SLINT_ESP_PPA
+                        ,
+                        &ppa
 #    endif
     ] {
         SLINT_TRACE_REGISTER_CORE();
+#    ifdef SLINT_ESP_PPA
+        if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
+            if (use_ppa) {
+                ppa.emplace();
+                if (ppa->init()) {
+                    // The PPA reads ARGB8888 blue first.
+                    prepared_textures.set_blue_first(true);
+                } else {
+                    ESP_LOGW(TAG, "The PPA is unavailable, rasterizing without it");
+                    ppa.reset();
+                }
+            }
+        }
+#    endif
         while (true) {
             xSemaphoreTake(frame_recorded, portMAX_DELAY);
             {
                 SLINT_TRACE_SPAN("redraw");
                 render_and_present([&recorded
+#    if defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA)
+                                    ,
+                                    stride, &prepared_textures
+#    endif
 #    ifdef SLINT_ESP_CPU_TEXTURES
                                     ,
-                                    stride, this, &cpu_textures, &prepared_textures
+                                    this, &cpu_textures
+#    endif
+#    ifdef SLINT_ESP_PPA
+                                    ,
+                                    &ppa
 #    endif
                 ](std::span<PixelType> buffer) {
+#    ifdef SLINT_ESP_PPA
+                    if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
+                        if (ppa) {
+                            ppa->set_target(buffer, stride);
+                            return recorded->rasterize_into_buffer(&*ppa, prepared_textures);
+                        }
+                    }
+#    endif
 #    ifdef SLINT_ESP_CPU_TEXTURES
                     if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
                         if (use_cpu_textures) {
