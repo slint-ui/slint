@@ -366,7 +366,8 @@ void EspPlatform<PixelType>::run_event_loop()
                            uxTaskPriorityGet(nullptr), &raster_task_handle)
                     == pdPASS;
     if (rasterize_in_separate_task && buffer1 && buffer2 && !pipeline) {
-        ESP_LOGW(TAG, "Creating the raster task failed, so frames are rasterized in the event loop");
+        ESP_LOGW(TAG,
+                 "Creating the raster task failed, so frames are rasterized in the event loop");
     }
 #endif
 
