@@ -12,6 +12,7 @@ pub struct PhysicalPx;
 pub struct LogicalPx;
 pub type LogicalLength = euclid::Length<Coord, LogicalPx>;
 pub type LogicalRect = euclid::Rect<Coord, LogicalPx>;
+pub type PackedLogicalRect = euclid::Box2D<u16, LogicalPx>;
 pub type LogicalPoint = euclid::Point2D<Coord, LogicalPx>;
 pub type LogicalSize = euclid::Size2D<Coord, LogicalPx>;
 pub type LogicalVector = euclid::Vector2D<Coord, LogicalPx>;
@@ -88,6 +89,16 @@ impl<T: Copy + core::ops::Add<Output = T>, U> RectLengths for euclid::Rect<T, U>
     fn x_length_range(&self) -> core::ops::Range<Self::LengthType> {
         self.origin.x_length()..self.origin.x_length() + self.width_length()
     }
+}
+
+/// Rounds `rect` outward to whole pixels, clamped to the `u16` range.
+pub fn pack_logical_rect(rect: &LogicalRect) -> PackedLogicalRect {
+    // Casting from `f32` saturates, unlike casting from `i32`.
+    let b = rect.to_box2d().cast::<f32>().round_out();
+    PackedLogicalRect::new(
+        euclid::point2(b.min.x as u16, b.min.y as u16),
+        euclid::point2(b.max.x as u16, b.max.y as u16),
+    )
 }
 
 /// Convert from the api size to the internal size
