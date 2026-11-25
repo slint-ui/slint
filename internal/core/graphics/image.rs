@@ -887,7 +887,7 @@ impl Image {
     ///
     /// This function always fails on the web, where there is no file system.
     pub fn load_from_path(path: &std::path::Path) -> Result<Self, LoadImageError> {
-        load_image_from_path(None, path)
+        load_image_from_path(None, path, None)
     }
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has three color
@@ -1328,7 +1328,20 @@ pub fn load_as_html_image(
     encoded::load_as_html_image(context, url).map(Image).ok_or(LoadImageError(()))
 }
 
+/// What the compiler read from the header of an image file,
+/// so that the image loads without reading the file or the data.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[allow(missing_docs)]
+pub struct ImageHeader {
+    pub width: u32,
+    pub height: u32,
+    /// Whether the image may have more than one frame.
+    pub animated: bool,
+}
+
 /// Load an image from an image embedded in the binary.
+/// With the `header` of a raster image, it loads without reading `data`.
 /// This is called by the generated code.
 #[cfg(any(
     feature = "image-decoders",
@@ -1338,7 +1351,16 @@ pub fn load_image_from_embedded_data(
     context: &crate::SlintContext,
     data: Slice<'static, u8>,
     format: Slice<'_, u8>,
+    header: Option<ImageHeader>,
 ) -> Image {
+    #[cfg(feature = "image-decoders")]
+    if let Some(header) = header {
+        let size = IntSize::new(header.width, header.height);
+        let image =
+            encoded::sized_from_embedded_data(data, format.as_slice(), size, header.animated);
+        return Image(image);
+    }
+    let _ = header;
     encoded::load_from_static_data(Some(context), data.as_slice(), format.as_slice())
         .map(Image)
         .unwrap_or_default()
@@ -1346,6 +1368,7 @@ pub fn load_image_from_embedded_data(
 
 /// Like [`Image::load_from_path`], sharing the image through the cache of `context`,
 /// the context of the component that shows it.
+/// With the `header` of a raster image, it loads without reading the file.
 /// This is called by the interpreter and the generated code.
 #[cfg(any(
     feature = "image-decoders",
@@ -1354,14 +1377,19 @@ pub fn load_image_from_embedded_data(
 pub fn load_image_from_path(
     context: Option<&crate::SlintContext>,
     path: &std::path::Path,
+    header: Option<ImageHeader>,
 ) -> Result<Image, LoadImageError> {
     cfg_select! {
         all(target_arch = "wasm32", not(target_os = "emscripten")) => {
-            let _ = (context, path);
+            let _ = (context, path, header);
             Err(LoadImageError(()))
         }
         _ => {
             let path: SharedString = path.to_str().ok_or(LoadImageError(()))?.into();
+            if let Some(header) = header {
+                let size = IntSize::new(header.width, header.height);
+                return Ok(Image(encoded::sized_from_path(&path, size, header.animated)));
+            }
             encoded::load_from_path(context, &path).map(Image).ok_or(LoadImageError(()))
         }
     }
@@ -1903,11 +1931,15 @@ pub(crate) mod ffi {
     // C++ components don't know their context, so these load into the current one.
     #[cfg(all(feature = "std", feature = "image-decoders"))]
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_image_load_from_path(path: &SharedString, image: *mut Image) {
+    pub unsafe extern "C" fn slint_image_load_from_path(
+        path: &SharedString,
+        header: Option<&ImageHeader>,
+        image: *mut Image,
+    ) {
         let context = crate::SlintContext::current();
-        let loaded =
-            super::load_image_from_path(context.as_ref(), std::path::Path::new(path.as_str()))
-                .unwrap_or_default();
+        let path = std::path::Path::new(path.as_str());
+        let loaded = super::load_image_from_path(context.as_ref(), path, header.copied())
+            .unwrap_or_default();
         unsafe { core::ptr::write(image, loaded) };
     }
 
@@ -1916,16 +1948,26 @@ pub(crate) mod ffi {
     pub unsafe extern "C" fn slint_image_load_from_embedded_data(
         data: Slice<'static, u8>,
         format: Slice<'static, u8>,
+        header: Option<&ImageHeader>,
         image: *mut Image,
     ) {
-        let context = crate::SlintContext::current();
-        let loaded = super::encoded::load_from_static_data(
-            context.as_ref(),
-            data.as_slice(),
-            format.as_slice(),
-        )
-        .map(Image)
-        .unwrap_or_default();
+        let loaded = match header {
+            Some(header) => {
+                let size = IntSize::new(header.width, header.height);
+                let format = format.as_slice();
+                Image(super::encoded::sized_from_embedded_data(data, format, size, header.animated))
+            }
+            None => {
+                let context = crate::SlintContext::current();
+                super::encoded::load_from_static_data(
+                    context.as_ref(),
+                    data.as_slice(),
+                    format.as_slice(),
+                )
+                .map(Image)
+                .unwrap_or_default()
+            }
+        };
         unsafe { core::ptr::write(image, loaded) };
     }
 

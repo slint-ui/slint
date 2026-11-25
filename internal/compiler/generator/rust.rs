@@ -4445,6 +4445,16 @@ fn compile_binary_operator(
     }
 }
 
+/// The optional `ImageHeader` that the image loaders take.
+fn rust_image_header(header: &Option<crate::expression_types::ImageHeader>) -> TokenStream {
+    match header {
+        Some(crate::expression_types::ImageHeader { width, height, animated }) => {
+            quote!(Some(sp::ImageHeader { width: #width, height: #height, animated: #animated }))
+        }
+        None => quote!(None),
+    }
+}
+
 fn compile_image_reference(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::ImageReference { resource_ref, nine_slice } = expr else { unreachable!() };
     let context = access_context(ctx);
@@ -4452,11 +4462,15 @@ fn compile_image_reference(expr: &Expression, ctx: &EvaluationContext) -> TokenS
         crate::expression_types::ImageReference::None => {
             quote!(sp::Image::default())
         }
-        crate::expression_types::ImageReference::Source(SourcePath::File(path)) => {
+        crate::expression_types::ImageReference::Source {
+            path: SourcePath::File(path),
+            header,
+        } => {
             let path = path.to_string_lossy();
-            quote!(sp::load_image_from_path(Some(#context), ::std::path::Path::new(#path)).unwrap_or_default())
+            let header = rust_image_header(header);
+            quote!(sp::load_image_from_path(Some(#context), ::std::path::Path::new(#path), #header).unwrap_or_default())
         }
-        crate::expression_types::ImageReference::Source(url) => {
+        crate::expression_types::ImageReference::Source { path: url, .. } => {
             let url = url.to_string();
             // URL image references only work on the web, where the browser fetches them.
             quote!({
@@ -4469,10 +4483,15 @@ fn compile_image_reference(expr: &Expression, ctx: &EvaluationContext) -> TokenS
         crate::expression_types::ImageReference::DataUri(_) => {
             unreachable!("data: URIs are embedded before code generation")
         }
-        crate::expression_types::ImageReference::EmbeddedData { resource_id, extension } => {
+        crate::expression_types::ImageReference::EmbeddedData {
+            resource_id,
+            extension,
+            header,
+        } => {
             let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
             let format = proc_macro2::Literal::byte_string(extension.as_bytes());
-            quote!(sp::load_image_from_embedded_data(#context, #symbol.into(), sp::Slice::from_slice(#format)))
+            let header = rust_image_header(header);
+            quote!(sp::load_image_from_embedded_data(#context, #symbol.into(), sp::Slice::from_slice(#format), #header))
         }
         crate::expression_types::ImageReference::EmbeddedTexture { resource_id } => {
             let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);

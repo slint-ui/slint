@@ -1866,7 +1866,7 @@ fn load_image_reference(
     use i_slint_compiler::expression_types::ImageReference as Ref;
     #[cfg(feature = "std")]
     if i_slint_core::IMAGE_DECODERS_ENABLED
-        && let Ref::Source(path) = resource_ref
+        && let Ref::Source { path, .. } = resource_ref
         && let Some(globals) = ctx.globals.upgrade()
         && let Some(image) = globals.resources.images.get(path)
     {
@@ -1887,7 +1887,7 @@ fn load_image_reference(
             })
             .ok_or_else(Default::default),
         #[cfg(feature = "std")]
-        Ref::Source(path @ SourcePath::Builtin(builtin_path)) => {
+        Ref::Source { path: path @ SourcePath::Builtin(builtin_path), .. } => {
             // Style-bundled resources (e.g. cosmic/material widget icons) are
             // baked into the compiler's builtin library.
             i_slint_compiler::fileaccess::builtin_contents(builtin_path)
@@ -1897,16 +1897,17 @@ fn load_image_reference(
                         &context,
                         i_slint_core::slice::Slice::from_slice(contents),
                         i_slint_core::slice::Slice::from_slice(extension.as_bytes()),
+                        None,
                     )
                 })
                 .ok_or_else(Default::default)
         }
         #[cfg(feature = "std")]
-        Ref::Source(SourcePath::File(path)) => {
-            i_slint_core::graphics::load_image_from_path(Some(&context), path)
+        Ref::Source { path: SourcePath::File(path), .. } => {
+            i_slint_core::graphics::load_image_from_path(Some(&context), path, None)
         }
         #[cfg(feature = "std")]
-        Ref::Source(url) => {
+        Ref::Source { path: url, .. } => {
             #[cfg(target_arch = "wasm32")]
             {
                 i_slint_core::graphics::load_as_html_image(&context, &url.to_string())
@@ -1928,7 +1929,7 @@ fn load_image_reference(
         Ref::EmbeddedTexture { .. } => Ok(Default::default()),
         // Without the compiler, only the images it embedded in the unit show
         #[cfg(not(feature = "std"))]
-        Ref::DataUri(_) | Ref::Source(_) => Err(Default::default()),
+        Ref::DataUri(_) | Ref::Source { .. } => Err(Default::default()),
         Ref::EmbeddedData { .. } => Ok(Default::default()),
     };
     image.unwrap_or_else(|_| {

@@ -385,6 +385,47 @@ fn load(
     load_raster(source, std::io::Cursor::new(&*data), format)
 }
 
+/// Returns the raster image at `source`, of `size` and with more than one frame if `animated`,
+/// without reading it. `extension` is the file extension of its format.
+/// Returns no image if this build can't decode the format.
+#[cfg(feature = "image-decoders")]
+fn sized(
+    source: ImageCacheKey,
+    extension: &[u8],
+    size: IntSize,
+    animated: bool,
+) -> super::ImageInner {
+    let Some(format) = image_format(extension).filter(image::ImageFormat::reading_enabled) else {
+        return super::ImageInner::None;
+    };
+    let kind = if animated { EncodedImageKind::Animated } else { EncodedImageKind::Raster };
+    super::ImageInner::Encoded(EncodedImage {
+        source,
+        kind,
+        format: format_extension(format),
+        size,
+    })
+}
+
+/// Like [`sized`], for an image that the binary embeds.
+#[cfg(feature = "image-decoders")]
+pub(crate) fn sized_from_embedded_data(
+    data: Slice<'static, u8>,
+    extension: &[u8],
+    size: IntSize,
+    animated: bool,
+) -> super::ImageInner {
+    sized(ImageCacheKey::EmbeddedData(by_address::ByAddress(data)), extension, size, animated)
+}
+
+/// Like [`sized`], for the image at `path`.
+#[cfg(all(feature = "image-decoders", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
+pub(crate) fn sized_from_path(path: &str, size: IntSize, animated: bool) -> super::ImageInner {
+    let extension = std::path::Path::new(path).extension().unwrap_or_default();
+    let source = ImageCacheKey::Path(super::CachedPath::new(path));
+    sized(source, extension.as_encoded_bytes(), size, animated)
+}
+
 /// Loads the image at `path`, sharing it with other loads of the same file.
 #[cfg(all(feature = "image-decoders", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
 pub(crate) fn load_from_path(

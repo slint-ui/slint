@@ -2324,6 +2324,7 @@ dependencies = [
  "icu_normalizer",
  "icu_properties",
  "image",
+ "imagesize",
  "indexmap",
  "itertools",
  "lyon_extra",

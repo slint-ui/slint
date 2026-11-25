@@ -220,6 +220,7 @@ mod tests {
                 &context,
                 Slice::from_slice(RED_PNG),
                 Slice::from_slice(b"png"),
+                None,
             )
         };
         let (first, second) = (load(), load());

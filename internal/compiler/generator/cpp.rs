@@ -4435,26 +4435,45 @@ fn shared_string_literal(string: &str) -> String {
     format!(r#"::slint::SharedString(u8"{}")"#, escape_string(string))
 }
 
+/// Formats an image header as the optional `ImageHeader` that the C++ loaders take.
+struct CppImageHeader<'a>(&'a Option<crate::expression_types::ImageHeader>);
+
+impl std::fmt::Display for CppImageHeader<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            Some(header) => write!(
+                f,
+                "::slint::cbindgen_private::types::ImageHeader{{ {}, {}, {} }}",
+                header.width, header.height, header.animated
+            ),
+            None => write!(f, "std::nullopt"),
+        }
+    }
+}
+
 impl std::fmt::Display for crate::expression_types::ImageReference {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             crate::expression_types::ImageReference::None => write!(f, r#"::slint::Image()"#),
-            crate::expression_types::ImageReference::Source(path) => write!(
+            crate::expression_types::ImageReference::Source { path, header } => write!(
                 f,
-                r#"::slint::Image::load_from_path(::slint::SharedString(u8"{}"))"#,
-                escape_string(&path.to_string())
+                r#"::slint::private_api::load_image_from_path({}, {})"#,
+                shared_string_literal(&path.to_string()),
+                CppImageHeader(header)
             ),
             crate::expression_types::ImageReference::DataUri(_) => {
                 unreachable!("data: URIs are embedded before code generation")
             }
-            crate::expression_types::ImageReference::EmbeddedData { resource_id, extension } => {
-                let symbol = format!("slint_embedded_resource_{resource_id}");
-                write!(
-                    f,
-                    r#"::slint::private_api::load_image_from_embedded_data({symbol}, "{}")"#,
-                    escape_string(extension)
-                )
-            }
+            crate::expression_types::ImageReference::EmbeddedData {
+                resource_id,
+                extension,
+                header,
+            } => write!(
+                f,
+                r#"::slint::private_api::load_image_from_embedded_data(slint_embedded_resource_{resource_id}, "{}", {})"#,
+                escape_string(extension),
+                CppImageHeader(header)
+            ),
             crate::expression_types::ImageReference::EmbeddedTexture { resource_id } => {
                 write!(
                     f,

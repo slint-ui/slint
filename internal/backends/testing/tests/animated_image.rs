@@ -8,7 +8,7 @@ use slint::ComponentHandle;
 slint::slint! {
     #[edition = "1.20"]
     export component App inherits Window {
-        width: 16px;
+        width: 24px;
         height: 8px;
         in property <bool> shown: true;
         Image {
@@ -27,6 +27,13 @@ slint::slint! {
             height: 8px;
             source: @image-url("../../../core/graphics/image/testdata/twice.png", nine-slice(1));
         }
+        Image {
+            x: 16px;
+            width: 8px;
+            height: 8px;
+            // A red GIF of one frame.
+            source: @image-url("../../../core/graphics/image/testdata/single.gif");
+        }
     }
 }
 
@@ -35,15 +42,16 @@ const GREEN: [u8; 3] = [0, 255, 0];
 const BLUE: [u8; 3] = [0, 0, 255];
 const WHITE: [u8; 3] = [255, 255, 255];
 
-fn pixel(app: &App) -> [u8; 3] {
+fn pixel_at(app: &App, x: usize) -> [u8; 3] {
     let snapshot = app.window().take_snapshot().unwrap();
-    let pixel = |x: usize| {
-        let p = snapshot.as_slice()[4 * snapshot.width() as usize + x];
-        [p.r, p.g, p.b]
-    };
+    let p = snapshot.as_slice()[4 * snapshot.width() as usize + x];
+    [p.r, p.g, p.b]
+}
+
+fn pixel(app: &App) -> [u8; 3] {
     // The nine-slice image plays like the first one.
-    assert_eq!(pixel(12), pixel(4));
-    pixel(4)
+    assert_eq!(pixel_at(app, 12), pixel_at(app, 4));
+    pixel_at(app, 4)
 }
 
 fn advance(ms: u64) {
@@ -65,6 +73,7 @@ fn animated_image_playback() {
     app.show().unwrap();
 
     assert_eq!(pixel(&app), RED);
+    assert_eq!(pixel_at(&app, 20), RED);
     advance(100);
     assert_eq!(pixel(&app), GREEN);
     advance(200);

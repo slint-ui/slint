@@ -88,7 +88,7 @@ pbjson-build = { version = "0.9", optional = true }
 protox = { version = "0.10", optional = true }
 
 [dev-dependencies]
-slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "image-default-formats"] }
 i-slint-core-macros = { path = "../../core-macros" }
 i-slint-common = { path = "../../common" }
 

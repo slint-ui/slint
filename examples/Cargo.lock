@@ -4860,6 +4860,7 @@ dependencies = [
  "icu_normalizer",
  "icu_properties",
  "image",
+ "imagesize",
  "indexmap",
  "itertools 0.15.0",
  "lyon_extra",

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #pragma once
+#include <optional>
 #include <string_view>
 #include <span>
 #include "private/slint_generated_public.h"
@@ -129,7 +130,7 @@ public:
     [[nodiscard]] static Image load_from_path(const SharedString &file_path)
     {
         Image img;
-        cbindgen_private::types::slint_image_load_from_path(&file_path, &img.data);
+        cbindgen_private::types::slint_image_load_from_path(&file_path, nullptr, &img.data);
         return img;
     }
 
@@ -335,12 +336,22 @@ private:
 };
 
 namespace private_api {
-inline Image load_image_from_embedded_data(std::span<const uint8_t> data,
-                                           std::string_view extension)
+inline Image
+load_image_from_embedded_data(std::span<const uint8_t> data, std::string_view extension,
+                              std::optional<cbindgen_private::types::ImageHeader> header = {})
 {
     cbindgen_private::types::Image img(cbindgen_private::types::Image::ImageInner_None());
     cbindgen_private::types::slint_image_load_from_embedded_data(
-            make_slice(data.data(), data.size()), string_to_slice(extension), &img);
+            make_slice(data.data(), data.size()), string_to_slice(extension),
+            header ? &*header : nullptr, &img);
+    return Image(img);
+}
+
+inline Image load_image_from_path(const SharedString &path,
+                                  std::optional<cbindgen_private::types::ImageHeader> header)
+{
+    cbindgen_private::types::Image img(cbindgen_private::types::Image::ImageInner_None());
+    cbindgen_private::types::slint_image_load_from_path(&path, header ? &*header : nullptr, &img);
     return Image(img);
 }
 

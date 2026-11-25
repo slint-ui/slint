@@ -382,6 +382,7 @@ mod tests {
             &context,
             crate::slice::Slice::from_slice(PNG),
             crate::slice::Slice::from_slice(b"png"),
+            None,
         );
         let has_pixels = || {
             context

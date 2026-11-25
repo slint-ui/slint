@@ -161,6 +161,7 @@ fn mouse_cursor_image(context: &i_slint_core::SlintContext) -> Image {
         context,
         Slice::from_slice(include_bytes!("mouse-pointer.svg")),
         Slice::from_slice(b"svg"),
+        None,
     );
     let inner: &i_slint_core::ImageInner = (&svg).into();
     match inner.render_to_buffer(None, Some(context)) {
