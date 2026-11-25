@@ -524,7 +524,6 @@ pub struct SlotExpansion {
     pub index_property: SmolStr,
 }
 
-
 #[derive(Clone, Debug)]
 pub struct SlotForwarding {
     pub target: SmolStr,

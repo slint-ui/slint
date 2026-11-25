@@ -727,7 +727,6 @@ fn duplicate_element_with_mapping(
     new
 }
 
-
 fn duplicate_optimized_elements(
     optimized: &[OptimizedElement],
     mapping: &mut Mapping,
