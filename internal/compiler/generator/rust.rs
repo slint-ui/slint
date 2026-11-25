@@ -2661,12 +2661,6 @@ fn generate_item_tree_body(
     let globals_arg = is_popup.then(|| quote!(globals: sp::Rc<SharedGlobals>));
     let context_arg = is_root_component.then(|| quote!(context: sp::SlintContext));
 
-    let embedding_function = if parent_ctx.is_some() {
-        quote!(todo!("Components written in Rust can not get embedded yet."))
-    } else {
-        quote!(false)
-    };
-
     let parent_item_expression = parent_ctx.map(|parent| parent.repeater_index.map_or_else(|| {
         // No repeater index, this could be a PopupWindow
         quote!{
@@ -2944,7 +2938,7 @@ fn generate_item_tree_body(
         }
 
         fn embed_component(self: ::core::pin::Pin<&Self>, _parent_component: &sp::ItemTreeWeak, _item_tree_index: u32) -> bool {
-            #embedding_function
+            false
         }
 
         fn item_element_infos(
