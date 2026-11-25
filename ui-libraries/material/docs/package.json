@@ -29,7 +29,6 @@
         "@playwright/test": "catalog:",
         "@types/node": "catalog:",
         "cspell": "catalog:",
-        "playwright-ctrf-json-reporter": "catalog:",
         "typescript": "catalog:"
     }
 }
