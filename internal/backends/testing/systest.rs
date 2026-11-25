@@ -216,6 +216,10 @@ impl TestingClient {
             Req::RequestStopEventRecording(..) => {
                 Resp::StopEventRecordingResponse(dispatch::stop_event_recording(state))
             }
+            Req::RequestGetElementChildren(proto::RequestGetElementChildren { element_handle }) => {
+                let parent = element_handle.map(handle_to_index).transpose()?;
+                Resp::GetElementChildrenResponse(dispatch::element_children(state, parent)?)
+            }
             // MCP-only tools — not supported over the binary system-testing transport
             Req::RequestDispatchKeyEvent(..) | Req::RequestGetElementTree(..) => {
                 return Err("this request is only supported via the MCP transport".into());
@@ -467,7 +471,7 @@ mod tests {
             &i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter(),
         );
         let root = Some(introspection::index_to_handle(
-            state.windows.borrow().values().next().unwrap().root_element_handle,
+            state.root_element_handle(state.window_handles()[0]).unwrap(),
         ));
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let client = Rc::new(TestingClient {
