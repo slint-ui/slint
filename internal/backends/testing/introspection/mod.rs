@@ -21,6 +21,8 @@ slotmap::new_key_type! {
 
 #[allow(dead_code, non_snake_case, unused_imports, non_camel_case_types, clippy::all)]
 pub(crate) mod proto;
+#[cfg(feature = "system-testing")]
+pub(crate) mod subscriptions;
 
 /// Maximum number of element handles kept in the arena before evicting the least recently used.
 const ELEMENT_HANDLE_CAP: usize = 10_000;
@@ -169,8 +171,34 @@ pub(crate) struct TrackedWindow {
 
 /// A tracked element, and the tick of the last reply or request that used its handle.
 pub(crate) struct TrackedElement {
-    pub element: ElementHandle,
+    element: ElementHandle,
+    pin: RefCell<Weak<ElementPin>>,
     last_used: Cell<u64>,
+}
+
+impl TrackedElement {
+    fn is_pinned(&self) -> bool {
+        self.pin.borrow().strong_count() > 0
+    }
+}
+
+/// Spares the handle of an element from eviction while it lives.
+pub(crate) struct ElementPin {
+    element: ElementHandle,
+    pinned_count: Rc<Cell<usize>>,
+}
+
+impl core::ops::Deref for ElementPin {
+    type Target = ElementHandle;
+    fn deref(&self) -> &ElementHandle {
+        &self.element
+    }
+}
+
+impl Drop for ElementPin {
+    fn drop(&mut self) {
+        self.pinned_count.set(self.pinned_count.get() - 1);
+    }
 }
 
 /// Shared introspection state: window and element handle arenas.
@@ -188,6 +216,12 @@ pub(crate) struct IntrospectionState {
     unknown_event_count: Cell<u64>,
     unknown_event_warned: Cell<bool>,
     recording_enabled: Cell<bool>,
+    /// How many tracked elements have a live [`ElementPin`].
+    pinned_count: Rc<Cell<usize>>,
+    #[cfg(feature = "system-testing")]
+    windows_generation: core::pin::Pin<Box<i_slint_core::Property<u32>>>,
+    #[cfg(feature = "system-testing")]
+    pub subscriptions: subscriptions::Subscriptions,
 }
 
 impl IntrospectionState {
@@ -203,6 +237,11 @@ impl IntrospectionState {
             unknown_event_count: Default::default(),
             unknown_event_warned: Cell::new(false),
             recording_enabled: Cell::new(false),
+            pinned_count: Default::default(),
+            #[cfg(feature = "system-testing")]
+            windows_generation: Box::pin(Default::default()),
+            #[cfg(feature = "system-testing")]
+            subscriptions: Default::default(),
         }
     }
 
@@ -213,6 +252,17 @@ impl IntrospectionState {
                 .borrow_mut()
                 .insert(TrackedWindow { window_adapter: Rc::downgrade(adapter) });
         }
+        #[cfg(feature = "system-testing")]
+        {
+            let generation = self.windows_generation.as_ref();
+            generation.set(generation.get_untracked().wrapping_add(1));
+        }
+    }
+
+    /// Makes the calling binding re-evaluate when a window shows, or shows a new component.
+    #[cfg(feature = "system-testing")]
+    fn track_windows(&self) {
+        self.windows_generation.as_ref().get();
     }
 
     /// Returns the root elements of the tracked windows that still show a component.
@@ -297,20 +347,26 @@ impl IntrospectionState {
         }
 
         let mut arena = self.element_handles.borrow_mut();
-        let index = arena.insert(TrackedElement { element, last_used: Cell::new(self.tick()) });
+        let index = arena.insert(TrackedElement {
+            element,
+            pin: Default::default(),
+            last_used: Cell::new(self.tick()),
+        });
         if let Some(hint) = hint {
             self.element_handle_lookup.borrow_mut().entry(hint).or_default().push(index);
         }
-        if arena.len() > ELEMENT_HANDLE_CAP {
+        let unpinned = arena.len().saturating_sub(self.pinned_count.get());
+        if unpinned > ELEMENT_HANDLE_CAP {
             let roots = self.window_root_elements();
             let mut candidates: Vec<(u64, ArenaIndex)> = arena
                 .iter()
                 .filter(|(_, tracked)| {
-                    !roots.iter().any(|root| root.is_same_element(&tracked.element))
+                    !tracked.is_pinned()
+                        && !roots.iter().any(|root| root.is_same_element(&tracked.element))
                 })
                 .map(|(index, tracked)| (tracked.last_used.get(), index))
                 .collect();
-            let excess = (arena.len() - ELEMENT_HANDLE_EVICTION_TARGET).min(candidates.len());
+            let excess = (unpinned - ELEMENT_HANDLE_EVICTION_TARGET).min(candidates.len());
             if excess > 0 {
                 candidates.select_nth_unstable_by_key(excess - 1, |(last_used, _)| *last_used);
             }
@@ -327,6 +383,26 @@ impl IntrospectionState {
             }
         }
         index
+    }
+
+    /// Like [`Self::element_to_handle`], but eviction spares the handle
+    /// for as long as the returned pin lives.
+    /// Pinned handles don't count toward the cap.
+    #[cfg_attr(not(feature = "system-testing"), allow(dead_code))]
+    fn pin_element(&self, element: ElementHandle) -> (ArenaIndex, Rc<ElementPin>) {
+        let index = self.element_to_handle(element);
+        let arena = self.element_handles.borrow();
+        let tracked = &arena[index];
+        if let Some(pin) = tracked.pin.borrow().upgrade() {
+            return (index, pin);
+        }
+        self.pinned_count.set(self.pinned_count.get() + 1);
+        let pin = Rc::new(ElementPin {
+            element: tracked.element.clone(),
+            pinned_count: self.pinned_count.clone(),
+        });
+        *tracked.pin.borrow_mut() = Rc::downgrade(&pin);
+        (index, pin)
     }
 
     /// How many handles one response can return before
@@ -712,17 +788,8 @@ fn type_names_and_ids(element: &ElementHandle) -> Vec<proto::ElementTypeNameAndI
 }
 
 pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPropertiesResponse {
-    let declared = element.testable_properties();
-    let testable_properties_available = declared.is_some();
-    let testable_properties = declared
-        .unwrap_or_default()
-        .into_iter()
-        .map(|(name, type_name)| proto::TestableProperty {
-            value: element.testable_property_value(&name).map(|v| v.to_string()),
-            name: name.to_string(),
-            type_name: type_name.to_string(),
-        })
-        .collect();
+    let testable_properties = testable_properties(element);
+    let testable_properties_available = testable_properties.is_some();
 
     proto::ElementPropertiesResponse {
         type_names_and_ids: type_names_and_ids(element),
@@ -774,9 +841,24 @@ pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPrope
         )
         .unwrap_or_default()
         .into(),
-        testable_properties,
+        testable_properties: testable_properties.unwrap_or_default(),
         testable_properties_available,
     }
+}
+
+/// `None` when the application carries no testable-property debug info.
+fn testable_properties(element: &ElementHandle) -> Option<Vec<proto::TestableProperty>> {
+    Some(
+        element
+            .testable_properties()?
+            .into_iter()
+            .map(|(name, type_name)| proto::TestableProperty {
+                value: element.testable_property_value(&name).map(|v| v.to_string()),
+                name: name.to_string(),
+                type_name: type_name.to_string(),
+            })
+            .collect(),
+    )
 }
 
 pub(crate) fn query_element_descendants(
@@ -1008,42 +1090,6 @@ pub(crate) mod dispatch {
     ) -> Result<proto::ElementPropertiesResponse, String> {
         let element = state.element("element_properties", element)?;
         Ok(super::element_properties(&element))
-    }
-
-    #[cfg(feature = "system-testing")]
-    pub(crate) fn element_children(
-        state: &IntrospectionState,
-        parent: Option<ArenaIndex>,
-    ) -> Result<proto::GetElementChildrenResponse, String> {
-        use std::ops::ControlFlow;
-        state.ensure_windows_instantiated();
-        let (children, debug_info_available) = match parent {
-            Some(parent) => {
-                let parent = state.element("get_element_children", parent)?;
-                let mut children = Vec::new();
-                parent.visit_children(|child| {
-                    children.push(child);
-                    ControlFlow::<()>::Continue(())
-                });
-                (children, parent.has_debug_info())
-            }
-            None => {
-                let roots = state.window_root_elements();
-                let debug_info_available = roots.iter().all(super::ElementHandle::has_debug_info);
-                (roots, debug_info_available)
-            }
-        };
-        let truncated = children.len() > state.handles_per_response();
-        let children = children
-            .into_iter()
-            .take(state.handles_per_response())
-            .map(|child| proto::ElementChild {
-                type_names_and_ids: super::type_names_and_ids(&child),
-                has_children: child.visit_children(|_| ControlFlow::Break(())).is_some(),
-                handle: Some(index_to_handle(state.element_to_handle(child))),
-            })
-            .collect();
-        Ok(proto::GetElementChildrenResponse { children, truncated, debug_info_available })
     }
 
     pub(crate) fn query_element_descendants(
@@ -1452,20 +1498,21 @@ mod element_children_tests {
         }
     }
 
-    fn app_with_state() -> (App, IntrospectionState) {
+    fn app_with_state() -> (App, Rc<IntrospectionState>) {
         crate::init_no_event_loop();
         let app = App::new().unwrap();
-        let state = IntrospectionState::new();
+        let state = Rc::new(IntrospectionState::new());
         state.add_window(&window_adapter_for_test(&app));
         (app, state)
     }
 
     fn children(
-        state: &IntrospectionState,
+        state: &Rc<IntrospectionState>,
         parent: Option<ArenaIndex>,
     ) -> proto::GetElementChildrenResponse {
-        let response = dispatch::element_children(state, parent).unwrap();
+        let response = subscriptions::element_children(state, parent, None).unwrap();
         assert!(response.debug_info_available);
+        assert_eq!(response.subscription_id, 0);
         response
     }
 
@@ -1533,7 +1580,7 @@ mod element_children_tests {
     #[test]
     fn leaves_out_windows_whose_component_was_dropped() {
         crate::init_no_event_loop();
-        let state = IntrospectionState::new();
+        let state = Rc::new(IntrospectionState::new());
         let first = App::new().unwrap();
         state.add_window(&window_adapter_for_test(&first));
         let first_window = state.window_handles()[0];
@@ -1552,7 +1599,7 @@ mod element_children_tests {
     #[test]
     fn returns_no_handle_it_evicted() {
         crate::init_no_event_loop();
-        let state = IntrospectionState::new();
+        let state = Rc::new(IntrospectionState::new());
         // Older handles, so that minting the response's handles evicts.
         let elsewhere: Vec<_> = (0..30).map(|_| hundred_rectangles::App::new().unwrap()).collect();
         for app in &elsewhere {
@@ -1606,10 +1653,10 @@ mod element_children_without_items_tests {
     fn child_ids(parent: Option<&str>) -> Vec<String> {
         crate::init_no_event_loop();
         let app = App::new().unwrap();
-        let state = IntrospectionState::new();
+        let state = Rc::new(IntrospectionState::new());
         state.add_window(&window_adapter_for_test(&app));
         let level = |parent| {
-            dispatch::element_children(&state, parent)
+            subscriptions::element_children(&state, parent, None)
                 .unwrap()
                 .children
                 .into_iter()
