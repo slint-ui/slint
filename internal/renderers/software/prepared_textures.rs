@@ -151,6 +151,7 @@ struct Key {
 
 /// Images prepared for a [`TargetPixelBuffer`](super::target_pixel_buffer::TargetPixelBuffer),
 /// kept from frame to frame by the thread that rasterizes.
+#[derive(Default)]
 pub struct PreparedTextures {
     textures: BTreeMap<Key, Entry>,
     bytes: usize,
@@ -163,12 +164,6 @@ struct Entry {
     texture: PreparedTexture,
     bytes: usize,
     last_used: u64,
-}
-
-impl Default for PreparedTextures {
-    fn default() -> Self {
-        Self { textures: BTreeMap::new(), bytes: 0, max_bytes: 0, clock: 0 }
-    }
 }
 
 #[cfg_attr(not(feature = "experimental"), allow(dead_code))]
