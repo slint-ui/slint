@@ -85,6 +85,30 @@ fn element_key(e: ElementRc) -> ByAddress<ElementRc> {
 
 type Mapping = HashMap<ByAddress<ElementRc>, ElementRc>;
 
+pub(super) fn duplicate_element(element: &ElementRc, component: &Rc<Component>) -> ElementRc {
+    duplicate_elements(std::slice::from_ref(element), component).remove(0)
+}
+
+pub(super) fn duplicate_elements(
+    elements: &[ElementRc],
+    component: &Rc<Component>,
+) -> Vec<ElementRc> {
+    let mut mapping = Mapping::new();
+    let duplicates = elements
+        .iter()
+        .map(|element| duplicate_element_with_mapping(element, &mut mapping, component, 0))
+        .collect();
+    for element in mapping.values() {
+        visit_element_expressions(element, |expression, _, _| {
+            fixup_element_references(expression, &mapping);
+        });
+        visit_all_named_references_in_element(element, |reference| {
+            fixup_reference(reference, &mapping);
+        });
+    }
+    duplicates
+}
+
 fn inline_element(
     elem: &ElementRc,
     inlined_component: &Rc<Component>,

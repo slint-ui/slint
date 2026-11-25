@@ -3,6 +3,7 @@
 
 import { ListView as StandardListView } from "std-widgets.slint";
 
+interface Entry { in property <string> title; }
 component Page inherits Rectangle { in property <string> title; height: 20px; }
 component DerivedList inherits StandardListView { }
 
@@ -25,6 +26,13 @@ component CollectionList {
 //                                >  <error{Collection slots cannot be expanded directly in 'ListView'; use a model 'for' loop instead}
 }
 
+component ProjectedList {
+    default slot <[implements Entry]> rows;
+    StandardListView { for row in rows: Text { text: row.title; } }
+//                                >  <error{Collection slots cannot be expanded directly in 'ListView'; use a model 'for' loop instead}
+    VerticalLayout { for row in rows: row { } }
+}
+
 component InheritedCollectionList {
     default slot <[*]> rows;
     DerivedList { for row in rows: row { } }
@@ -35,5 +43,6 @@ export component Test inherits Window {
     CustomListCollection { Page { title: "Custom"; } }
     DerivedCustomListCollection { Page { title: "Derived custom"; } }
     CollectionList { for title in ["One"]: Page { title: title; } }
+    ProjectedList { for title in ["One"]: Page { title: title; } }
     InheritedCollectionList { for title in ["One"]: Page { title: title; } }
 }
