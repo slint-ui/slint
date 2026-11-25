@@ -251,7 +251,6 @@ pub trait WindowAdapterInternal: core::any::Any {
     }
 
     /// Calls `visitor` for each direct child window of this window.
-    /// The visitor must not close or drop windows.
     fn visit_children(&self, _visitor: &mut dyn FnMut(&Rc<dyn WindowAdapter>)) {}
 
     /// Create a window for a popup.

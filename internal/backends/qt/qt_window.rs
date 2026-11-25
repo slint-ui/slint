@@ -2858,8 +2858,8 @@ impl WindowAdapterInternal for QtWindow {
     }
 
     fn visit_children(&self, visitor: &mut dyn FnMut(&Rc<dyn WindowAdapter>)) {
-        // We must not drop anything here so we can borrow during the visit
-        for child in self.children.borrow().iter().filter_map(Weak::upgrade) {
+        let children = self.children.borrow().clone(); // Do not borrow for the complete visit
+        for child in children.iter().filter_map(Weak::upgrade) {
             visitor(&(child as Rc<dyn WindowAdapter>));
         }
     }
