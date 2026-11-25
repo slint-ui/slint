@@ -311,7 +311,7 @@ impl SoftwareRenderer {
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
         self.render_buffer_impl(
             &mut TargetPixelSlice { data: buffer, pixel_stride },
-            &mut PreparedTextures::new(),
+            &mut crate::prepared_textures::PreparedTextures::new(),
         )
     }
 
