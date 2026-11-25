@@ -522,7 +522,8 @@ void EspPlatform<PixelType>::run_event_loop()
                         if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
                             if (use_cpu_textures) {
                                 cpu_textures.set_target(buffer, stride);
-                                return m_window->m_renderer.render(&cpu_textures, prepared_textures);
+                                return m_window->m_renderer.render(&cpu_textures,
+                                                                   prepared_textures);
                             }
                         }
 #endif
