@@ -25,21 +25,18 @@ name = "test-driver-interpreter"
 inject-debug-hooks = []
 # Run every test once more on a unit that went through serialization, as the remote viewer
 # receives it. Catches any part of the LLR that doesn't survive the trip.
-llr-serialization = ["dep:i-slint-compiler", "slint-interpreter/internal-embed-textures"]
-
-[dependencies]
-i-slint-compiler = { workspace = true, features = ["serde"], optional = true }
+llr-serialization = ["i-slint-compiler/serde", "slint-interpreter/internal-embed-textures"]
 
 [dev-dependencies]
+i-slint-compiler = { workspace = true }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "backend-qt", "internal"] }
 i-slint-backend-testing = { workspace = true, features = ["internal"] }
 i-slint-core = { workspace = true }
 
 itertools = { workspace = true }
-spin_on = { version = "0.1" }
 test_driver_lib = { path = "../driverlib" }
 
-[target.'cfg(not(target_os = "wasm"))'.dependencies]
+[target.'cfg(not(target_os = "wasm"))'.dev-dependencies]
 i-slint-backend-qt = { workspace = true }
 
 [build-dependencies]

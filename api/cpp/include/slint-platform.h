@@ -442,7 +442,7 @@ public:
                 cbindgen_private::slint_platform_task_run(
                         std::exchange(inner, { nullptr, nullptr }));
             }
-        };
+        }
     };
 
     /// Run a task from the event loop.
@@ -699,7 +699,7 @@ public:
     };
 #    endif
 
-    virtual ~SoftwareRenderer() { cbindgen_private::slint_software_renderer_drop(inner); };
+    virtual ~SoftwareRenderer() { cbindgen_private::slint_software_renderer_drop(inner); }
     SoftwareRenderer(const SoftwareRenderer &) = delete;
     SoftwareRenderer &operator=(const SoftwareRenderer &) = delete;
     /// Constructs a new SoftwareRenderer with the \a buffer_type as strategy for handling the
@@ -762,12 +762,13 @@ public:
     {
         auto process_line_fn = [](void *process_line_callback_ptr, uintptr_t line,
                                   uintptr_t line_start, uintptr_t line_end,
-                                  void (*render_fn)(const void *, PixelType *, std::size_t),
+                                  void (*render_fn)(const void *, PixelType *, uintptr_t),
                                   const void *render_fn_data) {
             (*reinterpret_cast<Callback *>(process_line_callback_ptr))(
                     std::size_t(line), std::size_t(line_start), std::size_t(line_end),
                     [render_fn, render_fn_data](std::span<PixelType> line_span) {
-                        render_fn(render_fn_data, line_span.data(), line_span.size());
+                        render_fn(render_fn_data, line_span.data(),
+                                  static_cast<uintptr_t>(line_span.size()));
                     });
         };
 
@@ -809,12 +810,12 @@ public:
         return PhysicalRegion { r };
     }
 
+#        ifdef SLINT_TARGET_HAS_ATOMIC_PTR
     /// The raster commands of a frame that record_frame() recorded.
     ///
     /// It keeps the images and glyphs that the frame uses alive.
-    /// On targets with atomic pointers, any thread may call rasterize() or destroy it.
-    /// Other targets, such as Cortex-M0, count references without atomics,
-    /// so only the thread that recorded the frame may use it.
+    /// Any thread may call rasterize() or destroy it.
+    /// A moved-from object must not be used.
     ///
     /// **Note**: This class is still experimental - its API is subject to changes and not
     /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
@@ -826,6 +827,16 @@ public:
             : inner(std::exchange(other.inner, nullptr))
         {
         }
+        RecordedRasterCommands &operator=(RecordedRasterCommands &&other)
+        {
+            if (this != &other) {
+                if (inner) {
+                    cbindgen_private::slint_recorded_raster_commands_drop(inner);
+                }
+                inner = std::exchange(other.inner, nullptr);
+            }
+            return *this;
+        }
         RecordedRasterCommands(const RecordedRasterCommands &) = delete;
         ~RecordedRasterCommands()
         {
@@ -835,19 +846,18 @@ public:
         }
 
         /// Rasterizes the frame into \a buffer, like SoftwareRenderer::render() renders it.
-        PhysicalRegion rasterize(std::span<slint::Rgb8Pixel> buffer, std::size_t pixel_stride) const
+        PhysicalRegion rasterize(std::span<slint::Rgb8Pixel> buffer) const
         {
             return PhysicalRegion { cbindgen_private::slint_recorded_raster_commands_rasterize_rgb8(
-                    inner, buffer.data(), buffer.size(), pixel_stride) };
+                    inner, buffer.data(), buffer.size()) };
         }
 
         /// Rasterizes the frame into \a buffer, like SoftwareRenderer::render() renders it.
-        PhysicalRegion rasterize(std::span<Rgb565Pixel> buffer, std::size_t pixel_stride) const
+        PhysicalRegion rasterize(std::span<Rgb565Pixel> buffer) const
         {
             return PhysicalRegion {
                 cbindgen_private::slint_recorded_raster_commands_rasterize_rgb565(
-                        inner, reinterpret_cast<uint16_t *>(buffer.data()), buffer.size(),
-                        pixel_stride)
+                        inner, reinterpret_cast<uint16_t *>(buffer.data()), buffer.size())
             };
         }
 
@@ -861,7 +871,10 @@ public:
     /// RecordedRasterCommands::rasterize() into a buffer of \a num_lines lines of
     /// \a pixels_per_line pixels.
     ///
-    /// Only usable on targets with atomic pointers, not on `thumbv6m`: elsewhere it fails to link.
+    /// Rasterize every recording: recording marks the changed areas as clean,
+    /// so a recording dropped without rasterizing loses that frame's changes.
+    ///
+    /// Only available on targets with atomic pointers, so not on `thumbv6m`.
     ///
     /// **Note**: This function is still experimental - its API is subject to changes and not
     /// stabilized yet. To use the function, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON`
@@ -871,6 +884,7 @@ public:
         return RecordedRasterCommands { cbindgen_private::slint_software_renderer_record_frame(
                 inner, pixels_per_line, num_lines) };
     }
+#        endif
 #    endif
 
     /// This enum describes the rotation that is applied to the buffer when rendering.

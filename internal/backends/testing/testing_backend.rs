@@ -52,7 +52,9 @@ pub fn mock_elapsed_time(time_in_ms: u64) {
         tick
     });
     i_slint_core::timers::TimerList::maybe_activate_timers(tick);
-    i_slint_core::properties::ChangeTracker::run_change_handlers();
+    if let Some(ctx) = i_slint_core::SlintContext::current() {
+        ctx.run_change_handlers();
+    }
     ensure_all_tracked_trees_instantiated();
 }
 
@@ -746,6 +748,12 @@ impl RendererSealed for TestingWindow {
     fn supports_transformations(&self) -> bool {
         true
     }
+}
+
+/// Returns the error that creating a window with the headless renderer `name` would give.
+#[cfg(supports_headless)]
+pub fn check_headless_renderer(name: &str) -> Result<(), PlatformError> {
+    create_headless_renderer(name).map(drop)
 }
 
 /// Pick the rasterizer for the headless backend.

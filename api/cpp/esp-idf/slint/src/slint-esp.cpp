@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore LOGI rgbpix
+// cSpell: ignore LOGI LOGW rgbpix
 #include <deque>
 #include <mutex>
 #include "slint-esp.h"
@@ -359,25 +359,32 @@ void EspPlatform<PixelType>::run_event_loop()
     SemaphoreHandle_t frame_recorded = xSemaphoreCreateBinary();
     SemaphoreHandle_t frame_presented = xSemaphoreCreateBinary();
     xSemaphoreGive(frame_presented);
-    auto raster_task = [this, &recorded, stride, frame_recorded, frame_presented] {
+    auto raster_task = [this, &recorded, frame_recorded, frame_presented] {
         SLINT_TRACE_REGISTER_CORE();
         while (true) {
             xSemaphoreTake(frame_recorded, portMAX_DELAY);
             {
                 SLINT_TRACE_SPAN("redraw");
-                render_and_present([&recorded, stride](std::span<PixelType> buffer) {
-                    return recorded->rasterize(buffer, stride);
+                render_and_present([&recorded](std::span<PixelType> buffer) {
+                    return recorded->rasterize(buffer);
                 });
             }
             xSemaphoreGive(frame_presented);
         }
     };
+    if (rasterize_in_separate_task && !(buffer1 && buffer2)) {
+        ESP_LOGW(TAG, "rasterize_in_separate_task needs two frame buffers, so it is ignored");
+    }
     TaskHandle_t raster_task_handle = nullptr;
-    const bool pipeline = rasterize_in_separate_task && buffer1
+    const bool pipeline = rasterize_in_separate_task && buffer1 && buffer2
             && xTaskCreate([](void *task) { (*static_cast<decltype(raster_task) *>(task))(); },
                            "slint_raster", raster_task_stack_size, &raster_task,
                            uxTaskPriorityGet(nullptr), &raster_task_handle)
                     == pdPASS;
+    if (rasterize_in_separate_task && buffer1 && buffer2 && !pipeline) {
+        ESP_LOGW(TAG,
+                 "Creating the raster task failed, so frames are rasterized in the event loop");
+    }
 #endif
 
     float last_touch_x = 0;
@@ -443,8 +450,10 @@ void EspPlatform<PixelType>::run_event_loop()
             }
 
             [[maybe_unused]] bool waited_for_refresh = false;
+            bool pipelined = false;
 #ifdef SLINT_ESP_RASTERIZE_IN_SEPARATE_TASK
             if (pipeline) {
+                pipelined = true;
                 if (std::exchange(m_window->needs_redraw, false)) {
                     auto frame = m_window->m_renderer.record_frame(stride, num_lines);
                     {
@@ -456,9 +465,9 @@ void EspPlatform<PixelType>::run_event_loop()
                     // Presenting the previous frame waited for the refresh.
                     waited_for_refresh = true;
                 }
-            } else
+            }
 #endif
-                    if (std::exchange(m_window->needs_redraw, false)) {
+            if (!pipelined && std::exchange(m_window->needs_redraw, false)) {
                 if (buffer1) {
                     SLINT_TRACE_SPAN("redraw");
                     waited_for_refresh = render_and_present([&](std::span<PixelType> buffer) {
@@ -543,6 +552,7 @@ void EspPlatform<PixelType>::run_event_loop()
         xSemaphoreTake(frame_presented, portMAX_DELAY);
         vTaskDelete(raster_task_handle);
     }
+    recorded.reset();
     vSemaphoreDelete(frame_recorded);
     vSemaphoreDelete(frame_presented);
 #endif

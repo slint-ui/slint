@@ -13,6 +13,10 @@
 
 extern crate alloc;
 
+// build.rs reads the `links` metadata of qttypes, which the Qt-less build doesn't otherwise use.
+#[cfg(all(no_qt, feature = "enable"))]
+use qttypes as _;
+
 use i_slint_core::platform::PlatformError;
 use std::rc::Rc;
 #[cfg(not(no_qt))]

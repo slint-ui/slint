@@ -17,8 +17,8 @@ use tokio::sync::{mpsc, oneshot};
 use crate::REBUILD_DEBOUNCE;
 use crate::debug_agent::{DebugAgent, PreviewUpdate};
 use crate::protocol::{
-    LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLsp, PreviewToLspMessage,
-    SourceFileVersion,
+    DebuggerToPreviewMessage, LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLsp,
+    PreviewToLspMessage, SourceFileVersion,
 };
 
 /// Small wrapper around tokio::spawn_local to silence the clippy warning that
@@ -51,6 +51,7 @@ pub enum PreviewSessionEvent {
     ContentsChanged,
     HighlightFromEditor { url: Option<Url>, offset: u32 },
     RegisterFont { url: Url, contents: Arc<[u8]> },
+    Debugger { id: u64, message: DebuggerToPreviewMessage },
 }
 
 pub enum PreviewCompilation {
@@ -282,6 +283,9 @@ impl PreviewSession {
             | LspToPreviewMessage::PairingResponse { .. } => {
                 tracing::warn!("Ignoring pairing message on an established session");
             }
+            LspToPreviewMessage::Debugger { id, message } => {
+                event_handler(PreviewSessionEvent::Debugger { id, message });
+            }
         }
         true
     }
@@ -341,6 +345,7 @@ impl PreviewSession {
 
     fn create_compiler(self: &Rc<Self>) -> slint_interpreter::Compiler {
         let mut compiler = slint_interpreter::Compiler::new();
+        apply_configuration(&mut compiler, &PreviewConfig::default());
         let manifest_session = Rc::downgrade(self);
         compiler.set_project_file_loader(
             Rc::new(move |path| {
@@ -506,7 +511,9 @@ impl PreviewSession {
 }
 
 fn apply_configuration(compiler: &mut slint_interpreter::Compiler, configuration: &PreviewConfig) {
-    compiler.set_overrides(configuration.overrides.clone(), InternalToken);
+    let mut overrides = configuration.overrides.clone();
+    overrides.debug_info = Some(true);
+    compiler.set_overrides(overrides, InternalToken);
 }
 
 impl PreviewSessionHandle {

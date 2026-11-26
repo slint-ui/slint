@@ -39,13 +39,12 @@ preview-remote = ["remote-client"]
 serial = [
   "dep:i-slint-common",
   "dep:serialport",
-  "dep:spin_on",
   "i-slint-compiler/serde",
   "i-slint-compiler/renderer-software",
   "i-slint-live-preview/serial",
 ]
 ## Expose the test fixtures so that dependent crates can build on them
-testing = ["dep:i-slint-backend-testing", "dep:spin_on"]
+testing = ["dep:i-slint-backend-testing"]
 
 [build-dependencies]
 slint-build = { workspace = true, features = ["experimental-module-builds"], optional = true }
@@ -70,10 +69,9 @@ slint-interpreter = { workspace = true, features = ["compat-1-2", "internal"], o
 
 # for the `testing` feature
 i-slint-backend-testing = { workspace = true, optional = true }
-spin_on = { workspace = true, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-mdns-sd = { version = "0.21.6", default-features = false, features = ["async"], optional = true }
+mdns-sd = { version = "0.22.0", default-features = false, features = ["async"], optional = true }
 tokio-tungstenite-wasm = { version = "0.9.0", optional = true }
 directories = "6.0"
 scopeguard = { version = "1.1.0", default-features = false }
@@ -90,7 +88,6 @@ flume = "0.12"
 i-slint-live-preview = { path = "../live-preview", features = ["remote"] }
 tokio-tungstenite = "0.30.0"
 i-slint-backend-testing = { path = "../backends/testing" }
-spin_on = { workspace = true }
 i-slint-core = { path = "../core" }
 slint-interpreter = { path = "../interpreter", features = ["internal", "internal-embed-textures"] }
 

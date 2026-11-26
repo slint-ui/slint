@@ -26,7 +26,6 @@ function startView({
     captureError,
     compile,
     toolCallError,
-    missingImage,
     callTool = () => ({}),
 } = {}) {
     const captures = [];
@@ -36,16 +35,14 @@ function startView({
         const { previewId } = params.arguments;
         if (requestedPreviewId === previewId) return {};
         requestedPreviewId = previewId;
-        return { structuredContent: { active: true, captureId: "test-capture" } };
+        return {
+            structuredContent: { active: true, captureId: "test-capture" },
+        };
     };
     let onMessage;
     let resolveCapture;
     const captured = new Promise((resolve) => {
         resolveCapture = resolve;
-    });
-    let resolveReport;
-    const reported = new Promise((resolve) => {
-        resolveReport = resolve;
     });
     const element = () => ({
         style: { setProperty() {} },
@@ -63,6 +60,11 @@ function startView({
         offsetWidth: 320,
         offsetHeight: 160,
         clientWidth: 320,
+        getBoundingClientRect() {
+            return this.hidden
+                ? { left: 0, right: 0, top: 0, height: 0 }
+                : { left: 0, right: this.width, top: 0, height: this.height };
+        },
         cloneNode() {
             return element();
         },
@@ -76,7 +78,7 @@ function startView({
         },
     });
     const elements = new Map(
-        ["status", "preview", "diagnostics", "stage", "crash", "crash-details", "retry", "preview-frame", "annotate",
+        ["root", "preview-content", "status", "preview", "diagnostics", "stage", "crash", "crash-details", "retry", "preview-frame", "annotate",
             "annotation-layer", "annotation-snapshot", "annotation-pin",
             "annotation-editor", "annotation-comment", "annotation-send", "annotation-error",
             "preview-tools", "preview-light", "preview-dark"].map((id) => [
@@ -87,9 +89,11 @@ function startView({
     elements.get("preview").hidden = true;
     elements.get("crash").hidden = true;
     const window = {
+        innerWidth: 320,
+        innerHeight: 600,
         matchMedia: () => ({ matches: false, dispatchEvent() {} }),
-        addEventListener(_type, listener) {
-            onMessage = listener;
+        addEventListener(type, listener) {
+            if (type === "message") onMessage = listener;
         },
         parent: {
             postMessage(message) {
@@ -99,9 +103,6 @@ function startView({
                         captures.push(args);
                         resolveCapture(args);
                     }
-                }
-                if (message.method === "ui/update-model-context") {
-                    resolveReport(message.params.content[0].text);
                 }
                 if (message.id !== undefined)
                     queueMicrotask(() =>
@@ -116,7 +117,9 @@ function startView({
                                     : {
                                           result:
                                               message.method === "tools/call"
-                                                  ? handleToolCall(message.params)
+                                                  ? handleToolCall(
+                                                        message.params,
+                                                    )
                                                   : {},
                                       }),
                             },
@@ -146,11 +149,7 @@ function startView({
         configurable: true,
     });
     const instance = {
-        show: async () => {
-            if (missingImage) {
-                new HTMLImageElement().src = "slint-file:///missing.png";
-            }
-        },
+        show: async () => {},
     };
     const interpreter = {
         default: async () => {},
@@ -168,12 +167,12 @@ function startView({
             addEventListener() {},
             getElementById: (id) => elements.get(id),
             documentElement: { style: {} },
-            body: element(),
             createElement: element,
         },
         MouseEvent,
         HTMLCanvasElement,
         HTMLImageElement,
+        getComputedStyle: () => ({ bottom: "10px" }),
         ResizeObserver: class {
             observe() {}
         },
@@ -195,7 +194,6 @@ function startView({
     return {
         captured,
         captures,
-        reported,
         status: elements.get("status"),
         diagnostics: elements.get("diagnostics"),
         element: (id) => elements.get(id),
@@ -222,7 +220,14 @@ function startView({
                 data: {
                     jsonrpc: "2.0",
                     method: "ui/notifications/tool-result",
-                    params: { _meta: { "slint/previewId": "test-preview" } },
+                    params: {
+                        _meta: {
+                            "slint/previewId": "test-preview",
+                            "slint/preview": {
+                                source: "export component Preview {}",
+                            },
+                        },
+                    },
                 },
             });
         },
@@ -250,22 +255,31 @@ test("renders when version metadata fails", { timeout: 3000 }, async () => {
     assert.equal((await view.captured).png, "cGl4ZWxz");
 });
 
-test("hides compiler warnings and notes while reporting warnings to the model", {
+test("hides compiler warnings and notes", {
     timeout: 3000,
 }, async () => {
     const view = startView({
         compile: async () => ({
             component: { create: async () => ({ show: async () => {} }) },
             diagnostics: [
-                { level: 1, message: "test warning", lineNumber: 1, columnNumber: 2 },
-                { level: 2, message: "test note", lineNumber: 3, columnNumber: 4 },
+                {
+                    level: 1,
+                    message: "test warning",
+                    lineNumber: 1,
+                    columnNumber: 2,
+                },
+                {
+                    level: 2,
+                    message: "test note",
+                    lineNumber: 3,
+                    columnNumber: 4,
+                },
             ],
         }),
     });
     await view.preview();
     assert.equal((await view.captured).png, "cGl4ZWxz");
     assert.equal(view.diagnostics.children.length, 0);
-    assert.ok((await view.reported).includes("main.slint:1:2: warning: test warning"));
 });
 
 test("shows compiler errors without warnings and notes", {
@@ -275,9 +289,24 @@ test("shows compiler errors without warnings and notes", {
         compile: async () => ({
             component: null,
             diagnostics: [
-                { level: 0, message: "test error", lineNumber: 1, columnNumber: 2 },
-                { level: 1, message: "test warning", lineNumber: 3, columnNumber: 4 },
-                { level: 2, message: "test note", lineNumber: 5, columnNumber: 6 },
+                {
+                    level: 0,
+                    message: "test error",
+                    lineNumber: 1,
+                    columnNumber: 2,
+                },
+                {
+                    level: 1,
+                    message: "test warning",
+                    lineNumber: 3,
+                    columnNumber: 4,
+                },
+                {
+                    level: 2,
+                    message: "test note",
+                    lineNumber: 5,
+                    columnNumber: 6,
+                },
             ],
         }),
     });
@@ -287,20 +316,6 @@ test("shows compiler errors without warnings and notes", {
     assert.equal(view.diagnostics.children.length, 1);
     assert.equal(view.diagnostics.children[0].className, "error");
     assert.equal(view.diagnostics.children[0].textContent, capture.error);
-    assert.ok((await view.reported).includes("main.slint:3:4: warning: test warning"));
-});
-
-test("reports missing images to the model without displaying warnings", {
-    timeout: 3000,
-}, async () => {
-    const view = startView({ missingImage: true });
-    await view.preview();
-    assert.equal((await view.captured).png, "cGl4ZWxz");
-    assert.equal(view.diagnostics.children.length, 0);
-    assert.equal(
-        await view.reported,
-        "The Slint preview couldn't load image /missing.png: no file data",
-    );
 });
 
 test("retry replaces a late crash with a new preview and clears the panel", {
@@ -309,10 +324,19 @@ test("retry replaces a late crash with a new preview and clears the panel", {
     const calls = [];
     const view = startView({
         callTool({ name, arguments: args }) {
-            if (name === "preview_slint") {
+            if (name === "check_slint") {
                 calls.push(args.source);
-                return { _meta: { "slint/previewId": "retry-preview" } };
+                return { structuredContent: { previewId: "retry-preview" } };
             }
+            if (name === "publish_preview")
+                return {
+                    _meta: {
+                        "slint/previewId": "retry-preview",
+                        "slint/preview": {
+                            source: "export component Preview {}",
+                        },
+                    },
+                };
             return {};
         },
     });
@@ -341,7 +365,7 @@ test("a failed retry leaves the crash panel available", {
 }, async () => {
     const view = startView({
         callTool: ({ name }) =>
-            name === "preview_slint"
+            name === "check_slint"
                 ? {
                       isError: true,
                       content: [{ type: "text", text: "connection lost" }],
@@ -390,38 +414,4 @@ test("shows the message of a refused tool call", {
         view.status.textContent,
         "Couldn't capture the preview: Tool 'publish_preview_capture' is not permitted",
     );
-});
-
-test("diagnostics use version metadata that arrives during compilation", {
-    timeout: 3000,
-}, async () => {
-    let finishMetadata;
-    const metadata = new Promise((resolve) => {
-        finishMetadata = resolve;
-    });
-    const view = startView({
-        fetch: async () => ({ json: () => metadata }),
-        compile: async () => {
-            finishMetadata({ version: "1.19.0" });
-            await new Promise((resolve) => setTimeout(resolve, 0));
-            return {
-                component: null,
-                diagnostics: [
-                    {
-                        level: 0,
-                        message: "test diagnostic",
-                        lineNumber: 1,
-                        columnNumber: 1,
-                    },
-                ],
-            };
-        },
-    });
-    await view.preview();
-    assert.ok(
-        (await view.reported).includes(
-            "with Slint 1.19.0 (snapshot), reported:",
-        ),
-    );
-    assert.equal((await view.captured).runtime, "Slint 1.19.0 (snapshot)");
 });

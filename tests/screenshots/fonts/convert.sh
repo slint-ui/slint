@@ -2,25 +2,27 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore wdth subsetting cmap NOTOSANS Bwdth Cwght COLR CBDT
+# cSpell: ignore wdth subsetting cmap NOTOSANS Bwdth Cwght COLR CBDT notofonts
 
-# This script subsets the NotoSans variable fonts from https://fonts.google.com/noto/specimen/Noto+Sans
-# to a smaller character range for use in screenshot tests. It also subsets
-# NotoSansSymbols2 down to a single glyph (U+25CF BLACK CIRCLE) — the default
-# Slint password-input replacement character, which is not covered by NotoSans.
+# This script subsets the NotoSans variable fonts to a smaller character range for use in
+# screenshot tests. It also subsets NotoSansSymbols2 to a few symbols NotoSans doesn't cover.
+# The subsets keep the outline of `.notdef`, which renderers draw for missing characters.
 # Two color emoji fonts are cut down to U+1F600 for the color glyph tests: Noto Color
 # Emoji (bitmaps in a CBDT table) and Twemoji Mozilla (layers in a COLR version 0 table).
 
 cd "$(dirname "$0")"
 
-# Fetch the upstream fonts if they're not already present.
-# Source: https://github.com/notofonts/notofonts.github.io (the canonical build artifacts
-# of Google's Noto fonts), which redirects to raw.githubusercontent.com and serves the
-# TTF directly — unlike fonts.google.com/download, which returns a JS-rendered HTML page.
+# Fetch the upstream fonts if they're not already present, at pinned revisions.
+# GitHub serves the TTF files directly, unlike fonts.google.com/download,
+# which returns a JS-rendered HTML page.
 mkdir -p NotoSans-unhinted
-# Pinned for reproducibility — bump when a newer upstream revision is needed.
+# NotoSans comes from the Google Fonts build: unlike the notofonts one, it has a `gasp` table,
+# which FemtoVG's rendering depends on.
+GOOGLE_FONTS_REVISION="5bd87dfc525c8a0d1d8529d3684716e00c3fc59a"
+sans_base="https://github.com/google/fonts/raw/$GOOGLE_FONTS_REVISION/ofl/notosans"
+# The other Noto fonts come from https://github.com/notofonts/notofonts.github.io,
+# the canonical build artifacts of Google's Noto fonts.
 NOTO_REVISION="c95573421242b0925256d147e295c5bda3c400ed"
-sans_base="https://github.com/notofonts/notofonts.github.io/raw/$NOTO_REVISION/fonts/NotoSans/full/variable-ttf"
 symbols_base="https://github.com/notofonts/notofonts.github.io/raw/$NOTO_REVISION/fonts/NotoSansSymbols2/full/ttf"
 fetch() {
     local dest="$1" url="$2"
@@ -42,13 +44,15 @@ fetch "NotoSans-unhinted/Twemoji.Mozilla.ttf" \
     "https://github.com/mozilla/twemoji-colr/releases/download/v0.7.0/Twemoji.Mozilla.ttf"
 
 # U+0020-00FF: Basic Latin + Latin-1 Supplement
+# U+2022: bullet (markdown list items)
 # U+2026: horizontal ellipsis (used for text truncation)
-NOTOSANS_UNICODES="U+0020-00FF,U+2026"
+NOTOSANS_UNICODES="U+0020-00FF,U+2022,U+2026"
 
 subset_font() {
     local input="$1" output="$2" unicodes="$3"
     uvx --from fonttools pyftsubset "$input" \
         --unicodes="$unicodes" \
+        --notdef-outline \
         --output-file="$output"
 }
 
@@ -58,10 +62,11 @@ subset_font "NotoSans-unhinted/NotoSans-VariableFont_wdth,wght.ttf" \
 subset_font "NotoSans-unhinted/NotoSans-Italic-VariableFont_wdth,wght.ttf" \
     NotoSans-Italic.ttf "$NOTOSANS_UNICODES"
 
-# U+25CF BLACK CIRCLE is the default Slint password-input replacement
-# character. NotoSans doesn't include it, so ship it as a separate fallback.
+# NotoSans doesn't include these, so ship them as a separate fallback:
+# U+25CF BLACK CIRCLE is the default Slint password-input replacement character;
+# U+25AA BLACK SMALL SQUARE and U+25E6 WHITE BULLET mark nested markdown list items.
 subset_font NotoSans-unhinted/NotoSansSymbols2-Regular.ttf \
-    NotoSansSymbols2-Regular.ttf "U+25CF"
+    NotoSansSymbols2-Regular.ttf "U+25AA,U+25CF,U+25E6"
 
 # U+1F600 GRINNING FACE, once from each color emoji font.
 subset_font NotoSans-unhinted/NotoColorEmoji.ttf NotoColorEmoji-Subset.ttf "U+1F600"

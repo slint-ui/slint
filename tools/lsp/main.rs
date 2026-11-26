@@ -266,7 +266,12 @@ fn main() {
             .unwrap();
         let local_set = tokio::task::LocalSet::new();
         match local_set.block_on(&rt, run_lsp_server(args)) {
-            Ok(threads) => threads.join().unwrap(),
+            Ok(threads) => {
+                if let Err(error) = threads.join() {
+                    // When quitting, the editor may close its pipes while we still write to stdout (broken pipe)
+                    tracing::warn!("LSP I/O error: {error}");
+                }
+            }
             Err(error) => {
                 tracing::error!("Error running LSP server: {error}");
                 std::process::exit(3);
@@ -479,12 +484,7 @@ async fn run_main_loop(
 
     let mut session = crate::editor_preview::EditorSession::new(compiler_config);
     session.attach_preview(to_preview, None, None);
-    session.set_workspace_roots(
-        host_language_search::resolve_workspace_folders(&init_param)
-            .into_iter()
-            .filter_map(|folder| SourcePath::from_url(&folder.uri).into_native_path())
-            .collect(),
-    );
+    session.set_workspace_roots(language::workspace_roots(&init_param));
     session.set_startup_config_overrides(editor_preview::SessionConfigOverrides {
         compiler: i_slint_compiler::project_file::Overrides {
             project: i_slint_compiler::project_file::ProjectFileData {
@@ -623,12 +623,12 @@ fn sync_file_watcher_if_needed(
         return Ok(());
     }
 
-    let watched_paths = ctx
-        .session
-        .document_cache
-        .all_paths_to_watch()
-        .into_iter()
-        .chain(ctx.session.active_project_file_paths().map(Path::to_path_buf));
+    let watched_paths = ctx.session.document_cache.all_paths_to_watch().into_iter().chain(
+        ctx.session
+            .active_project_file_paths()
+            .filter_map(SourcePath::as_native_path)
+            .map(Path::to_path_buf),
+    );
     watcher
         .update_watched_paths(watched_paths)
         .map_err(|err| std::io::Error::other(format!("Failed to update watched paths: {err:?}")))?;
@@ -965,6 +965,10 @@ async fn handle_preview_to_lsp_message(
         | M::PairingAccepted
         | M::PairingRejected { .. } => {
             tracing::debug!("Ignoring a pairing message outside the pairing handshake");
+        }
+        M::Debugger { message, .. } => {
+            debug_assert!(false, "A local preview sent a debugger message: {message:?}");
+            tracing::warn!("Ignoring debugger message {message:?}");
         }
     }
     Ok(())

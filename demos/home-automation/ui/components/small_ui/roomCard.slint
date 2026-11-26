@@ -1,0 +1,58 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { LightsTheme } from "lightsTheme.slint";
+import { GlassPanel } from "glassPanel.slint";
+import { ShadowText } from "shadowText.slint";
+
+
+export component RoomCard inherits GlassPanel {
+    in property <string> room-name;
+    in property <string> state-label;
+    in property <bool> active: false;
+
+    radius: 14px;
+    outline: LightsTheme.panel-border-soft;
+
+    Rectangle {
+        x: 0px;
+        y: 15px;
+        width: 3px;
+        height: 148px;
+        border-radius: 2px;
+        background: active ? LightsTheme.warm : LightsTheme.purple;
+    }
+
+    ShadowText {
+        x: 36px;
+        y: 30px;
+        width: parent.width - 70px;
+        height: 48px;
+        label: root.room-name;
+        size: 36px;
+        weight: FontWeight.bold;
+    }
+
+    Rectangle {
+        x: 36px;
+        y: 80px;
+        width: parent.width - 66px;
+        height: 1px;
+        background: #6a56815a;
+    }
+
+    ShadowText {
+        x: 36px;
+        y: 106px;
+        width: parent.width - 108px;
+        height: 56px;
+        label: root.state-label;
+        size: active ? 53px : 50px;
+        weight: active ? FontWeight.bold : FontWeight.semi-bold;
+        text-color: active ? LightsTheme.warm : LightsTheme.muted-text;
+    }
+
+
+}

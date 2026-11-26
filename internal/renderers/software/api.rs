@@ -6,10 +6,10 @@
 
 #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
 pub use crate::RecordedRasterCommands;
-pub use crate::draw_functions::{
-    PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
-};
 pub use crate::minimal_software_window::MinimalSoftwareWindow;
+pub use crate::target_pixel::{
+    Argb8888Pixel, PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
+};
 #[cfg(feature = "experimental")]
 pub use crate::target_pixel_buffer::{
     DrawRectangleArgs, DrawTextureArgs, TargetPixelBuffer, TexturePixelFormat,
@@ -331,11 +331,19 @@ impl SoftwareRenderer {
     /// to rasterize later with [`RecordedRasterCommands::rasterize`],
     /// into a buffer of `num_lines` lines of `pixels_per_line` pixels.
     ///
+    /// Rasterize every recording: recording marks the changed areas as clean,
+    /// so a recording dropped without rasterizing loses that frame's changes.
+    ///
     /// Only available on targets with atomic pointers.
     #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn record_frame(&self, pixels_per_line: usize, num_lines: usize) -> RecordedRasterCommands {
-        let recorder = |scale_factor| RecordedRasterCommands { scale_factor, ..Default::default() };
+        let recorder = |scale_factor| RecordedRasterCommands {
+            scale_factor,
+            pixels_per_line,
+            num_lines,
+            ..Default::default()
+        };
         self.render_frame(pixels_per_line, num_lines, recorder).map(|(_, r)| r).unwrap_or_default()
     }
 

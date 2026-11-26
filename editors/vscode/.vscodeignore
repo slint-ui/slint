@@ -4,3 +4,4 @@ tsconfig.default.json
 tests/
 .vscode/
 bin/*.d
+package-ai-plugin.mjs

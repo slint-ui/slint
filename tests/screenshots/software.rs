@@ -76,7 +76,7 @@ fn draw_screenshot(
         let stride = buffer.width() as usize;
         if record {
             let recorded = renderer.record_frame(stride, buffer.height() as usize);
-            recorded.rasterize(buffer.make_mut_slice(), stride);
+            recorded.rasterize(buffer.make_mut_slice());
         } else {
             renderer.render(buffer.make_mut_slice(), stride);
         }
