@@ -139,7 +139,7 @@ fn build_menu_item(node: &MenuNode, id: muda::MenuId) -> Box<dyn muda::IsMenuIte
             return Box::new(check_menu);
         }
 
-        if let Some(rgba) = node.entry.icon.to_rgba8() {
+        if let Some(rgba) = node.entry.icon.to_rgba8_straight() {
             let icon =
                 muda::Icon::from_rgba(rgba.as_bytes().to_vec(), rgba.width(), rgba.height()).ok();
             let icon_menu = muda::IconMenuItem::with_id(

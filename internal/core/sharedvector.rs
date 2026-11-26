@@ -194,6 +194,26 @@ impl<T: Clone + PartialEq> SharedVector<T> {
     }
 }
 
+impl<T: bytemuck::Pod> SharedVector<T> {
+    /// Reinterprets the elements as `U` without copying them.
+    ///
+    /// `U` must have the same size and alignment as `T` (checked at compile time). Both are
+    /// plain old data, so every element is a valid `U`.
+    pub(crate) fn cast<U: bytemuck::Pod>(self) -> SharedVector<U> {
+        const {
+            assert!(
+                core::mem::size_of::<T>() == core::mem::size_of::<U>()
+                    && core::mem::align_of::<T>() == core::mem::align_of::<U>()
+            )
+        };
+        // The allocation's layout (compute_inner_layout) only depends on the size and
+        // alignment of the element type, which are the same for T and U.
+        let inner = self.inner.cast::<SharedVectorInner<U>>();
+        core::mem::forget(self);
+        SharedVector { inner }
+    }
+}
+
 impl<T: Clone> SharedVector<T> {
     /// Create a SharedVector from a slice
     pub fn from_slice(slice: &[T]) -> SharedVector<T> {

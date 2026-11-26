@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::cursor::MouseCursorInner;
-use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
+use i_slint_core::graphics::{Image, SharedPixelBuffer, StraightRgba8Pixel};
 use i_slint_core::input::{FocusEventResult, InternalKeyEvent};
 
 use super::*;
@@ -39,7 +39,7 @@ fn get_clear_icon() -> Image {
     let width = (size as f32 * dpr).ceil() as u32;
     let height = width;
 
-    let mut pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::new(width, height);
+    let mut pixel_buffer = SharedPixelBuffer::<StraightRgba8Pixel>::new(width, height);
     let ptr = pixel_buffer.make_mut_bytes().as_mut_ptr();
 
     cpp!(unsafe [
@@ -55,7 +55,7 @@ fn get_clear_icon() -> Image {
         icon.paint(&painter, 0, 0, width, height, Qt::AlignCenter);
     });
 
-    Image::from_rgba8(pixel_buffer)
+    Image::from_rgba8_straight(pixel_buffer)
 }
 
 impl Item for NativeLineEdit {

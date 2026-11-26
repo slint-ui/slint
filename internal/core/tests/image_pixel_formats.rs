@@ -139,12 +139,12 @@ fn alpha_map_renders_in_its_color_or_the_colorize_color(
     let image = slint::Image::from(i_slint_core::graphics::ImageInner::OwnedTextures(
         std::sync::Arc::new(textures),
     ));
-    let rgba = image.to_rgba8().unwrap();
+    let rgba = image.to_rgba8_straight().unwrap();
     let premultiplied = image.to_rgba8_premultiplied().unwrap();
     for (i, (p, pm)) in rgba.as_slice().iter().zip(premultiplied.as_slice()).enumerate() {
         let a = if i % 2 == 0 { 0x00 } else { 0xff };
-        assert_eq!(*p, slint::Rgba8Pixel::new(0, a, 0, a), "rgba of the alpha map at {i}");
-        assert_eq!(*pm, *p, "premultiplied alpha map at {i}");
+        assert_eq!(*p, slint::StraightRgba8Pixel::new(0, a, 0, a), "rgba of the alpha map at {i}");
+        assert_eq!(pm.0, p.0, "premultiplied alpha map at {i}");
     }
     ui.set_source(image);
     for (tint, color) in [

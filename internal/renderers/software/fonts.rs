@@ -10,7 +10,7 @@ use super::{Fixed, PhysicalLength, PhysicalSize, TextLength};
 use i_slint_core::graphics::OwnedStorage;
 use i_slint_core::graphics::{BitmapFont, FontRequest, Storage};
 #[cfg(feature = "systemfonts")]
-use i_slint_core::graphics::{Rgba8Pixel, SharedPixelBuffer};
+use i_slint_core::graphics::{PremultipliedRgba8Pixel, SharedPixelBuffer};
 use i_slint_core::lengths::ScaleFactor;
 use i_slint_core::shared_pointer::SharedPtr;
 #[cfg(feature = "owned-pre-rendered-resources")]
@@ -124,7 +124,7 @@ pub enum VectorGlyphPixels {
     /// One coverage value per pixel, drawn in the text's color.
     AlphaMap(SharedPtr<[u8]>),
     /// Premultiplied RGBA pixels of a color glyph, such as an emoji, drawn as they are.
-    Color(SharedPixelBuffer<Rgba8Pixel>),
+    Color(SharedPixelBuffer<PremultipliedRgba8Pixel>),
 }
 
 // Subset of `RenderableGlyph`, specifically for VectorFonts.

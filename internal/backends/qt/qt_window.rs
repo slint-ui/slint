@@ -12,7 +12,7 @@ use i_slint_core::graphics::rendering_metrics_collector::{
 };
 use i_slint_core::graphics::{
     Brush, Color, ImageCacheKey, IntSize, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
-    euclid,
+    StraightRgba8Pixel, euclid,
 };
 use i_slint_core::input::{
     BackendDragEvent, BackendMouseEvent, InternalKeyEvent, KeyEvent, KeyEventType, TouchPhase,
@@ -1899,11 +1899,11 @@ pub(crate) fn image_to_pixmap(
     shared_image_buffer_to_pixmap(&image.render_to_buffer(source_size)?)
 }
 
-/// Converts a Qt image to a Slint `SharedPixelBuffer<Rgba8Pixel>`, repacking each
+/// Converts a Qt image to a Slint `SharedPixelBuffer<StraightRgba8Pixel>`, repacking each
 /// scan line so the result has no row padding. Returns `None` for empty images.
 pub(crate) fn qimage_to_shared_pixel_buffer(
     mut image: qttypes::QImage,
-) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+) -> Option<SharedPixelBuffer<StraightRgba8Pixel>> {
     let size = image.size();
     if size.width == 0 || size.height == 0 {
         return None;
@@ -1920,7 +1920,7 @@ pub(crate) fn qimage_to_shared_pixel_buffer(
         }
         return packed;
     });
-    Some(SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+    Some(SharedPixelBuffer::<StraightRgba8Pixel>::clone_from_slice(
         bytes.to_slice(),
         size.width,
         size.height,
@@ -2510,7 +2510,7 @@ impl QtWindow {
             data.set_plain_text(text);
         }
         if let Some(buffer) = qimage_to_shared_pixel_buffer(image) {
-            data.set_image(i_slint_core::graphics::Image::from_rgba8(buffer));
+            data.set_image(i_slint_core::graphics::Image::from_rgba8_straight(buffer));
         }
         if files.len() > 0 {
             data.set_file_paths(files.into_iter().map(|f| f.to_string()));
@@ -3148,7 +3148,9 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         let image = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QImage as "QImage" {
             return widget_ptr->grab().toImage();
         }};
-        qimage_to_shared_pixel_buffer(image).ok_or_else(|| "widget has zero size".into())
+        qimage_to_shared_pixel_buffer(image)
+            .map(|buffer| buffer.into_rgba8())
+            .ok_or_else(|| "widget has zero size".into())
     }
 
     fn supports_transformations(&self) -> bool {

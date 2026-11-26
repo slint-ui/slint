@@ -92,7 +92,9 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
                 let image = slint::Image::load_from_svg_data(svg.as_bytes())
                     .expect("valid rotation cursor SVG");
                 // Match the fixed-pixel canvas pointer; native SVG cursors scale with the display.
-                slint::Image::from_rgba8(image.to_rgba8().expect("rotation cursor pixels"))
+                slint::Image::from_rgba8_straight(
+                    image.to_rgba8_straight().expect("rotation cursor pixels"),
+                )
             })
             .clone()
     });
@@ -107,7 +109,9 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
                     include_str!("../ui/cursors/resize.svg").replace("{angle}", &angle.to_string());
                 let image = slint::Image::load_from_svg_data(svg.as_bytes())
                     .expect("valid resize cursor SVG");
-                slint::Image::from_rgba8(image.to_rgba8().expect("resize cursor pixels"))
+                slint::Image::from_rgba8_straight(
+                    image.to_rgba8_straight().expect("resize cursor pixels"),
+                )
             })
             .clone()
     });
@@ -115,7 +119,9 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
         let image =
             slint::Image::load_from_svg_data(include_bytes!("../ui/cursors/scrub-horizontal.svg"))
                 .expect("valid horizontal scrub cursor SVG");
-        slint::Image::from_rgba8(image.to_rgba8().expect("horizontal scrub cursor pixels"))
+        slint::Image::from_rgba8_straight(
+            image.to_rgba8_straight().expect("horizontal scrub cursor pixels"),
+        )
     };
     ui.global::<EditorCursors>().on_scrub_horizontal_image(move || scrub_horizontal_cursor.clone());
     Ok(ui)

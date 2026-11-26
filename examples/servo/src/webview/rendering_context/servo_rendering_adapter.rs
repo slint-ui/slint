@@ -104,7 +104,7 @@ impl ServoRenderingAdapter for ServoSoftwareRenderingContext {
 
         let shared_pixel_buffer = SharedPixelBuffer::clone_from_slice(&pixel_slice, width, height);
 
-        Image::from_rgba8(shared_pixel_buffer)
+        Image::from_rgba8_straight(shared_pixel_buffer)
     }
 
     fn get_rendering_context(&self) -> Rc<dyn RenderingContext> {

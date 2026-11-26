@@ -62,7 +62,48 @@ struct SharedPixelBuffer
     /// Compare two SharedPixelBuffers. They are considered equal if all their pixels are equal.
     bool operator==(const SharedPixelBuffer &other) const = default;
 
+    /// Returns the same pixels as StraightRgba8Pixel, without copying or converting them.
+    ///
+    /// Use this when the pixels have straight alpha (the color components are not multiplied with
+    /// alpha), for example the result of Window::take_snapshot() or pixels decoded from an image
+    /// file.
+    SharedPixelBuffer<StraightRgba8Pixel> assume_straight() const
+        requires std::is_same_v<Pixel, Rgba8Pixel>
+    {
+        return reinterpret<StraightRgba8Pixel>();
+    }
+
+    /// Returns the same pixels as PremultipliedRgba8Pixel, without copying or converting them.
+    ///
+    /// Use this when the red, green and blue components are already multiplied with alpha.
+    SharedPixelBuffer<PremultipliedRgba8Pixel> assume_premultiplied() const
+        requires std::is_same_v<Pixel, Rgba8Pixel>
+    {
+        return reinterpret<PremultipliedRgba8Pixel>();
+    }
+
+    /// Returns the same pixels as plain Rgba8Pixel, without copying or converting them.
+    SharedPixelBuffer<Rgba8Pixel> into_rgba8() const
+        requires(std::is_same_v<Pixel, StraightRgba8Pixel>
+                 || std::is_same_v<Pixel, PremultipliedRgba8Pixel>)
+    {
+        return reinterpret<Rgba8Pixel>();
+    }
+
 private:
+    template<typename Other>
+    friend struct SharedPixelBuffer;
+
+    template<typename Other>
+    SharedPixelBuffer<Other> reinterpret() const
+    {
+        SharedPixelBuffer<Other> result;
+        result.m_width = m_width;
+        result.m_height = m_height;
+        result.m_data = m_data.template reinterpret<Other>();
+        return result;
+    }
+
     friend struct Image;
     friend class Window;
     uint32_t m_width;
@@ -205,12 +246,35 @@ public:
     {
     }
 
-    /// Construct an image from a SharedPixelBuffer of RGBA pixels.
+    /// Construct an image from a SharedPixelBuffer of RGBA pixels with straight alpha.
+    [[deprecated("Use a SharedPixelBuffer of StraightRgba8Pixel, which states the alpha "
+                 "encoding in its type (see SharedPixelBuffer::assume_straight())")]]
     Image(SharedPixelBuffer<Rgba8Pixel> buffer)
+        : Image(buffer.assume_straight())
+    {
+    }
+
+    /// Construct an image from a SharedPixelBuffer of RGBA pixels with straight alpha: the color
+    /// components are not multiplied with alpha. This is how image files usually store pixels.
+    Image(SharedPixelBuffer<StraightRgba8Pixel> buffer)
         : data(Data::ImageInner_EmbeddedImage(
                   cbindgen_private::types::ImageCacheKey::Invalid(),
                   cbindgen_private::types::SharedImageBuffer::RGBA8(
-                          cbindgen_private::types::SharedPixelBuffer<Rgba8Pixel> {
+                          cbindgen_private::types::SharedPixelBuffer<StraightRgba8Pixel> {
+                                  .width = buffer.width(),
+                                  .height = buffer.height(),
+                                  .data = buffer.m_data })))
+    {
+    }
+
+    /// Construct an image from a SharedPixelBuffer of RGBA pixels whose red, green and blue
+    /// components are already multiplied with alpha. Renderers draw this format most
+    /// efficiently.
+    Image(SharedPixelBuffer<PremultipliedRgba8Pixel> buffer)
+        : data(Data::ImageInner_EmbeddedImage(
+                  cbindgen_private::types::ImageCacheKey::Invalid(),
+                  cbindgen_private::types::SharedImageBuffer::RGBA8Premultiplied(
+                          cbindgen_private::types::SharedPixelBuffer<PremultipliedRgba8Pixel> {
                                   .width = buffer.width(),
                                   .height = buffer.height(),
                                   .data = buffer.m_data })))
@@ -297,12 +361,26 @@ public:
         }
     }
 
-    /// Returns the pixel buffer for the Image if available in RGBA format.
+    /// Returns the pixel buffer for the Image if available in RGBA format, with straight alpha.
     /// Returns nullopt if the pixels cannot be obtained, for example when the image was created
     /// from borrowed OpenGL textures.
+    [[deprecated("Use to_rgba8_straight(), which returns StraightRgba8Pixel and so states the "
+                 "alpha encoding in its type")]]
     std::optional<SharedPixelBuffer<Rgba8Pixel>> to_rgba8() const
     {
-        SharedPixelBuffer<Rgba8Pixel> result;
+        if (auto buffer = to_rgba8_straight()) {
+            return buffer->into_rgba8();
+        }
+        return {};
+    }
+
+    /// Returns the pixel buffer for the Image if available in RGBA format, with straight alpha:
+    /// the color components are not multiplied with alpha.
+    /// Returns nullopt if the pixels cannot be obtained, for example when the image was created
+    /// from borrowed OpenGL textures.
+    std::optional<SharedPixelBuffer<StraightRgba8Pixel>> to_rgba8_straight() const
+    {
+        SharedPixelBuffer<StraightRgba8Pixel> result;
         if (cbindgen_private ::types::slint_image_to_rgba8(&data, &result.m_data, &result.m_width,
                                                            &result.m_height)) {
             return result;
@@ -314,9 +392,9 @@ public:
     /// Returns the pixel buffer for the Image if available in RGBA format, with the alpha channel
     /// pre-multiplied to the red, green, and blue channels. Returns nullopt if the pixels cannot be
     /// obtained, for example when the image was created from borrowed OpenGL textures.
-    std::optional<SharedPixelBuffer<Rgba8Pixel>> to_rgba8_premultiplied() const
+    std::optional<SharedPixelBuffer<PremultipliedRgba8Pixel>> to_rgba8_premultiplied() const
     {
-        SharedPixelBuffer<Rgba8Pixel> result;
+        SharedPixelBuffer<PremultipliedRgba8Pixel> result;
         if (cbindgen_private ::types::slint_image_to_rgba8_premultiplied(
                     &data, &result.m_data, &result.m_width, &result.m_height)) {
             return result;

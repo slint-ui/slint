@@ -338,6 +338,16 @@ fn image_buffer_to_image_source(
         imgref::ImgRef::new(&pixels[..read as usize], buffer.width() as _, buffer.height() as _)
     }
 
+    fn rgba_source<Pixel: rgb::bytemuck::Pod>(
+        source: imgref::ImgRef<'_, Pixel>,
+    ) -> imgref::ImgRef<'_, rgb::RGBA8> {
+        imgref::ImgRef::new(
+            rgb::bytemuck::cast_slice(source.buf()),
+            source.width(),
+            source.height(),
+        )
+    }
+
     match buffer {
         // Expanded to RGB8 before upload; see Texture::new_from_image.
         #[cfg(feature = "image-pixel-format-rgb565")]
@@ -347,11 +357,12 @@ fn image_buffer_to_image_source(
         SharedImageBuffer::RGB8(buffer) => {
             Some((image_source(buffer).into(), femtovg::ImageFlags::empty()))
         }
+        // femtovg takes `rgb::RGBA8` pixels; the alpha encoding goes into the flags.
         SharedImageBuffer::RGBA8(buffer) => {
-            Some((image_source(buffer).into(), femtovg::ImageFlags::empty()))
+            Some((rgba_source(image_source(buffer)).into(), femtovg::ImageFlags::empty()))
         }
         SharedImageBuffer::RGBA8Premultiplied(buffer) => {
-            Some((image_source(buffer).into(), femtovg::ImageFlags::PREMULTIPLIED))
+            Some((rgba_source(image_source(buffer)).into(), femtovg::ImageFlags::PREMULTIPLIED))
         }
         #[cfg(feature = "image-pixel-format-gray8")]
         SharedImageBuffer::Gray8(buffer) => {

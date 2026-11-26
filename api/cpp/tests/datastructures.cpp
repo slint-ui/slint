@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <set>
+#include <utility>
 #include <vector>
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch_all.hpp"
@@ -309,7 +310,7 @@ TEST_CASE("Image")
     }
 #endif
 
-    img = Image(SharedPixelBuffer<Rgba8Pixel> {});
+    img = Image(SharedPixelBuffer<StraightRgba8Pixel> {});
     {
         auto size = img.size();
         REQUIRE(size.width == 0);
@@ -336,10 +337,10 @@ TEST_CASE("Image")
         REQUIRE(size.width == 3);
         REQUIRE(size.height == 2);
         REQUIRE(!img.path().has_value());
-        auto rgba8 = img.to_rgba8();
+        auto rgba8 = img.to_rgba8_straight();
         REQUIRE(rgba8.has_value());
         // A full component scales back up to 0xff.
-        REQUIRE(*rgba8->begin() == Rgba8Pixel { 0xff, 0, 0, 0xff });
+        REQUIRE(*rgba8->begin() == StraightRgba8Pixel { 0xff, 0, 0, 0xff });
     }
 #endif
 #ifdef SLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8
@@ -350,11 +351,11 @@ TEST_CASE("Image")
         REQUIRE(size.width == 3);
         REQUIRE(size.height == 2);
         REQUIRE(!img.path().has_value());
-        auto rgba8 = img.to_rgba8();
+        auto rgba8 = img.to_rgba8_straight();
         REQUIRE(rgba8.has_value());
         // The luminance is written to all three channels, and the image is opaque.
-        REQUIRE(*rgba8->begin() == Rgba8Pixel { 0, 0, 0, 0xff });
-        REQUIRE(*(rgba8->begin() + 2) == Rgba8Pixel { 0xff, 0xff, 0xff, 0xff });
+        REQUIRE(*rgba8->begin() == StraightRgba8Pixel { 0, 0, 0, 0xff });
+        REQUIRE(*(rgba8->begin() + 2) == StraightRgba8Pixel { 0xff, 0xff, 0xff, 0xff });
     }
 #endif
 }
@@ -368,11 +369,11 @@ TEST_CASE("Image buffer access")
     REQUIRE(!img.to_rgb8().has_value());
 
     {
-        auto rgb = img.to_rgba8();
+        auto rgb = img.to_rgba8_straight();
         REQUIRE(rgb.has_value());
         REQUIRE(rgb->width() == 1);
         REQUIRE(rgb->height() == 1);
-        REQUIRE(*rgb->begin() == Rgba8Pixel { 255, 0, 0, 255 });
+        REQUIRE(*rgb->begin() == StraightRgba8Pixel { 255, 0, 0, 255 });
     }
 
     {
@@ -380,8 +381,50 @@ TEST_CASE("Image buffer access")
         REQUIRE(rgb.has_value());
         REQUIRE(rgb->width() == 1);
         REQUIRE(rgb->height() == 1);
-        REQUIRE(*rgb->begin() == Rgba8Pixel { 255, 0, 0, 255 });
+        REQUIRE(*rgb->begin() == PremultipliedRgba8Pixel { 255, 0, 0, 255 });
     }
+}
+
+TEST_CASE("Image with straight and premultiplied alpha")
+{
+    using namespace slint;
+
+    // Red at 50% opacity in both encodings.
+    StraightRgba8Pixel straight_data[] = { { 255, 0, 0, 128 } };
+    PremultipliedRgba8Pixel premultiplied_data[] = { { 128, 0, 0, 128 } };
+
+    {
+        auto img = Image(SharedPixelBuffer<StraightRgba8Pixel>(1, 1, straight_data));
+        REQUIRE(*img.to_rgba8_straight()->begin() == straight_data[0]);
+        REQUIRE(*img.to_rgba8_premultiplied()->begin() == premultiplied_data[0]);
+    }
+    {
+        auto img = Image(SharedPixelBuffer<PremultipliedRgba8Pixel>(1, 1, premultiplied_data));
+        REQUIRE(*img.to_rgba8_premultiplied()->begin() == premultiplied_data[0]);
+        REQUIRE(*img.to_rgba8_straight()->begin() == StraightRgba8Pixel { 255, 0, 0, 128 });
+    }
+}
+
+TEST_CASE("SharedPixelBuffer alpha reinterpretation")
+{
+    using namespace slint;
+
+    SharedPixelBuffer<Rgba8Pixel> rgba(2, 1);
+    *rgba.begin() = Rgba8Pixel { 1, 2, 3, 4 };
+
+    // The pixels are shared, not copied or converted.
+    auto straight = rgba.assume_straight();
+    REQUIRE(straight.width() == 2);
+    REQUIRE(straight.height() == 1);
+    REQUIRE(reinterpret_cast<const void *>(std::as_const(straight).begin())
+            == reinterpret_cast<const void *>(std::as_const(rgba).begin()));
+    REQUIRE(*straight.begin() == StraightRgba8Pixel { 1, 2, 3, 4 });
+
+    auto premultiplied = rgba.assume_premultiplied();
+    REQUIRE(*premultiplied.begin() == PremultipliedRgba8Pixel { 1, 2, 3, 4 });
+
+    auto back = straight.into_rgba8();
+    REQUIRE(back == rgba);
 }
 
 TEST_CASE("SharedVector")

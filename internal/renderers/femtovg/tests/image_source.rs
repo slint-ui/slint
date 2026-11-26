@@ -10,7 +10,7 @@ use i_slint_core::platform::{Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::WindowAdapter;
 use i_slint_renderer_femtovg::FemtoVGWGPURenderer;
-use slint::{ComponentHandle, Image, Rgba8Pixel, SharedPixelBuffer};
+use slint::{ComponentHandle, Image, SharedPixelBuffer, StraightRgba8Pixel};
 use wgpu_30 as wgpu;
 
 slint::slint! {
@@ -99,9 +99,9 @@ fn init_offscreen_platform() -> bool {
 }
 
 fn solid_image(r: u8, g: u8, b: u8) -> Image {
-    let mut buffer = SharedPixelBuffer::<Rgba8Pixel>::new(4, 4);
-    buffer.make_mut_slice().fill(Rgba8Pixel { r, g, b, a: 255 });
-    Image::from_rgba8(buffer)
+    let mut buffer = SharedPixelBuffer::<StraightRgba8Pixel>::new(4, 4);
+    buffer.make_mut_slice().fill(StraightRgba8Pixel::new(r, g, b, 255));
+    Image::from_rgba8_straight(buffer)
 }
 
 #[test]

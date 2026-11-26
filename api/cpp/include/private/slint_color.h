@@ -53,6 +53,49 @@ struct Rgb565Pixel
     friend bool operator==(const Rgb565Pixel &lhs, const Rgb565Pixel &rhs) = default;
 };
 
+/// A 32bit pixel with red, green, blue and alpha, where the color components are *not*
+/// multiplied with alpha ("straight" alpha). For example, red at 50% opacity is
+/// `{ 255, 0, 0, 128 }`. This is how image files usually store pixels.
+///
+/// See PremultipliedRgba8Pixel for the premultiplied encoding.
+struct StraightRgba8Pixel
+{
+    /// The red component.
+    uint8_t r;
+    /// The green component.
+    uint8_t g;
+    /// The blue component.
+    uint8_t b;
+    /// The alpha component.
+    uint8_t a;
+
+    /// Returns true if \a lhs \a rhs are pixels with identical components.
+    friend bool operator==(const StraightRgba8Pixel &lhs, const StraightRgba8Pixel &rhs) = default;
+};
+
+/// A 32bit pixel with red, green, blue and alpha, where the color components are already
+/// multiplied with alpha ("premultiplied" alpha). For example, red at 50% opacity is
+/// `{ 128, 0, 0, 128 }`. Renderers draw premultiplied pixels most efficiently, and this is the
+/// pixel type of render targets for layers that are blended over other content (for example by
+/// a display controller).
+///
+/// See StraightRgba8Pixel for the straight encoding.
+struct PremultipliedRgba8Pixel
+{
+    /// The red component, premultiplied with alpha.
+    uint8_t r;
+    /// The green component, premultiplied with alpha.
+    uint8_t g;
+    /// The blue component, premultiplied with alpha.
+    uint8_t b;
+    /// The alpha component.
+    uint8_t a;
+
+    /// Returns true if \a lhs \a rhs are pixels with identical components.
+    friend bool operator==(const PremultipliedRgba8Pixel &lhs,
+                           const PremultipliedRgba8Pixel &rhs) = default;
+};
+
 /// A grayscale pixel: a single luminance channel encoded as 8 bits.
 struct Gray8Pixel
 {

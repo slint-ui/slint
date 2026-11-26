@@ -188,7 +188,7 @@ pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
     });
     component.window().set_size(testcase.size);
     component.show()?;
-    let screenshot = component.window().take_snapshot()?;
+    let screenshot = component.window().take_snapshot()?.assume_straight();
     crate::testing::compare_images(
         testcase.reference_path.to_str().unwrap(),
         &screenshot,

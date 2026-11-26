@@ -354,7 +354,7 @@ impl DataTransfer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
+    use crate::graphics::{SharedPixelBuffer, StraightRgba8Pixel};
 
     #[test]
     fn set_plain_text_with_empty_string_clears() {
@@ -369,8 +369,8 @@ mod tests {
     #[test]
     fn set_image_with_default_image_clears() {
         let mut dt = DataTransfer::default();
-        let buffer = SharedPixelBuffer::<Rgba8Pixel>::new(2, 2);
-        dt.set_image(Image::from_rgba8(buffer));
+        let buffer = SharedPixelBuffer::<StraightRgba8Pixel>::new(2, 2);
+        dt.set_image(Image::from_rgba8_straight(buffer));
         assert!(dt.has_image());
         dt.set_image(Image::default());
         assert!(!dt.has_image());
@@ -406,7 +406,9 @@ mod tests {
         // transfer compares equal to a freshly-constructed default.
         let mut dt = DataTransfer::default();
         dt.set_plain_text("hello".into());
-        dt.set_image(Image::from_rgba8(SharedPixelBuffer::<Rgba8Pixel>::new(2, 2)));
+        dt.set_image(Image::from_rgba8_straight(SharedPixelBuffer::<StraightRgba8Pixel>::new(
+            2, 2,
+        )));
         dt.set_file_paths(["/tmp/a"]);
         assert!(!dt.is_empty());
         dt.set_plain_text("".into());
@@ -428,7 +430,9 @@ mod tests {
                 dt.set_plain_text("hello".into());
             }) as fn(&mut DataTransfer),
             |dt| {
-                dt.set_image(Image::from_rgba8(SharedPixelBuffer::<Rgba8Pixel>::new(2, 2)));
+                dt.set_image(Image::from_rgba8_straight(
+                    SharedPixelBuffer::<StraightRgba8Pixel>::new(2, 2),
+                ));
             },
             |dt| {
                 dt.set_file_paths(["/tmp/a"]);

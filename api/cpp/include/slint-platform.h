@@ -735,6 +735,21 @@ public:
         return PhysicalRegion { r };
     }
 
+    /// Render the window scene into a buffer of premultiplied RGBA pixels.
+    ///
+    /// Dirty regions are cleared to transparent before the scene is drawn, so the buffer can be
+    /// blended over other content (for example by a display controller layer). A window
+    /// background that is not transparent is drawn as usual.
+    ///
+    /// The buffer must be at least as large as the associated slint::Window.
+    /// The stride is the amount of pixels between two lines in the buffer.
+    PhysicalRegion render(std::span<PremultipliedRgba8Pixel> buffer, std::size_t pixel_stride) const
+    {
+        auto r = cbindgen_private::slint_software_renderer_render_rgba8_premultiplied(
+                inner, buffer.data(), buffer.size(), pixel_stride);
+        return PhysicalRegion { r };
+    }
+
     /// Render the window scene, line by line. The provided Callback will be invoked for each line
     /// that needs to rendered.
     ///
@@ -807,6 +822,19 @@ public:
     {
         auto wrapper = buffer->wrap();
         auto r = cbindgen_private::slint_software_renderer_render_accel_rgb565(inner, &wrapper);
+        return PhysicalRegion { r };
+    }
+
+    /// Renders into the given TargetPixelBuffer of premultiplied RGBA pixels.
+    ///
+    /// **Note**: This class is still experimental - its API is subject to changes and not
+    /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
+    /// option.
+    PhysicalRegion render(TargetPixelBuffer<PremultipliedRgba8Pixel> *buffer) const
+    {
+        auto wrapper = buffer->wrap();
+        auto r = cbindgen_private::slint_software_renderer_render_accel_rgba8_premultiplied(
+                inner, &wrapper);
         return PhysicalRegion { r };
     }
 

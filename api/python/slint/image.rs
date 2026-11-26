@@ -213,7 +213,7 @@ impl PyImage {
             4 => {
                 let mut pixel_buffer = SharedPixelBuffer::new(width, height);
                 buffer.copy_to_slice(array.py(), pixel_buffer.make_mut_bytes())?;
-                slint_interpreter::Image::from_rgba8(pixel_buffer)
+                slint_interpreter::Image::from_rgba8_straight(pixel_buffer)
             }
             _ => {
                 return Err(pyo3::exceptions::PyRuntimeError::new_err(format!(
@@ -282,7 +282,7 @@ impl PyImage {
             return Ok(exported.clone_ref(py));
         }
         let size = self.image.size();
-        let pixels = match self.image.to_rgba8() {
+        let pixels = match self.image.to_rgba8_straight().map(|pixels| pixels.into_rgba8()) {
             Some(pixels) => pixels,
             None if size.width == 0 || size.height == 0 => SharedPixelBuffer::new(0, 0),
             None => {

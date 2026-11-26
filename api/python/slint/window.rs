@@ -30,6 +30,6 @@ impl PyWindow {
             )
         })?;
         let pixels = instance.window().take_snapshot().map_err(PyPlatformError)?;
-        Ok(slint_interpreter::Image::from_rgba8(pixels).into())
+        Ok(slint_interpreter::Image::from_rgba8_straight(pixels.assume_straight()).into())
     }
 }

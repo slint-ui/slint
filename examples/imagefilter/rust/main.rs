@@ -51,7 +51,7 @@ pub fn main() -> Result<(), slint::PlatformError> {
         image::open(&cat_path).expect("Error loading cat image").into_rgba8()
     };
 
-    main_window.set_original_image(slint::Image::from_rgba8(
+    main_window.set_original_image(slint::Image::from_rgba8_straight(
         slint::SharedPixelBuffer::clone_from_slice(
             source_image.as_raw(),
             source_image.width(),
@@ -104,7 +104,7 @@ pub fn main() -> Result<(), slint::PlatformError> {
     main_window.on_filter_image(move |filter_index| {
         let filter_fn = filters.0[filter_index as usize].apply_function;
         let filtered_image = filter_fn(&source_image);
-        slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(
+        slint::Image::from_rgba8_straight(slint::SharedPixelBuffer::clone_from_slice(
             filtered_image.as_raw(),
             filtered_image.width(),
             filtered_image.height(),

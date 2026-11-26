@@ -185,6 +185,127 @@ pub type Rgb8Pixel = rgb::RGB8;
 /// Convenience alias for a pixel with four color channels (red, green, blue and alpha), each
 /// encoded as u8.
 pub type Rgba8Pixel = rgb::RGBA8;
+
+/// A pixel with four color channels (red, green, blue and alpha), each encoded as u8, where the
+/// color channels are *not* multiplied with alpha ("straight" alpha).
+///
+/// For example, red at 50% opacity is `StraightRgba8Pixel::new(255, 0, 0, 128)`. This is how
+/// colors are usually stored in image files and how [`crate::Color`] describes them.
+/// See [`PremultipliedRgba8Pixel`] for the premultiplied encoding.
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct StraightRgba8Pixel(pub Rgba8Pixel);
+
+/// A pixel with four color channels (red, green, blue and alpha), each encoded as u8, where the
+/// red, green and blue channels are already multiplied with alpha ("premultiplied" alpha).
+///
+/// For example, red at 50% opacity is `PremultipliedRgba8Pixel::new(128, 0, 0, 128)`.
+/// Renderers blend premultiplied pixels more efficiently, and scaling them does not bleed the
+/// color of transparent pixels into their neighbors.
+/// See [`StraightRgba8Pixel`] for the straight encoding.
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct PremultipliedRgba8Pixel(pub Rgba8Pixel);
+
+impl StraightRgba8Pixel {
+    /// Creates a pixel from its straight (not premultiplied) red, green, blue and alpha values.
+    pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self(Rgba8Pixel { r, g, b, a })
+    }
+}
+
+impl PremultipliedRgba8Pixel {
+    /// Creates a pixel from its red, green and blue values, which must already be multiplied
+    /// with alpha, and its alpha value.
+    pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self(Rgba8Pixel { r, g, b, a })
+    }
+}
+
+impl From<StraightRgba8Pixel> for PremultipliedRgba8Pixel {
+    /// Multiplies the color channels with alpha.
+    fn from(pixel: StraightRgba8Pixel) -> Self {
+        let StraightRgba8Pixel(p) = pixel;
+        if p.a == 255 {
+            Self(p)
+        } else {
+            let a = p.a as u32;
+            let pm = |c: u8| ((((c as u32 * a) + 128) * 257) >> 16) as u8;
+            Self::new(pm(p.r), pm(p.g), pm(p.b), p.a)
+        }
+    }
+}
+
+impl From<PremultipliedRgba8Pixel> for StraightRgba8Pixel {
+    /// Divides the color channels by alpha. Fully transparent pixels become transparent black.
+    fn from(pixel: PremultipliedRgba8Pixel) -> Self {
+        let PremultipliedRgba8Pixel(p) = pixel;
+        if p.a == 0 {
+            Self::new(0, 0, 0, 0)
+        } else {
+            let a = p.a as u32;
+            let round = a / 2;
+            let unpm = |c: u8| ((c as u32 * 255 + round) / a).min(255) as u8;
+            Self::new(unpm(p.r), unpm(p.g), unpm(p.b), p.a)
+        }
+    }
+}
+
+impl From<crate::Color> for StraightRgba8Pixel {
+    fn from(value: crate::Color) -> Self {
+        Self(value.into())
+    }
+}
+
+impl From<crate::Color> for PremultipliedRgba8Pixel {
+    fn from(value: crate::Color) -> Self {
+        StraightRgba8Pixel::from(value).into()
+    }
+}
+
+// Opaque pixel types: straight and premultiplied are the same.
+macro_rules! impl_from_opaque {
+    ($($source:ty => |$p:ident| $rgba:expr;)*) => {$(
+        impl From<$source> for StraightRgba8Pixel {
+            fn from($p: $source) -> Self {
+                Self($rgba)
+            }
+        }
+        impl From<$source> for PremultipliedRgba8Pixel {
+            fn from($p: $source) -> Self {
+                Self($rgba)
+            }
+        }
+    )*};
+}
+
+impl_from_opaque! {
+    Rgb8Pixel => |p| Rgba8Pixel { r: p.r, g: p.g, b: p.b, a: 255 };
+    Gray8Pixel => |p| Rgba8Pixel { r: p.0, g: p.0, b: p.0, a: 255 };
+    Rgb565Pixel => |p| Rgba8Pixel { r: p.red(), g: p.green(), b: p.blue(), a: 255 };
+}
+
+impl rgb::AsPixels<StraightRgba8Pixel> for [u8] {
+    fn as_pixels(&self) -> &[StraightRgba8Pixel] {
+        bytemuck::cast_slice(&self[..self.len() / 4 * 4])
+    }
+
+    fn as_pixels_mut(&mut self) -> &mut [StraightRgba8Pixel] {
+        let len = self.len() / 4 * 4;
+        bytemuck::cast_slice_mut(&mut self[..len])
+    }
+}
+
+impl rgb::AsPixels<PremultipliedRgba8Pixel> for [u8] {
+    fn as_pixels(&self) -> &[PremultipliedRgba8Pixel] {
+        bytemuck::cast_slice(&self[..self.len() / 4 * 4])
+    }
+
+    fn as_pixels_mut(&mut self) -> &mut [PremultipliedRgba8Pixel] {
+        let len = self.len() / 4 * 4;
+        bytemuck::cast_slice_mut(&mut self[..len])
+    }
+}
 /// A grayscale pixel: a single luminance channel encoded as u8,
 /// between 0 (black) and 255 (white).
 #[repr(transparent)]
@@ -286,7 +407,48 @@ impl From<Rgb565Pixel> for Rgba8Pixel {
     }
 }
 
-#[cfg(any(feature = "image-pixel-format-rgb565", feature = "image-pixel-format-gray8"))]
+impl<Pixel: bytemuck::Pod> SharedPixelBuffer<Pixel> {
+    /// Reinterprets the pixels as another pixel type with the same memory layout, without
+    /// copying them.
+    pub(crate) fn cast<Target: bytemuck::Pod>(self) -> SharedPixelBuffer<Target> {
+        SharedPixelBuffer { width: self.width, height: self.height, data: self.data.cast() }
+    }
+}
+
+impl SharedPixelBuffer<Rgba8Pixel> {
+    /// Returns the same pixels as [`StraightRgba8Pixel`], without copying or converting them.
+    ///
+    /// Use this when the pixels have straight alpha (the color channels are not multiplied with
+    /// alpha), for example the result of [`crate::api::Window::take_snapshot()`] or pixels decoded
+    /// from an image file.
+    pub fn assume_straight(self) -> SharedPixelBuffer<StraightRgba8Pixel> {
+        self.cast()
+    }
+
+    /// Returns the same pixels as [`PremultipliedRgba8Pixel`], without copying or converting them.
+    ///
+    /// Use this when the red, green and blue channels are already multiplied with alpha, for
+    /// example pixels rendered by tiny-skia.
+    pub fn assume_premultiplied(self) -> SharedPixelBuffer<PremultipliedRgba8Pixel> {
+        self.cast()
+    }
+}
+
+impl SharedPixelBuffer<StraightRgba8Pixel> {
+    /// Returns the same pixels as plain [`Rgba8Pixel`], without copying or converting them.
+    pub fn into_rgba8(self) -> SharedPixelBuffer<Rgba8Pixel> {
+        self.cast()
+    }
+}
+
+impl SharedPixelBuffer<PremultipliedRgba8Pixel> {
+    /// Returns the same pixels as plain [`Rgba8Pixel`], without copying or converting them.
+    /// The color channels stay multiplied with alpha.
+    pub fn into_rgba8(self) -> SharedPixelBuffer<Rgba8Pixel> {
+        self.cast()
+    }
+}
+
 fn map_pixels<Source: Clone, Dest: Clone + From<Source>>(
     buffer: SharedPixelBuffer<Source>,
 ) -> SharedPixelBuffer<Dest> {
@@ -309,15 +471,15 @@ pub enum SharedImageBuffer {
     /// and blue) and each channel is encoded as unsigned byte.
     RGB8(SharedPixelBuffer<Rgb8Pixel>),
     /// This variant holds the data for an image where each pixel has four color channels (red, green,
-    /// blue and alpha) and each channel is encoded as unsigned byte.
-    RGBA8(SharedPixelBuffer<Rgba8Pixel>),
+    /// blue and alpha) and each channel is encoded as unsigned byte, with straight alpha.
+    RGBA8(SharedPixelBuffer<StraightRgba8Pixel>),
     /// This variant holds the data for an image where each pixel has four color channels (red, green,
     /// blue and alpha) and each channel is encoded as unsigned byte. In contrast to [`Self::RGBA8`],
     /// this variant assumes that the alpha channel is also already multiplied to each red, green and blue
     /// component of each pixel.
     /// Only construct this format if you know that your pixels are encoded this way. It is more efficient
     /// for rendering.
-    RGBA8Premultiplied(SharedPixelBuffer<Rgba8Pixel>),
+    RGBA8Premultiplied(SharedPixelBuffer<PremultipliedRgba8Pixel>),
     /// This variant holds the data for an image where each pixel is 16 bits: 5 red bits,
     /// 6 green bits, and 5 blue bits. This is the native format of many embedded displays.
     ///
@@ -392,15 +554,15 @@ pub type StaticTextures<S = StaticStorage> = i_slint_common::pre_rendered::Stati
 /// The pixels of the image that `textures` cover, in a buffer of `size`.
 fn textures_to_buffer(size: IntSize, data: &[u8], textures: &[StaticTexture]) -> SharedImageBuffer {
     fn fill<const N: usize>(
-        target: &mut [Rgba8Pixel],
+        target: &mut [PremultipliedRgba8Pixel],
         source: &[u8],
-        pixel: impl Fn(&[u8; N]) -> Rgba8Pixel,
+        pixel: impl Fn(&[u8; N]) -> PremultipliedRgba8Pixel,
     ) {
         for (target, p) in target.iter_mut().zip(source.as_chunks::<N>().0) {
             *target = pixel(p);
         }
     }
-    let mut buffer = SharedPixelBuffer::<Rgba8Pixel>::new(size.width, size.height);
+    let mut buffer = SharedPixelBuffer::<PremultipliedRgba8Pixel>::new(size.width, size.height);
     let stride = buffer.width() as usize;
     let slice = buffer.make_mut_slice();
     for t in textures {
@@ -409,22 +571,22 @@ fn textures_to_buffer(size: IntSize, data: &[u8], textures: &[StaticTexture]) ->
             let slice = &mut slice[(rect.min_y() + y) * stride..][rect.x_range()];
             let source = &data[t.index + y * rect.width() * t.format.bpp()..];
             match t.format {
-                TexturePixelFormat::Rgb => {
-                    fill(slice, source, |p: &[u8; 3]| Rgba8Pixel::new(p[0], p[1], p[2], 255))
-                }
-                TexturePixelFormat::RgbaPremultiplied => {
-                    fill(slice, source, |p: &[u8; 4]| Rgba8Pixel::new(p[0], p[1], p[2], p[3]))
-                }
+                TexturePixelFormat::Rgb => fill(slice, source, |p: &[u8; 3]| {
+                    PremultipliedRgba8Pixel::new(p[0], p[1], p[2], 255)
+                }),
+                TexturePixelFormat::RgbaPremultiplied => fill(slice, source, |p: &[u8; 4]| {
+                    PremultipliedRgba8Pixel::new(p[0], p[1], p[2], p[3])
+                }),
                 TexturePixelFormat::Rgba => fill(slice, source, |p: &[u8; 4]| {
                     let pm = |c: u8| (c as u16 * p[3] as u16 / 255) as u8;
-                    Rgba8Pixel::new(pm(p[0]), pm(p[1]), pm(p[2]), p[3])
+                    PremultipliedRgba8Pixel::new(pm(p[0]), pm(p[1]), pm(p[2]), p[3])
                 }),
                 TexturePixelFormat::AlphaMap => {
                     let [a, r, g, b] = t.color.to_be_bytes().map(u32::from);
                     fill(slice, source, |p: &[u8; 1]| {
                         let a = p[0] as u32 * a;
                         let pm = |c: u32| (c * a / (255 * 255)) as u8;
-                        Rgba8Pixel::new(pm(r), pm(g), pm(b), (a / 255) as u8)
+                        PremultipliedRgba8Pixel::new(pm(r), pm(g), pm(b), (a / 255) as u8)
                     })
                 }
                 #[cfg(feature = "image-pixel-format-gray8")]
@@ -838,16 +1000,15 @@ fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> S
 }
 
 #[cfg(feature = "image-decoders")]
-fn rgba_image_to_premultiplied(image: image::RgbaImage) -> SharedPixelBuffer<Rgba8Pixel> {
+fn rgba_image_to_premultiplied(
+    image: image::RgbaImage,
+) -> SharedPixelBuffer<PremultipliedRgba8Pixel> {
     use rgb::AsPixels;
+    let pixels: &[StraightRgba8Pixel] = image.as_raw().as_pixels();
     SharedPixelBuffer {
         width: image.width(),
         height: image.height(),
-        data: image
-            .as_pixels()
-            .iter()
-            .map(|pixel| Image::rgba_to_premultiplied_rgba(*pixel))
-            .collect(),
+        data: pixels.iter().map(|pixel| PremultipliedRgba8Pixel::from(*pixel)).collect(),
     }
 }
 
@@ -930,24 +1091,26 @@ impl std::error::Error for LoadImageError {}
 /// load a `.png` file from disk, apply brightening filter on it and then import
 /// it into an [`Image`]:
 /// ```no_run
-/// # use i_slint_core::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
+/// # use i_slint_core::graphics::{SharedPixelBuffer, Image, StraightRgba8Pixel};
 /// let mut cat_image = image::open("cat.png").expect("Error loading cat image").into_rgba8();
 ///
 /// image::imageops::colorops::brighten_in_place(&mut cat_image, 20);
 ///
-/// let buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+/// // Image files store straight (not premultiplied) alpha.
+/// let buffer = SharedPixelBuffer::<StraightRgba8Pixel>::clone_from_slice(
 ///     cat_image.as_raw(),
 ///     cat_image.width(),
 ///     cat_image.height(),
 /// );
-/// let image = Image::from_rgba8(buffer);
+/// let image = Image::from_rgba8_straight(buffer);
 /// ```
 ///
 /// A popular software (CPU) rendering library in Rust is tiny-skia. The following example shows
 /// how to use tiny-skia to render into a [`SharedPixelBuffer`]:
 /// ```
-/// # use i_slint_core::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
-/// let mut pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::new(640, 480);
+/// # use i_slint_core::graphics::{SharedPixelBuffer, Image, PremultipliedRgba8Pixel};
+/// // tiny-skia renders premultiplied pixels.
+/// let mut pixel_buffer = SharedPixelBuffer::<PremultipliedRgba8Pixel>::new(640, 480);
 /// let width = pixel_buffer.width();
 /// let height = pixel_buffer.height();
 /// let mut pixmap = tiny_skia::PixmapMut::from_bytes(
@@ -981,9 +1144,9 @@ impl std::error::Error for LoadImageError {}
 /// [`SharedPixelBuffer`] in a thread, and send that to Slint's UI thread.
 ///
 /// ```rust,no_run
-/// # use i_slint_core::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
+/// # use i_slint_core::graphics::{SharedPixelBuffer, Image, PremultipliedRgba8Pixel};
 /// std::thread::spawn(move || {
-///     let mut pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::new(640, 480);
+///     let mut pixel_buffer = SharedPixelBuffer::<PremultipliedRgba8Pixel>::new(640, 480);
 ///     // ... fill the pixel_buffer with data as shown in the previous example ...
 ///     slint::invoke_from_event_loop(move || {
 ///         // this will run in the Slint's UI thread
@@ -1025,8 +1188,19 @@ impl Image {
     }
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has four color
-    /// channels (red, green, blue and alpha) encoded as u8.
+    /// channels (red, green, blue and alpha) encoded as u8, with straight alpha.
+    #[deprecated(
+        since = "1.19.0",
+        note = "Use `from_rgba8_straight` with a buffer of `StraightRgba8Pixel`, which states the alpha encoding in its type"
+    )]
     pub fn from_rgba8(buffer: SharedPixelBuffer<Rgba8Pixel>) -> Self {
+        Self::from_rgba8_straight(buffer.cast())
+    }
+
+    /// Creates a new Image from the specified shared pixel buffer, where each pixel has four color
+    /// channels (red, green, blue and alpha) encoded as u8, with straight alpha: the color
+    /// channels are not multiplied with alpha. This is how image files usually store pixels.
+    pub fn from_rgba8_straight(buffer: SharedPixelBuffer<StraightRgba8Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage {
             cache_key: ImageCacheKey::Invalid,
             buffer: SharedImageBuffer::RGBA8(buffer),
@@ -1034,11 +1208,12 @@ impl Image {
     }
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has four color
-    /// channels (red, green, blue and alpha) encoded as u8 and, in contrast to [`Self::from_rgba8`],
-    /// the alpha channel is also assumed to be multiplied to the red, green and blue channels.
+    /// channels (red, green, blue and alpha) encoded as u8 and, in contrast to
+    /// [`Self::from_rgba8_straight`], the red, green and blue channels are already multiplied with
+    /// alpha.
     ///
-    /// Only construct an Image with this function if you know that your pixels are encoded this way.
-    pub fn from_rgba8_premultiplied(buffer: SharedPixelBuffer<Rgba8Pixel>) -> Self {
+    /// This is the format renderers draw most efficiently.
+    pub fn from_rgba8_premultiplied(buffer: SharedPixelBuffer<PremultipliedRgba8Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage {
             cache_key: ImageCacheKey::Invalid,
             buffer: SharedImageBuffer::RGBA8Premultiplied(buffer),
@@ -1088,29 +1263,33 @@ impl Image {
         })
     }
 
-    /// Returns the pixel buffer for the Image if available in RGBA format.
+    /// Returns the pixel buffer for the Image if available in RGBA format, with straight alpha.
     /// Returns None if the pixels cannot be obtained, for example when the image was created from borrowed OpenGL textures.
     /// For an animated image, returns its first frame.
+    #[deprecated(
+        since = "1.19.0",
+        note = "Use `to_rgba8_straight`, which returns `StraightRgba8Pixel` and so states the alpha encoding in its type"
+    )]
     pub fn to_rgba8(&self) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+        self.to_rgba8_straight().map(SharedPixelBuffer::cast)
+    }
+
+    /// Returns the pixel buffer for the Image if available in RGBA format, with straight alpha:
+    /// the color channels are not multiplied with alpha.
+    /// Returns None if the pixels cannot be obtained, for example when the image was created from borrowed OpenGL textures.
+    /// For an animated image, returns its first frame.
+    pub fn to_rgba8_straight(&self) -> Option<SharedPixelBuffer<StraightRgba8Pixel>> {
         self.render_to_rgba8(None)
     }
 
     fn render_to_rgba8(
         &self,
         target_size: Option<euclid::Size2D<u32, PhysicalPx>>,
-    ) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+    ) -> Option<SharedPixelBuffer<StraightRgba8Pixel>> {
         self.0.render_to_buffer(target_size).map(|image| match image {
-            SharedImageBuffer::RGB8(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
-                width: buffer.width,
-                height: buffer.height,
-                data: buffer.data.into_iter().map(Into::into).collect(),
-            },
+            SharedImageBuffer::RGB8(buffer) => map_pixels(buffer),
             SharedImageBuffer::RGBA8(buffer) => buffer,
-            SharedImageBuffer::RGBA8Premultiplied(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
-                width: buffer.width,
-                height: buffer.height,
-                data: buffer.data.into_iter().map(Image::premultiplied_rgba_to_rgba).collect(),
-            },
+            SharedImageBuffer::RGBA8Premultiplied(buffer) => map_pixels(buffer),
             #[cfg(feature = "image-pixel-format-rgb565")]
             SharedImageBuffer::RGB565(buffer) => map_pixels(buffer),
             #[cfg(feature = "image-pixel-format-gray8")]
@@ -1118,59 +1297,20 @@ impl Image {
         })
     }
 
-    /// Returns the pixel buffer for the Image if available in RGBA format, with the alpha channel pre-multiplied
-    /// to the red, green, and blue channels.
+    /// Returns the pixel buffer for the Image if available in RGBA format, with the red, green
+    /// and blue channels multiplied with alpha.
     /// Returns None if the pixels cannot be obtained, for example when the image was created from borrowed OpenGL textures.
     /// For an animated image, returns its first frame.
-    pub fn to_rgba8_premultiplied(&self) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+    pub fn to_rgba8_premultiplied(&self) -> Option<SharedPixelBuffer<PremultipliedRgba8Pixel>> {
         self.0.render_to_buffer(None).map(|image| match image {
-            SharedImageBuffer::RGB8(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
-                width: buffer.width,
-                height: buffer.height,
-                data: buffer.data.into_iter().map(Into::into).collect(),
-            },
-            SharedImageBuffer::RGBA8(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
-                width: buffer.width,
-                height: buffer.height,
-                data: buffer.data.into_iter().map(Image::rgba_to_premultiplied_rgba).collect(),
-            },
+            SharedImageBuffer::RGB8(buffer) => map_pixels(buffer),
+            SharedImageBuffer::RGBA8(buffer) => map_pixels(buffer),
             SharedImageBuffer::RGBA8Premultiplied(buffer) => buffer,
             #[cfg(feature = "image-pixel-format-rgb565")]
             SharedImageBuffer::RGB565(buffer) => map_pixels(buffer),
             #[cfg(feature = "image-pixel-format-gray8")]
             SharedImageBuffer::Gray8(buffer) => map_pixels(buffer),
         })
-    }
-
-    /// Returns the pixel converted from premultiplied RGBA to RGBA.
-    fn premultiplied_rgba_to_rgba(pixel: Rgba8Pixel) -> Rgba8Pixel {
-        if pixel.a == 0 {
-            Rgba8Pixel::new(0, 0, 0, 0)
-        } else {
-            let af = pixel.a as u32;
-            let round = (af / 2) as u32;
-            Rgba8Pixel {
-                r: ((pixel.r as u32 * 255 + round) / af).min(255) as u8,
-                g: ((pixel.g as u32 * 255 + round) / af).min(255) as u8,
-                b: ((pixel.b as u32 * 255 + round) / af).min(255) as u8,
-                a: pixel.a,
-            }
-        }
-    }
-
-    /// Returns the pixel converted from RGBA to premultiplied RGBA.
-    fn rgba_to_premultiplied_rgba(pixel: Rgba8Pixel) -> Rgba8Pixel {
-        if pixel.a == 255 {
-            pixel
-        } else {
-            let af = pixel.a as u32;
-            Rgba8Pixel {
-                r: (((pixel.r as u32 * af + 128) * 257) >> 16) as u8,
-                g: (((pixel.g as u32 * af + 128) * 257) >> 16) as u8,
-                b: (((pixel.b as u32 * af + 128) * 257) >> 16) as u8,
-                a: pixel.a,
-            }
-        }
     }
 
     /// Returns the [WGPU](http://wgpu.rs) 29.x texture that this image wraps; returns None if the image does not
@@ -1337,13 +1477,13 @@ impl Image {
     }
 }
 
-/// Like [`Image::to_rgba8`], but scalable sources (such as SVGs) are rasterized to
+/// Like [`Image::to_rgba8_straight`], but scalable sources (such as SVGs) are rasterized to
 /// `target_size` (in physical pixels) instead of their intrinsic size.
 /// Returns None if the pixels cannot be obtained.
 pub fn image_to_rgba8_with_target_size(
     image: &Image,
     target_size: IntSize,
-) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+) -> Option<SharedPixelBuffer<StraightRgba8Pixel>> {
     image.render_to_rgba8(Some(target_size.cast_unit()))
 }
 
@@ -1521,7 +1661,7 @@ fn test_image_size_from_buffer_without_backend() {
     {
         assert_eq!(Image::default().size(), Default::default());
         assert!(Image::default().to_rgb8().is_none());
-        assert!(Image::default().to_rgba8().is_none());
+        assert!(Image::default().to_rgba8_straight().is_none());
         assert!(Image::default().to_rgba8_premultiplied().is_none());
     }
     {
@@ -1540,7 +1680,7 @@ fn test_image_size_from_svg() {
     let simple_svg = r#"<svg width="320" height="200" xmlns="http://www.w3.org/2000/svg"></svg>"#;
     let image = Image::load_from_svg_data(simple_svg.as_bytes()).unwrap();
     assert_eq!(image.size(), [320, 200].into());
-    assert_eq!(image.to_rgba8().unwrap().size(), image.size());
+    assert_eq!(image.to_rgba8_straight().unwrap().size(), image.size());
 }
 
 #[cfg(all(feature = "svg", feature = "image-decoders"))]
@@ -2135,11 +2275,11 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_image_to_rgba8(
         image: &Image,
-        data: &mut SharedVector<Rgba8Pixel>,
+        data: &mut SharedVector<StraightRgba8Pixel>,
         width: &mut u32,
         height: &mut u32,
     ) -> bool {
-        image.to_rgba8().is_some_and(|pixel_buffer| {
+        image.to_rgba8_straight().is_some_and(|pixel_buffer| {
             *data = pixel_buffer.data.clone();
             *width = pixel_buffer.width();
             *height = pixel_buffer.height();
@@ -2150,7 +2290,7 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_image_to_rgba8_premultiplied(
         image: &Image,
-        data: &mut SharedVector<Rgba8Pixel>,
+        data: &mut SharedVector<PremultipliedRgba8Pixel>,
         width: &mut u32,
         height: &mut u32,
     ) -> bool {
@@ -2204,7 +2344,10 @@ pub struct BorrowedOpenGLTexture {
 mod tests {
     use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 
-    use super::{Image, IntSize, Rgb565Pixel, ScaleFactor, fit9slice};
+    use super::{
+        Image, IntSize, PremultipliedRgba8Pixel, Rgb565Pixel, ScaleFactor, StraightRgba8Pixel,
+        fit9slice,
+    };
 
     #[test]
     fn fit9slice_borders_larger_than_image() {
@@ -2257,44 +2400,44 @@ mod tests {
 
     #[test]
     fn test_premultiplied_to_rgb_zero_alpha() {
-        let pixel = Rgba8Pixel::new(5, 10, 15, 0);
-        let converted = Image::premultiplied_rgba_to_rgba(pixel);
-        assert_eq!(converted, Rgba8Pixel::new(0, 0, 0, 0));
+        let pixel = PremultipliedRgba8Pixel::new(5, 10, 15, 0);
+        let converted = StraightRgba8Pixel::from(pixel);
+        assert_eq!(converted, StraightRgba8Pixel::new(0, 0, 0, 0));
     }
 
     #[test]
     fn test_premultiplied_to_rgb_full_alpha() {
-        let pixel = Rgba8Pixel::new(5, 10, 15, 255);
-        let converted = Image::premultiplied_rgba_to_rgba(pixel);
-        assert_eq!(converted, Rgba8Pixel::new(5, 10, 15, 255));
+        let pixel = PremultipliedRgba8Pixel::new(5, 10, 15, 255);
+        let converted = StraightRgba8Pixel::from(pixel);
+        assert_eq!(converted, StraightRgba8Pixel::new(5, 10, 15, 255));
     }
 
     #[test]
     fn test_premultiplied_to_rgb() {
-        let pixel = Rgba8Pixel::new(5, 10, 15, 128);
-        let converted = Image::premultiplied_rgba_to_rgba(pixel);
-        assert_eq!(converted, Rgba8Pixel::new(10, 20, 30, 128));
+        let pixel = PremultipliedRgba8Pixel::new(5, 10, 15, 128);
+        let converted = StraightRgba8Pixel::from(pixel);
+        assert_eq!(converted, StraightRgba8Pixel::new(10, 20, 30, 128));
     }
 
     #[test]
     fn test_rgb_to_premultiplied_zero_alpha() {
-        let pixel = Rgba8Pixel::new(10, 20, 30, 0);
-        let converted = Image::rgba_to_premultiplied_rgba(pixel);
-        assert_eq!(converted, Rgba8Pixel::new(0, 0, 0, 0));
+        let pixel = StraightRgba8Pixel::new(10, 20, 30, 0);
+        let converted = PremultipliedRgba8Pixel::from(pixel);
+        assert_eq!(converted, PremultipliedRgba8Pixel::new(0, 0, 0, 0));
     }
 
     #[test]
     fn test_rgb_to_premultiplied_full_alpha() {
-        let pixel = Rgba8Pixel::new(10, 20, 30, 255);
-        let converted = Image::rgba_to_premultiplied_rgba(pixel);
-        assert_eq!(converted, Rgba8Pixel::new(10, 20, 30, 255));
+        let pixel = StraightRgba8Pixel::new(10, 20, 30, 255);
+        let converted = PremultipliedRgba8Pixel::from(pixel);
+        assert_eq!(converted, PremultipliedRgba8Pixel::new(10, 20, 30, 255));
     }
 
     #[test]
     fn test_rgb_to_premultiplied() {
-        let pixel = Rgba8Pixel::new(10, 20, 30, 128);
-        let converted = Image::rgba_to_premultiplied_rgba(pixel);
-        assert_eq!(converted, Rgba8Pixel::new(5, 10, 15, 128));
+        let pixel = StraightRgba8Pixel::new(10, 20, 30, 128);
+        let converted = PremultipliedRgba8Pixel::from(pixel);
+        assert_eq!(converted, PremultipliedRgba8Pixel::new(5, 10, 15, 128));
     }
 
     #[cfg(feature = "image-pixel-format-rgb565")]
@@ -2312,13 +2455,13 @@ mod tests {
         assert_eq!(rgb.as_slice()[1], super::Rgb8Pixel::new(0, 0xff, 0));
 
         // A full component scales back up to 0xff.
-        let rgba = image.to_rgba8().unwrap();
-        assert_eq!(rgba.as_slice()[0], Rgba8Pixel::new(0xff, 0, 0, 0xff));
-        assert_eq!(rgba.as_slice()[1], Rgba8Pixel::new(0, 0xff, 0, 0xff));
+        let rgba = image.to_rgba8_straight().unwrap();
+        assert_eq!(rgba.as_slice()[0], StraightRgba8Pixel::new(0xff, 0, 0, 0xff));
+        assert_eq!(rgba.as_slice()[1], StraightRgba8Pixel::new(0, 0xff, 0, 0xff));
 
         // RGB565 has no alpha, so the premultiplied form is the same.
-        let premultiplied = image.to_rgba8_premultiplied().unwrap();
-        assert_eq!(premultiplied.as_slice(), rgba.as_slice());
+        let premultiplied = image.to_rgba8_premultiplied().unwrap().into_rgba8();
+        assert_eq!(premultiplied.as_slice(), rgba.into_rgba8().as_slice());
     }
 
     #[cfg(feature = "image-pixel-format-gray8")]
@@ -2335,13 +2478,13 @@ mod tests {
         assert_eq!(rgb.as_slice()[0], super::Rgb8Pixel::new(0, 0, 0));
         assert_eq!(rgb.as_slice()[1], super::Rgb8Pixel::new(0xff, 0xff, 0xff));
 
-        let rgba = image.to_rgba8().unwrap();
-        assert_eq!(rgba.as_slice()[0], Rgba8Pixel::new(0, 0, 0, 0xff));
-        assert_eq!(rgba.as_slice()[1], Rgba8Pixel::new(0xff, 0xff, 0xff, 0xff));
+        let rgba = image.to_rgba8_straight().unwrap();
+        assert_eq!(rgba.as_slice()[0], StraightRgba8Pixel::new(0, 0, 0, 0xff));
+        assert_eq!(rgba.as_slice()[1], StraightRgba8Pixel::new(0xff, 0xff, 0xff, 0xff));
 
         // Gray8 has no alpha, so the premultiplied form is the same.
-        let premultiplied = image.to_rgba8_premultiplied().unwrap();
-        assert_eq!(premultiplied.as_slice(), rgba.as_slice());
+        let premultiplied = image.to_rgba8_premultiplied().unwrap().into_rgba8();
+        assert_eq!(premultiplied.as_slice(), rgba.into_rgba8().as_slice());
     }
 
     #[cfg(feature = "image-pixel-format-gray8")]

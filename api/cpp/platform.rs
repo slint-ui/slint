@@ -362,7 +362,7 @@ mod software_renderer {
     use i_slint_core::SharedVector;
     use i_slint_core::graphics::{IntRect, Rgb8Pixel};
     use i_slint_renderer_software::{
-        PhysicalRegion, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
+        PhysicalRegion, PremultipliedRgbaColor, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
     };
 
     #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
@@ -596,6 +596,33 @@ mod software_renderer {
     ) -> PhysicalRegion {
         let renderer = unsafe { &*(r as *const SoftwareRenderer) };
         renderer.render_into_buffer(buffer)
+    }
+
+    #[cfg(feature = "experimental")]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_software_renderer_render_accel_rgba8_premultiplied(
+        r: SoftwareRendererOpaque,
+        buffer: &mut CppTargetPixelBuffer<PremultipliedRgbaColor>,
+    ) -> PhysicalRegion {
+        let renderer = unsafe { &*(r as *const SoftwareRenderer) };
+        renderer.render_into_buffer(buffer)
+    }
+
+    /// Renders into a buffer of premultiplied RGBA pixels (4 bytes per pixel, R, G, B, A).
+    /// Dirty regions start out transparent, so the result can be blended over other content,
+    /// e.g. by a display controller layer.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_software_renderer_render_rgba8_premultiplied(
+        r: SoftwareRendererOpaque,
+        buffer: *mut PremultipliedRgbaColor,
+        buffer_len: usize,
+        pixel_stride: usize,
+    ) -> PhysicalRegion {
+        unsafe {
+            let buffer = core::slice::from_raw_parts_mut(buffer, buffer_len);
+            let renderer = &*(r as *const SoftwareRenderer);
+            renderer.render(buffer, pixel_stride)
+        }
     }
 
     #[unsafe(no_mangle)]

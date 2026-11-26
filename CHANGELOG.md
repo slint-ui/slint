@@ -272,6 +272,13 @@ All notable changes to this project are documented in this file.
 ### Rust
 
  - **Breaking:** Skia: On Vulkan, `render_to_texture` requires `COPY_SRC` and `COPY_DST` texture usage.
+ - **Breaking:** The pixel types state the alpha encoding: added `StraightRgba8Pixel` and
+   `PremultipliedRgba8Pixel`. `Image::from_rgba8_premultiplied()`, `Image::to_rgba8_premultiplied()`,
+   and `SharedImageBuffer::RGBA8Premultiplied` use `PremultipliedRgba8Pixel`, and
+   `SharedImageBuffer::RGBA8` uses `StraightRgba8Pixel`. Use
+   `SharedPixelBuffer::assume_premultiplied()` to pass an existing `SharedPixelBuffer<Rgba8Pixel>`.
+ - Added `Image::from_rgba8_straight()` and `Image::to_rgba8_straight()`. `Image::from_rgba8()` and
+   `Image::to_rgba8()` are deprecated.
  - The minimum supported Rust version is now 1.95.
  - Added `Image::from_rgb565` and `Image::from_gray8`, behind optional features. (#13563)
  - Added `From<Color>` for `Rgb8Pixel` and `Rgba8Pixel`. (#13348)
@@ -317,6 +324,10 @@ All notable changes to this project are documented in this file.
  - `GraphicsAPI::NativeOpenGL` is renamed to `OpenGL`, and the old name is deprecated.
  - Interpreter: `ComponentInstance::window()` returns a mutable `slint::Window`.
  - Added `Image` constructors for RGB565 and 8-bit grayscale buffers. (#13563)
+ - **Breaking:** `Image::to_rgba8_premultiplied()` returns `PremultipliedRgba8Pixel`.
+ - Added `StraightRgba8Pixel`, `PremultipliedRgba8Pixel`, `Image` constructors for both, and
+   `Image::to_rgba8_straight()`. The `Image` constructor for `Rgba8Pixel` and `Image::to_rgba8()`
+   are deprecated.
  - Added the `SLINT_FEATURE_RENDERER_SKIA_SOFTWARE` option. (#13593)
  - Added `SoftwareRenderer::set_dirty_region_alignment()`. (#12656)
  - Added `ComponentCompiler::set_file_loader()` and `build_from_path(std::filesystem::path)`. (#13852)

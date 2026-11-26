@@ -4,7 +4,7 @@
 // cSpell: ignore powf
 
 use crossterm::style::Stylize;
-use i_slint_core::graphics::{Rgba8Pixel, SharedPixelBuffer};
+use i_slint_core::graphics::{SharedPixelBuffer, StraightRgba8Pixel};
 
 #[cfg(feature = "software")]
 pub use slint::platform::software_renderer::RenderingRotation;
@@ -38,10 +38,12 @@ pub fn force_reference_os() {
         .set(Some(i_slint_core::items::OperatingSystemType::Linux));
 }
 
-pub fn image_buffer(path: &str) -> Result<SharedPixelBuffer<Rgba8Pixel>, image::ImageError> {
+pub fn image_buffer(
+    path: &str,
+) -> Result<SharedPixelBuffer<StraightRgba8Pixel>, image::ImageError> {
     image::open(path).map(|image| {
         let image = image.into_rgba8();
-        SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+        SharedPixelBuffer::<StraightRgba8Pixel>::clone_from_slice(
             image.as_raw(),
             image.width(),
             image.height(),
@@ -49,7 +51,10 @@ pub fn image_buffer(path: &str) -> Result<SharedPixelBuffer<Rgba8Pixel>, image::
     })
 }
 
-fn color_difference(lhs: &Rgba8Pixel, rhs: &Rgba8Pixel) -> f32 {
+fn color_difference(
+    StraightRgba8Pixel(lhs): &StraightRgba8Pixel,
+    StraightRgba8Pixel(rhs): &StraightRgba8Pixel,
+) -> f32 {
     ((rhs.r as f32 - lhs.r as f32).powf(2.)
         + (rhs.g as f32 - lhs.g as f32).powf(2.)
         + (rhs.b as f32 - lhs.b as f32).powf(2.)
@@ -76,7 +81,7 @@ pub struct TestCaseOptions {
 
 pub fn compare_images(
     reference_path: &str,
-    screenshot: &SharedPixelBuffer<Rgba8Pixel>,
+    screenshot: &SharedPixelBuffer<StraightRgba8Pixel>,
     rotated: RenderingRotation,
     options: &TestCaseOptions,
 ) -> Result<(), String> {
@@ -158,8 +163,8 @@ pub fn compare_images(
             for x in 0..screenshot.width() {
                 let pa = reference.as_slice()[idx(x, y) as usize];
                 let pb = screenshot.as_slice()[(y * screenshot.width() + x) as usize];
-                let ca = crossterm::style::Color::Rgb { r: pa.r, g: pa.g, b: pa.b };
-                let cb = crossterm::style::Color::Rgb { r: pb.r, g: pb.g, b: pb.b };
+                let ca = crossterm::style::Color::Rgb { r: pa.0.r, g: pa.0.g, b: pa.0.b };
+                let cb = crossterm::style::Color::Rgb { r: pb.0.r, g: pb.0.g, b: pb.0.b };
                 if pa == pb {
                     eprint!("{}", crossterm::style::style("██").on(ca).with(cb));
                 } else if color_difference(&pa, &pb) >= 1.75 {

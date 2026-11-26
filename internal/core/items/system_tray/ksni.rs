@@ -267,7 +267,7 @@ impl Drop for PlatformTray {
 }
 
 fn image_to_argb_icon(image: &Image) -> Result<::ksni::Icon, Error> {
-    let pixel_buffer = image.to_rgba8().ok_or(Error::Rgba8)?;
+    let pixel_buffer = image.to_rgba8_straight().ok_or(Error::Rgba8)?;
     let mut data = pixel_buffer.as_bytes().to_vec();
     let width = pixel_buffer.width() as i32;
     let height = pixel_buffer.height() as i32;

@@ -11,7 +11,7 @@ use skrifa::MetadataProvider;
 use crate::fixed::Fixed;
 use crate::{PhysicalLength, TextLength};
 use i_slint_common::sharedfontique::fontique;
-use i_slint_core::graphics::{Rgba8Pixel, SharedPixelBuffer};
+use i_slint_core::graphics::{PremultipliedRgba8Pixel, SharedPixelBuffer};
 use i_slint_core::lengths::PhysicalPx;
 use i_slint_core::textlayout::{Glyph, TextShaper};
 
@@ -314,15 +314,16 @@ impl VectorFont {
                 let placement = image.placement;
                 let pixels = match image.content {
                     swash::scale::image::Content::Color => {
-                        let mut buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
-                            &image.data,
-                            placement.width,
-                            placement.height,
-                        );
+                        let mut buffer =
+                            SharedPixelBuffer::<PremultipliedRgba8Pixel>::clone_from_slice(
+                                &image.data,
+                                placement.width,
+                                placement.height,
+                            );
                         // Layers come composited over transparent, so premultiplied; bitmaps
                         // are decoded from PNG with straight alpha.
                         if matches!(image.source, Source::ColorBitmap(_)) {
-                            for pixel in buffer.make_mut_slice() {
+                            for PremultipliedRgba8Pixel(pixel) in buffer.make_mut_slice() {
                                 let alpha = pixel.a as u16;
                                 pixel.r = ((pixel.r as u16 * alpha + 127) / 255) as u8;
                                 pixel.g = ((pixel.g as u16 * alpha + 127) / 255) as u8;

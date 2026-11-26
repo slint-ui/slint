@@ -154,7 +154,7 @@ fn scheme_for_appearance(appearance: &NSAppearance) -> ColorScheme {
 // ---------------------------------------------------------------------------
 
 fn image_to_nsimage(icon: &Image) -> Result<Retained<NSImage>, Error> {
-    let pixel_buffer = icon.to_rgba8().ok_or(Error::Rgba8)?;
+    let pixel_buffer = icon.to_rgba8_straight().ok_or(Error::Rgba8)?;
     let width = pixel_buffer.width();
     let height = pixel_buffer.height();
 

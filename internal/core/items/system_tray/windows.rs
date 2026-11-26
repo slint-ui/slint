@@ -368,7 +368,7 @@ fn taskbar_created_message() -> u32 {
 
 // Slint `Image` -> `HICON` via a top-down 32bpp BGRA DIB.
 fn create_hicon(icon: &Image) -> Result<HICON, Error> {
-    let pixel_buffer = icon.to_rgba8().ok_or(Error::Rgba8)?;
+    let pixel_buffer = icon.to_rgba8_straight().ok_or(Error::Rgba8)?;
     let width = pixel_buffer.width() as i32;
     let height = pixel_buffer.height() as i32;
     let rgba = pixel_buffer.as_bytes();
