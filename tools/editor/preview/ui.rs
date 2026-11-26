@@ -278,6 +278,8 @@ pub fn initialize_editor(
     properties_api.on_set_code_bindings(|url, version, offset, bindings| {
         super::set_code_bindings(url, version, offset, bindings.iter())
     });
+    api.on_normalize_element_id(super::normalize_element_id);
+    api.on_normalized_element_id_cursor(super::normalized_element_id_cursor);
     api.on_set_element_id(super::set_element_id);
     properties_api.on_string_is_single_line(|value| !value.contains('\n') && !value.contains('\r'));
     properties_api.on_property_declaration_ranges(super::property_declaration_ranges);

@@ -627,6 +627,11 @@ impl RemoteLspToPreview {
                                         "Ignoring debugger message from remote preview server: {msg:?}"
                                     );
                                 }
+                                Ok(PreviewToLspMessage::DebuggerNotification(msg)) => {
+                                    tracing::debug!(
+                                        "Ignoring debugger notification from remote preview server: {msg:?}"
+                                    );
+                                }
                                 Ok(msg) => {
                                     shared.preview_to_lsp_sender.send(msg);
                                 }

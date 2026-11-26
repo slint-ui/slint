@@ -10,7 +10,8 @@ use slint_interpreter::ComponentInstance;
 use crate::inspector::InspectorOverlay;
 use crate::preview_sessions::PreviewSessionEvent;
 use crate::protocol::{
-    DebuggerToPreviewMessage, PreviewComponent, PreviewToLsp, PreviewToLspMessage,
+    DebuggerToPreviewMessage, DebuggerToPreviewNotification, PreviewComponent, PreviewToLsp,
+    PreviewToLspMessage,
 };
 
 /// The part of a preview that serves the editor's tools,
@@ -107,6 +108,10 @@ impl DebugAgent {
             } => {
                 crate::system_testing::answer_request(id, request, self.to_editor.clone());
             }
+            // #14727
+            PreviewSessionEvent::DebuggerNotification(
+                DebuggerToPreviewNotification::SetInspectMode { .. },
+            ) => {}
         }
         None
     }

@@ -86,26 +86,39 @@ pub fn rename_element_id(
     new_name: &str,
     format: ByteFormat,
 ) -> Option<Vec<TextEdit>> {
-    let edits = if let Some(current_id) = element.child_token(SyntaxKind::Identifier) {
-        let all_ids = find_element_ids(&current_id, &element)?;
-        all_ids
+    let edits = match (element.child_token(SyntaxKind::Identifier), new_name.is_empty()) {
+        (Some(current_id), true) => {
+            if find_element_ids(&current_id, &element)?.len() > 1 {
+                return None;
+            }
+            let range = TextRange::new(
+                current_id.text_range().start(),
+                element.Element().text_range().start(),
+            );
+            vec![TextEdit {
+                range: crate::util::text_range_to_lsp_range(&element.source_file, range, format),
+                new_text: String::new(),
+            }]
+        }
+        (Some(current_id), false) => find_element_ids(&current_id, &element)?
             .into_iter()
             .map(|r| TextEdit {
                 range: crate::util::text_range_to_lsp_range(&element.source_file, r, format),
                 new_text: new_name.into(),
             })
-            .collect::<Vec<_>>()
-    } else {
-        let position = crate::util::text_size_to_lsp_position(
-            &element.source_file,
-            element.text_range().start(),
-            format,
-        );
-        element.text_range().start();
-        vec![TextEdit {
-            range: lsp_types::Range::new(position, position),
-            new_text: format!("{new_name} := "),
-        }]
+            .collect(),
+        (None, true) => return None,
+        (None, false) => {
+            let position = crate::util::text_size_to_lsp_position(
+                &element.source_file,
+                element.text_range().start(),
+                format,
+            );
+            vec![TextEdit {
+                range: lsp_types::Range::new(position, position),
+                new_text: format!("{new_name} := "),
+            }]
+        }
     };
     Some(edits)
 }
@@ -291,6 +304,64 @@ component Foo inherits Rectangle {
     }
 }
 "#
+        );
+    }
+
+    fn sub_element_at(
+        dc: &crate::DocumentCache,
+        uri: &lsp_types::Url,
+        source: &str,
+        needle: &str,
+    ) -> syntax_nodes::SubElement {
+        dc.element_at_offset(uri, TextSize::new(source.find(needle).unwrap() as u32))
+            .unwrap()
+            .with_element_node(|n| n.parent().and_then(syntax_nodes::SubElement::new).unwrap())
+    }
+
+    #[test]
+    fn test_remove_element_id() {
+        let source = r#"
+component Foo inherits Rectangle {
+    used := TouchArea {}
+    unused := Rectangle/*X*/ {
+        background: used.has-hover ? red : green;
+    }
+    Image {}
+}
+"#;
+        let (dc, uri, _) = crate::test::loaded_document_cache(source.into());
+
+        let edit = crate::editing::create_workspace_edit(
+            uri.clone(),
+            None,
+            rename_element_id(sub_element_at(&dc, &uri, source, "Rectangle/*X*/"), "", dc.format)
+                .unwrap(),
+        );
+        let removed = crate::editing::text_edit::apply_workspace_edit(&dc, &edit)
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap()
+            .contents;
+        assert_eq!(
+            removed,
+            r#"
+component Foo inherits Rectangle {
+    used := TouchArea {}
+    Rectangle/*X*/ {
+        background: used.has-hover ? red : green;
+    }
+    Image {}
+}
+"#
+        );
+
+        assert!(
+            rename_element_id(sub_element_at(&dc, &uri, source, "TouchArea"), "", dc.format)
+                .is_none()
+        );
+        assert!(
+            rename_element_id(sub_element_at(&dc, &uri, source, "Image"), "", dc.format).is_none()
         );
     }
 }

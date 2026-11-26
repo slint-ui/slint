@@ -36,7 +36,7 @@ use slint::{LogicalPosition, LogicalSize, PlatformError, SharedString, ToSharedS
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -191,6 +191,13 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         M::Debugger { message, .. } => {
             debug_assert!(false, "The editor sent its preview a debugger message: {message:?}");
             tracing::warn!("Ignoring debugger message {message:?}");
+        }
+        M::DebuggerNotification(notification) => {
+            debug_assert!(
+                false,
+                "The editor sent its preview a debugger notification: {notification:?}"
+            );
+            tracing::warn!("Ignoring debugger notification {notification:?}");
         }
     }
 }
@@ -1103,6 +1110,31 @@ fn set_code_bindings(
         return false;
     };
     send_workspace_edit("Edit properties".to_string(), edit, true)
+}
+
+/// Turns whitespace into `-` and drops every character that would make the text an invalid Slint identifier.
+fn normalize_element_id(text: slint::SharedString) -> slint::SharedString {
+    normalize_identifier_text(&text).into()
+}
+
+/// Maps the byte offset `cursor` in `text` to the matching byte offset in its normalized form.
+fn normalized_element_id_cursor(text: slint::SharedString, cursor: i32) -> i32 {
+    let prefix =
+        usize::try_from(cursor).ok().and_then(|cursor| text.get(..cursor)).unwrap_or(&text);
+    normalize_identifier_text(prefix).len() as i32
+}
+
+fn normalize_identifier_text(text: &str) -> String {
+    let mut id = String::new();
+    for c in text.chars() {
+        let c = if c.is_whitespace() { '-' } else { c };
+        let len = id.len();
+        id.push(c);
+        if i_slint_compiler::lexer::lex_identifier(&id, &mut Default::default()) != id.len() {
+            id.truncate(len);
+        }
+    }
+    id
 }
 
 fn set_element_id(
@@ -2803,7 +2835,7 @@ pub fn get_component_info(component_type: &str) -> Option<ComponentInformation> 
 fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
     file_versions: &i_slint_editor_preview::document_cache::SourceFileVersionMap,
-) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
+) -> BTreeMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
     PREVIEW_STATE.with_borrow(|preview_state| {
         let mut result = i_slint_live_preview::protocol::diagnostics_by_url(
             diagnostics,
@@ -3214,6 +3246,34 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
     use std::{cell::RefCell, rc::Rc};
+
+    #[test]
+    fn test_normalize_element_id() {
+        for (text, expected) in [
+            ("my button", "my-button"),
+            ("foo_bar-1", "foo_bar-1"),
+            (" 1-foo", "foo"),
+            ("a.b+c", "abc"),
+            ("été", "été"),
+            ("", ""),
+        ] {
+            assert_eq!(normalize_element_id(text.into()), expected);
+        }
+    }
+
+    #[test]
+    fn test_normalized_element_id_cursor() {
+        for (text, cursor, expected) in [
+            ("ab@c", 3, 2),
+            ("ab@c", 4, 3),
+            ("a b", 2, 2),
+            ("1ab", 1, 0),
+            ("été", 2, 2),
+            ("ab", 9, 2),
+        ] {
+            assert_eq!(normalized_element_id_cursor(text.into(), cursor), expected);
+        }
+    }
 
     #[derive(Default)]
     struct CapturePreviewToLsp {

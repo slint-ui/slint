@@ -3,9 +3,7 @@
 
 use std::{ffi::OsString, pin::Pin};
 
-use i_slint_live_preview::protocol::{
-    DebuggerToPreviewMessage, LspToPreviewMessage, PreviewToLspMessage, pairing,
-};
+use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewToLspMessage, pairing};
 use tokio::sync::{mpsc, oneshot};
 
 use super::discovery::RemoteViewer;
@@ -232,12 +230,8 @@ impl Connection {
 
     /// Sends the debugger's `message` to the preview, once connected.
     /// Returns why it wasn't sent.
-    pub(super) fn send_debugger_message(
-        &self,
-        id: u64,
-        message: DebuggerToPreviewMessage,
-    ) -> Result<(), String> {
-        let message = LspToPreviewMessage::Debugger { id, message };
+    /// Sends a `Debugger` or `DebuggerNotification` message to the running preview.
+    pub(super) fn send_debugger_message(&self, message: LspToPreviewMessage) -> Result<(), String> {
         match &self.preview {
             Some(ActivePreview::Local { preview, .. }) => preview.send_running(&message),
             Some(ActivePreview::Remote { connection, .. })

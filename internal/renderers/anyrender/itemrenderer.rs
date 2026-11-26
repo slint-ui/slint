@@ -1222,9 +1222,6 @@ fn load_image(
                 image_buffer_to_peniko_image(&buffer)
             },
         ),
-        // Backend storage is only produced by other renderers in the same
-        // process; their data is not usable here.
-        ImageInner::BackendStorage(..) => None,
         ImageInner::NineSlice(n) => load_image(
             n.image(),
             target_size_fn,

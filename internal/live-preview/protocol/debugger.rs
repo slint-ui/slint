@@ -9,6 +9,15 @@ pub enum DebuggerToPreviewMessage {
     SystemTestRequest(SystemTestMessage),
 }
 
+/// A message from the debugger to a preview that expects no answer.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+pub enum DebuggerToPreviewNotification {
+    /// Enters or leaves inspect mode, in which a click selects an element.
+    /// The preview answers a selection with
+    /// [`PreviewToDebuggerNotification::InspectSelected`] and leaves inspect mode.
+    SetInspectMode { enabled: bool },
+}
+
 /// A message from a preview to the debugger.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToDebuggerMessage {
@@ -17,6 +26,22 @@ pub enum PreviewToDebuggerMessage {
     /// or an error if the request gets no answer,
     /// such as when no preview runs or it was built without system testing.
     SystemTestResponse(Result<SystemTestMessage, String>),
+}
+
+/// A message from a preview to the debugger that answers no request.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+pub enum PreviewToDebuggerNotification {
+    /// A `SubscriptionNotification` from `slint_systest.proto`,
+    /// pushed by a subscription a system-testing request created.
+    /// It can arrive after the debugger unsubscribed.
+    SubscriptionNotification(SystemTestMessage),
+    /// A compilation finished; its `Diagnostics` follow.
+    /// `success` says whether it produced a component to show.
+    Reloaded { success: bool },
+    /// The user selected an element in inspect mode.
+    /// `handle` is the `index` and `generation` of its `Handle` from `slint_systest.proto`.
+    /// `source` is the file and offset of its definition, when known.
+    InspectSelected { handle: (u64, u64), source: Option<(lsp_types::Url, u32)> },
 }
 
 /// A protobuf-encoded message from `slint_systest.proto`.
