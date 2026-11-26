@@ -41,6 +41,7 @@ These examples demonstrate specialized features or integrations:
 | [orbit-animation](./orbit-animation/) | Orbital animation effects |
 | [sprite-sheet](./sprite-sheet/) | Sprite sheet animation |
 | [repeater](./repeater/) | Demonstrates the `for` repeater element |
+| [sticky-list](./sticky-list/) | List with section headers that stick to the top while scrolling |
 | [gstreamer-player](./gstreamer-player/) | Video playback using GStreamer |
 | [wgpu_texture](./wgpu_texture/) | Custom rendering with wgpu into a Slint texture |
 

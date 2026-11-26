@@ -1,0 +1,120 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ListView } from "std-widgets.slint";
+
+export struct StickyRow {
+    text: string,
+    header: bool,
+    section: int,
+}
+
+export struct StickySection {
+    title: string,
+    first-row: int,
+}
+
+// A list whose section header stays at the top while its rows scroll by,
+// until the next header pushes it out. Rows other than headers must have the same height,
+// because the ListView estimates the position of rows that aren't instantiated.
+component StickyList inherits Rectangle {
+    in property <[StickyRow]> rows;
+    in property <[StickySection]> sections;
+    property <length> row-height: 30px;
+    property <length> section-height: 50px;
+    // Hides the header while the next one pushes it above the list
+    clip: true;
+
+    list := ListView {
+        width: root.width;
+        height: root.height;
+        mouse-drag-pan-enabled: true;
+        for row in root.rows: Rectangle {
+            height: row.header ? root.section-height : root.row-height;
+            background: row.header ? #0a2b31 : transparent;
+            Text {
+                x: 10px;
+                height: parent.height;
+                vertical-alignment: TextVerticalAlignment.center;
+                text: row.text;
+                font-weight: row.header ? 700 : 400;
+                color: row.header ? #2fa4b5 : #f2fbfc;
+            }
+        }
+    }
+
+    // The section of the topmost row, even if it's only partly visible
+    property <int> section: root.rows[max(0, list.current-row)].section;
+    property <bool> has-next: root.section + 1 < root.sections.length;
+    // Distance from the topmost row's top to the next section's header row.
+    // Only the topmost row can be a header, the current section's own.
+    property <length> to-next-header: (root.sections[root.section + 1].first-row - list.current-row) * root.row-height
+        + (root.rows[max(0, list.current-row)].header ? root.section-height - root.row-height : 0px);
+    // Position of the next section's header row, relative to the list
+    property <length> next-header-y: list.item-offset + root.to-next-header;
+
+    Rectangle {
+        x: list.x;
+        width: list.visible-width;
+        height: root.section-height;
+        y: list.y + (root.has-next ? min(0px, root.next-header-y - root.section-height) : 0px);
+        background: #0a2b31;
+        accessible-role: none;
+        Text {
+            x: 10px;
+            height: parent.height;
+            vertical-alignment: TextVerticalAlignment.center;
+            text: root.sections[root.section].title;
+            font-weight: 700;
+            color: #2fa4b5;
+        }
+    }
+}
+
+export component Demo inherits Window {
+    title: "Sticky List";
+    preferred-width: 300px;
+    preferred-height: 320px;
+    background: #04141a;
+
+    StickyList {
+        width: 220px;
+        height: 240px;
+        sections: [
+            { title: "Monday, Nov 16", first-row: 0 },
+            { title: "Tuesday, Nov 17", first-row: 7 },
+            { title: "Wednesday, Nov 18", first-row: 14 },
+            { title: "Thursday, Nov 19", first-row: 21 },
+        ];
+        rows: [
+            { text: "Monday, Nov 16", header: true, section: 0 },
+            { text: "06:00   7 °C", header: false, section: 0 },
+            { text: "09:00   9 °C", header: false, section: 0 },
+            { text: "12:00   11 °C", header: false, section: 0 },
+            { text: "15:00   10 °C", header: false, section: 0 },
+            { text: "18:00   8 °C", header: false, section: 0 },
+            { text: "21:00   6 °C", header: false, section: 0 },
+            { text: "Tuesday, Nov 17", header: true, section: 1 },
+            { text: "06:00   5 °C", header: false, section: 1 },
+            { text: "09:00   8 °C", header: false, section: 1 },
+            { text: "12:00   12 °C", header: false, section: 1 },
+            { text: "15:00   12 °C", header: false, section: 1 },
+            { text: "18:00   9 °C", header: false, section: 1 },
+            { text: "21:00   7 °C", header: false, section: 1 },
+            { text: "Wednesday, Nov 18", header: true, section: 2 },
+            { text: "06:00   4 °C", header: false, section: 2 },
+            { text: "09:00   6 °C", header: false, section: 2 },
+            { text: "12:00   9 °C", header: false, section: 2 },
+            { text: "15:00   9 °C", header: false, section: 2 },
+            { text: "18:00   7 °C", header: false, section: 2 },
+            { text: "21:00   5 °C", header: false, section: 2 },
+            { text: "Thursday, Nov 19", header: true, section: 3 },
+            { text: "06:00   3 °C", header: false, section: 3 },
+            { text: "09:00   5 °C", header: false, section: 3 },
+            { text: "12:00   8 °C", header: false, section: 3 },
+            { text: "15:00   8 °C", header: false, section: 3 },
+            { text: "18:00   6 °C", header: false, section: 3 },
+            { text: "21:00   4 °C", header: false, section: 3 },
+        ];
+    }
+}
