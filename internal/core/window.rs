@@ -1143,23 +1143,42 @@ impl WindowInner {
             .then_some(popup.popup_id)
         });
 
-        // A press lands outside the native popups opened from this window.
-        // Find all popups to close recursively
-        let pressed_outside_native_popups = pressed_event
-            && (is_native_popup
-                || self
-                    .active_popups
-                    .borrow()
-                    .last()
-                    .is_some_and(|p| matches!(p.location, PopupWindowLocation::TopLevel(_))));
-        if pressed_outside_native_popups && !is_native_popup {
-            popup_to_close = None;
-        }
+        // A press closes popups from the top down to the topmost no-auto-close popup:
+        // the popups shown inside this window that it lands outside of,
+        // and the native popups opened from this window when it lands outside them.
         let mut popups_to_close = Vec::new();
         if pressed_event {
+            let top_is_native = {
+                let popups = active_popups.borrow();
+                let outside_in_window_popup = |p: &&PopupWindow| match &p.location {
+                    PopupWindowLocation::ChildWindow(coordinates) => {
+                        event.position().is_some_and(|pos| {
+                            !ItemTreeRc::borrow_pin(&p.component)
+                                .as_ref()
+                                .item_geometry(0)
+                                .contains(pos - coordinates.to_vector())
+                        })
+                    }
+                    PopupWindowLocation::TopLevel(_) => false,
+                };
+                popups_to_close.extend(
+                    popups
+                        .iter()
+                        .rev()
+                        .take_while(outside_in_window_popup)
+                        .take_while(|p| p.close_policy != PopupClosePolicy::NoAutoClose)
+                        .map(|p| (to_check_window_adapter.clone(), p.popup_id)),
+                );
+                popups
+                    .last()
+                    .is_some_and(|p| matches!(p.location, PopupWindowLocation::TopLevel(_)))
+            };
+            if !is_native_popup || !top_is_native {
+                popup_to_close = None;
+            }
             collect_popups_to_close(
                 &window_adapter,
-                pressed_outside_native_popups,
+                is_native_popup || top_is_native,
                 &mut popups_to_close,
             );
         }
