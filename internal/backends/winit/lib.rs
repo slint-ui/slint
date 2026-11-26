@@ -426,9 +426,6 @@ impl BackendBuilder {
             self.allow_fallback,
         )?);
 
-        #[cfg(target_os = "macos")]
-        macos::install_termination_handler(Rc::downgrade(&shared_data));
-
         Ok(Backend {
             event_loop_state: Default::default(),
             window_attributes_hook: self.window_attributes_hook,
@@ -477,8 +474,6 @@ pub(crate) struct SharedBackendData {
     /// The generation is used to determine if a quit_event_loop call is meant for the current
     /// event loop or is from a stale event.
     event_loop_generation: Arc<AtomicUsize>,
-    #[cfg(target_os = "macos")]
-    native_quit_active: Cell<bool>,
     is_wayland: bool,
     /// Desktop settings read from the XDG portal (cursor blink, appearance query).
     #[cfg(xdg_desktop_settings)]
@@ -542,7 +537,7 @@ impl SharedBackendData {
             builder.build().map_err(|e| format!("Error initializing winit event loop: {e}"))?;
 
         #[cfg(target_os = "macos")]
-        Self::disable_macos_automatic_shortcut_localization();
+        crate::macos::install_application_delegate_methods();
 
         core::cfg_select! {
             all(unix, not(target_vendor = "apple"), feature = "wayland") => {
@@ -587,8 +582,6 @@ impl SharedBackendData {
             not_running_event_loop: RefCell::new(Some(event_loop)),
             event_loop_proxy,
             event_loop_generation: Default::default(),
-            #[cfg(target_os = "macos")]
-            native_quit_active: Cell::new(false),
             is_wayland,
             #[cfg(xdg_desktop_settings)]
             desktop_settings: xdg_desktop_settings::DesktopSettings::new(),
@@ -597,44 +590,6 @@ impl SharedBackendData {
             #[cfg(target_os = "ios")]
             scene_lifecycle,
         })
-    }
-
-    // Disable automatic keyboard shortcut localization on macOS by injecting
-    // applicationShouldAutomaticallyLocalizeKeyEquivalents: into winit's delegate class.
-    //
-    // This is necessary to make the keyboard shortcuts declared in Slint work as intended on macOS, instead of being automatically localized by the system.
-    //
-    // This is done at runtime because winit 0.30 doesn't allow replacing its delegate.
-    // TODO: Replace with a proper delegate class when upgrading to the next winit version.
-    #[cfg(target_os = "macos")]
-    fn disable_macos_automatic_shortcut_localization() {
-        use objc2::runtime::{AnyClass, AnyObject, Bool, Imp, Sel};
-        use objc2::sel;
-
-        unsafe extern "C-unwind" fn should_not_localize(
-            _this: *mut AnyObject,
-            _cmd: Sel,
-            _app: *mut AnyObject,
-        ) -> Bool {
-            Bool::NO
-        }
-
-        let sel = sel!(applicationShouldAutomaticallyLocalizeKeyEquivalents:);
-        if let Some(cls) = AnyClass::get(c"WinitApplicationDelegate")
-            && cls.instance_method(sel).is_none()
-        {
-            unsafe {
-                objc2::ffi::class_addMethod(
-                    (cls as *const AnyClass).cast_mut(),
-                    sel,
-                    core::mem::transmute::<
-                        unsafe extern "C-unwind" fn(*mut AnyObject, Sel, *mut AnyObject) -> Bool,
-                        Imp,
-                    >(should_not_localize),
-                    c"B@:@".as_ptr(),
-                );
-            }
-        }
     }
 
     pub fn register_window(&self, id: winit::window::WindowId, window: Rc<WinitWindowAdapter>) {
@@ -983,12 +938,7 @@ impl i_slint_core::platform::Platform for Backend {
         }
         // Note: fetch_add wraps around on overflow, which is what we want.
         self.shared_data.event_loop_generation.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        #[cfg(target_os = "macos")]
-        self.shared_data.native_quit_active.set(true);
-        let result = loop_state.run();
-        #[cfg(target_os = "macos")]
-        self.shared_data.native_quit_active.set(false);
-        let new_state = result?;
+        let new_state = loop_state.run()?;
         *self.event_loop_state.borrow_mut() = Some(new_state);
         Ok(())
     }
@@ -1002,14 +952,7 @@ impl i_slint_core::platform::Platform for Backend {
         let loop_state = self.event_loop_state.borrow_mut().take().unwrap_or_else(|| {
             EventLoopState::new(self.shared_data.clone(), self.custom_application_handler.take())
         });
-        #[cfg(target_os = "macos")]
-        self.shared_data.native_quit_active.set(true);
-        let result = loop_state.pump_events(timeout);
-        #[cfg(target_os = "macos")]
-        self.shared_data
-            .native_quit_active
-            .set(matches!(&result, Ok((_, winit::platform::pump_events::PumpStatus::Continue))));
-        let (new_state, status) = result?;
+        let (new_state, status) = loop_state.pump_events(timeout)?;
         *self.event_loop_state.borrow_mut() = Some(new_state);
         match status {
             winit::platform::pump_events::PumpStatus::Continue => {

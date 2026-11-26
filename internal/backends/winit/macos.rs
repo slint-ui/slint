@@ -16,7 +16,7 @@
 //! and the alpha is restored once a frame is submitted.
 //!
 //! wgpu fixes this in <https://github.com/gfx-rs/wgpu/pull/10302>.
-//! Remove this module once every wgpu version Slint builds against contains that fix.
+//! Remove `RevealOnFirstFrame` once every wgpu version Slint builds against contains that fix.
 
 use objc2::rc::Retained;
 use objc2_app_kit::{NSView, NSWindow};
@@ -52,55 +52,147 @@ pub(crate) fn ns_view(winit_window: &winit::window::Window) -> Option<&NSView> {
     Some(unsafe { handle.ns_view.cast().as_ref() })
 }
 
-thread_local! {
-    static QUIT_BACKEND: std::cell::RefCell<std::rc::Weak<crate::SharedBackendData>> = Default::default();
-}
-
-pub(crate) fn install_termination_handler(backend: std::rc::Weak<crate::SharedBackendData>) {
-    use objc2::runtime::{AnyClass, AnyObject, Imp, Sel};
+// Winit 0.30 requires its own delegate class. Replace these patches with a delegate for winit 0.31.
+pub(crate) fn install_application_delegate_methods() {
+    use objc2::runtime::{AnyClass, AnyObject, Bool, Imp, Sel};
     use objc2::sel;
+    use objc2_app_kit::{NSApplication, NSApplicationTerminateReply};
 
     unsafe extern "C-unwind" fn should_terminate(
         _this: *mut AnyObject,
         _cmd: Sel,
-        _app: *mut AnyObject,
-    ) -> usize {
-        const TERMINATE_CANCEL: usize = 0;
-        const TERMINATE_NOW: usize = 1;
-
-        QUIT_BACKEND.with(|slot| {
-            let Some(backend) = slot.borrow().upgrade() else { return TERMINATE_NOW };
-            if !backend.native_quit_active.get() {
-                return TERMINATE_NOW;
-            }
-            let generation =
-                backend.event_loop_generation.load(std::sync::atomic::Ordering::Relaxed);
-            match backend
-                .event_loop_proxy
-                .send_event(crate::SlintEvent(crate::CustomEvent::Exit(generation)))
-            {
-                Ok(()) => TERMINATE_CANCEL,
-                Err(_) => TERMINATE_NOW,
-            }
-        })
+        app: &NSApplication,
+    ) -> NSApplicationTerminateReply {
+        if app.isRunning()
+            && !is_session_termination(
+                objc2_foundation::NSAppleEventManager::sharedAppleEventManager()
+                    .currentAppleEvent()
+                    .as_deref(),
+            )
+            && i_slint_core::api::quit_event_loop().is_ok()
+        {
+            NSApplicationTerminateReply::TerminateCancel
+        } else {
+            NSApplicationTerminateReply::TerminateNow
+        }
     }
 
-    QUIT_BACKEND.with(|slot| *slot.borrow_mut() = backend);
-    // Winit 0.30 does not expose a replaceable application delegate.
-    let selector = sel!(applicationShouldTerminate:);
-    if let Some(class) = AnyClass::get(c"WinitApplicationDelegate")
-        && class.instance_method(selector).is_none()
-    {
+    unsafe extern "C-unwind" fn should_not_localize(
+        _this: *mut AnyObject,
+        _cmd: Sel,
+        _app: &NSApplication,
+    ) -> Bool {
+        Bool::NO
+    }
+
+    unsafe fn add_method(
+        class: &AnyClass,
+        selector: Sel,
+        implementation: Imp,
+        encoding: &std::ffi::CStr,
+    ) {
+        if class.instance_method(selector).is_none() {
+            unsafe {
+                objc2::ffi::class_addMethod(
+                    (class as *const AnyClass).cast_mut(),
+                    selector,
+                    implementation,
+                    encoding.as_ptr(),
+                );
+            }
+        }
+    }
+
+    if let Some(class) = AnyClass::get(c"WinitApplicationDelegate") {
         unsafe {
-            objc2::ffi::class_addMethod(
-                (class as *const AnyClass).cast_mut(),
-                selector,
+            add_method(
+                class,
+                sel!(applicationShouldTerminate:),
                 core::mem::transmute::<
-                    unsafe extern "C-unwind" fn(*mut AnyObject, Sel, *mut AnyObject) -> usize,
+                    unsafe extern "C-unwind" fn(
+                        *mut AnyObject,
+                        Sel,
+                        &NSApplication,
+                    ) -> NSApplicationTerminateReply,
                     Imp,
                 >(should_terminate),
-                c"Q@:@".as_ptr(),
+                c"Q@:@",
             );
+            add_method(
+                class,
+                sel!(applicationShouldAutomaticallyLocalizeKeyEquivalents:),
+                core::mem::transmute::<
+                    unsafe extern "C-unwind" fn(*mut AnyObject, Sel, &NSApplication) -> Bool,
+                    Imp,
+                >(should_not_localize),
+                c"B@:@",
+            );
+        }
+    }
+}
+
+fn is_session_termination(event: Option<&objc2_foundation::NSAppleEventDescriptor>) -> bool {
+    use objc2_core_services::{
+        kAELogOut, kAEQuitApplication, kAEQuitReason, kAEReallyLogOut, kAERestart, kAEShutDown,
+        kCoreEventClass,
+    };
+
+    let Some(event) = event else { return false };
+    if event.eventClass() != kCoreEventClass || event.eventID() != kAEQuitApplication {
+        return false;
+    }
+    // Canceling a session's Quit event also cancels logout or shutdown.
+    event.paramDescriptorForKeyword(kAEQuitReason).is_some_and(|reason| {
+        [kAELogOut, kAEReallyLogOut, kAERestart, kAEShutDown].contains(&reason.enumCodeValue())
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_session_termination;
+    use objc2::rc::Retained;
+    use objc2_core_services::{
+        kAELogOut, kAEQuitAll, kAEQuitApplication, kAEQuitReason, kAEReallyLogOut, kAERestart,
+        kAEShutDown, kCoreEventClass,
+    };
+    use objc2_foundation::NSAppleEventDescriptor;
+
+    fn quit_event(reason: Option<u32>) -> Retained<NSAppleEventDescriptor> {
+        let event = NSAppleEventDescriptor::appleEventWithEventClass_eventID_targetDescriptor_returnID_transactionID(
+            kCoreEventClass, kAEQuitApplication, None, -1, 0,
+        );
+        if let Some(reason) = reason {
+            event.setParamDescriptor_forKeyword(
+                &NSAppleEventDescriptor::descriptorWithEnumCode(reason),
+                kAEQuitReason,
+            );
+        }
+        event
+    }
+
+    #[test]
+    fn session_quit_preserves_system_termination() {
+        for reason in [kAELogOut, kAEReallyLogOut, kAERestart, kAEShutDown] {
+            assert!(is_session_termination(Some(&quit_event(Some(reason)))));
+        }
+    }
+
+    #[test]
+    fn ordinary_quit_returns_to_the_event_loop() {
+        assert!(!is_session_termination(None));
+        for reason in [None, Some(kAEQuitAll), Some(u32::from_be_bytes(*b"test"))] {
+            assert!(!is_session_termination(Some(&quit_event(reason))));
+        }
+        for (class, id) in [
+            (u32::from_be_bytes(*b"test"), kAEQuitApplication),
+            (kCoreEventClass, u32::from_be_bytes(*b"test")),
+        ] {
+            let event = NSAppleEventDescriptor::appleEventWithEventClass_eventID_targetDescriptor_returnID_transactionID(class, id, None, -1, 0);
+            event.setParamDescriptor_forKeyword(
+                &NSAppleEventDescriptor::descriptorWithEnumCode(kAEShutDown),
+                kAEQuitReason,
+            );
+            assert!(!is_session_termination(Some(&event)));
         }
     }
 }
