@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Properties, PropertyEditKind, StringListText } from "../../../properties.slint";
+import { Style, InspectorStyle } from "../../../style.slint";
+
+import { InspectorCodeField, InspectorSection } from "../index.slint";
+import { InspectorContext } from "context.slint";
+import { InspectorTextFieldBase } from "../text-field-base.slint";
+
+export component InspectorItemsSection inherits InspectorSection {
+    in property <InspectorStyle> style: Style.inspector-layout;
+    private property <StringListText> items: Properties.string-list-text(Properties.editor-property-value-data("model").code);
+    private property <bool> previewing;
+
+    title: @tr("Items");
+    accessible-role: groupbox;
+    accessible-label: root.title;
+
+    function preview-items(text: string) -> bool {
+        root.previewing = Properties.inspector-preview("model", { kind: PropertyEditKind.string-list, text: text });
+        if !root.previewing { Properties.inspector-cancel(); }
+        return root.previewing;
+    }
+
+    function cancel-preview() {
+        if root.previewing { Properties.inspector-cancel(); }
+        root.previewing = false;
+    }
+
+    HorizontalLayout {
+        padding-left: root.style.padding;
+        padding-right: root.style.padding;
+
+        if root.items.valid: InspectorTextFieldBase {
+            style: Style.code-field;
+            horizontal-stretch: 1;
+            height: Style.code-field.height * 4;
+            multiline: true;
+            select-all-on-focus: false;
+            accessible-name: @tr("Items, one per line");
+            placeholder: @tr("One item per line");
+            value: root.items.text;
+            commit-key: InspectorContext.field-key("model");
+            edit-input(text) => { root.preview-items(text); }
+            accepted(text) => {
+                if !root.preview-items(text) { return false; }
+                root.previewing = false;
+                if Properties.inspector-commit() { return true; }
+                Properties.inspector-cancel();
+                return false;
+            }
+            focus-lost => { root.cancel-preview(); }
+            keyboard(event) => {
+                if event.text == Key.Escape {
+                    root.cancel-preview();
+                    self.take-draft();
+                    return accept;
+                }
+                return reject;
+            }
+        }
+
+        if !root.items.valid: InspectorCodeField {
+            accessible-name: @tr("Items expression");
+            prefix: @tr("Model");
+            value: Properties.editor-property-value-data("model").code;
+            commit-key: InspectorContext.field-key("model");
+            accepted(text) => {
+                return InspectorContext.commit-code("model", text);
+            }
+        }
+    }
+}

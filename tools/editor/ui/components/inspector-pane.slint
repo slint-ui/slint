@@ -9,7 +9,7 @@ import { EdgeDivider, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
 import {
     InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorColorizeIconSection, InspectorContext, InspectorCurrentIndexSection,
-    InspectorEffectsSection, InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorInteractionSection,
+    InspectorEffectsSection, InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorInteractionSection, InspectorItemsSection,
     InspectorLayoutAlignmentSection, InspectorLayoutSection, InspectorMouseCursorSection,
     InspectorOrientationSection, InspectorPlaceholderSection, InspectorPrimarySection, InspectorProgressSection, InspectorRangeSection, InspectorScrollBarPolicySection,
     InspectorStandardButtonKindSection, InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextOverflowSection, InspectorTextWrapSection, InspectorTitleSection,
@@ -96,6 +96,8 @@ export component InspectorPane inherits Rectangle {
                 if InspectorContext.is-interaction-selection(): InspectorInteractionSection { }
 
                 if InspectorContext.is-checked-selection(): InspectorCheckedSection { }
+
+                if InspectorContext.is-combo-box-selection(): InspectorItemsSection { }
 
                 if InspectorContext.has-current-index-selection(): InspectorCurrentIndexSection { }
 

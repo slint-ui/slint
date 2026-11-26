@@ -329,6 +329,7 @@ pub fn initialize_editor(
     });
 
     properties_api.on_string_to_code(string_to_code);
+    properties_api.on_string_list_text(super::inspector::string_list_text);
 
     diagnostics::setup(&editor_ui.global::<Diagnostics>());
     palette::setup(&properties_api);
@@ -3386,6 +3387,72 @@ mod tests {
                 expected,
                 "{type_name}"
             );
+        }
+    }
+
+    #[test]
+    fn items_section_edits_combo_box_string_lists() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 100.,
+                height: 20.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        properties_api.on_string_list_text(super::super::inspector::string_list_text);
+        let editor_weak = editor.as_weak();
+        properties_api.on_source_property_value_data(move |name, fallback| {
+            editor_weak
+                .upgrade()
+                .and_then(|editor| {
+                    super::source_property_value_data(&editor.global::<super::Properties>(), name)
+                })
+                .unwrap_or(fallback)
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        let find = |label: &str| {
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, label).next()
+        };
+        for (type_name, code, list, expression) in [
+            ("ComboBox", r#"["a", "b"]"#, Some("a\nb"), false),
+            ("ComboBox", "root.items", None, true),
+            ("Slider", r#"["a", "b"]"#, None, false),
+        ] {
+            properties_api.set_properties(
+                std::rc::Rc::new(VecModel::from(vec![super::PropertyGroup {
+                    properties: std::rc::Rc::new(VecModel::from(vec![PropertyInformation {
+                        name: "model".into(),
+                        value: PropertyValue { code: code.into(), ..Default::default() },
+                        ..Default::default()
+                    }]))
+                    .into(),
+                    ..Default::default()
+                }]))
+                .into(),
+            );
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                find("Items, one per line").and_then(|field| field.accessible_value()).as_deref(),
+                list,
+                "{type_name}: {code}"
+            );
+            assert_eq!(find("Items expression").is_some(), expression, "{type_name}: {code}");
         }
     }
 
