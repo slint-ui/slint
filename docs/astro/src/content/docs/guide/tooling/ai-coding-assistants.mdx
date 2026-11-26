@@ -1,6 +1,6 @@
 ---
 title: AI Coding Assistants
-description: Install the Slint plugin or standalone skill for Claude Code, Codex, Cursor, and other AI coding agents.
+description: Install Slint skills and tools through a plugin, Symposium, or the standalone skill for your AI coding agent.
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -9,6 +9,7 @@ The Codex and Claude Code plugins each provide a skill for their host's Slint to
 The standalone Slint skill covers the `.slint` language, layouts, common gotchas, host-language interop, and the embedded MCP server.
 
 The plugin and skills are available from the [slint-ui/ai-plugins](https://github.com/slint-ui/ai-plugins) repository.
+For Rust projects using Slint 1.20.0 or later, [Symposium](https://symposium.dev/) installs the skill and documentation tools from the crate's configuration.
 
 <Tabs syncKey="ai-tool">
   <TabItem label="Claude Code">
@@ -62,6 +63,31 @@ The plugin and skills are available from the [slint-ui/ai-plugins](https://githu
   ```
 
   This works for any agent supported by the `skills` CLI (Claude Code, Cursor, and others) and installs into the project's agent skills directory by default. Pass `-g` to install globally for all projects.
+  </TabItem>
+  <TabItem label="Symposium (Rust)">
+  If your Rust project depends on `slint`, you can use [Symposium](https://symposium.dev/) to install the Slint skill and documentation MCP server.
+
+  First, set up Symposium:
+
+  ```sh
+  cargo agents init
+  ```
+
+  Then, in your Rust project, run:
+
+  ```sh
+  cargo agents sync
+  ```
+
+  When `cargo agents sync` asks whether to enable Slint, accept, then restart your agent to load the skill and documentation tools.
+  To check whether Slint is enabled, run `cargo agents status`.
+  If your project uses Slint 1.19.x or older, install the standalone skill with the `GitHub CLI` or `npx skills` tab.
+
+  Symposium doesn't install the preview tools; for those, use the Claude Code or Codex plugin.
+
+  :::note
+  To avoid duplicate Slint skills, choose one installation method per agent.
+  :::
   </TabItem>
 </Tabs>
 
