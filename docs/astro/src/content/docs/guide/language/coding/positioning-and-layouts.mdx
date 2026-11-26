@@ -416,7 +416,8 @@ When `show-details` is `false`, the green and blue rectangles share the whole wi
 
 The GridLayout lays the element in a grid.
 Each element gains the properties `row`, `col`, `rowspan`, and `colspan`.
-You can either use a `Row` sub-element, or set the `row` property explicitly.
+You can either use a `Row` sub-element, set the `row` property explicitly,
+or set `column-count` on the layout to wrap cells to the next row.
 These properties can be changed at runtime, and `for` and `if` are supported
 in a grid layout.
 
@@ -455,6 +456,21 @@ export component Foo inherits Window {
         Rectangle { background: yellow; row: 1; }
         Rectangle { background: green; }
         Rectangle { background: black; col: 2; row: 0; }
+    }
+}
+```
+</CodeSnippetMD>
+
+Use the `column-count` property to lay out a `for` on several rows:
+
+<CodeSnippetMD imagePath="/src/assets/generated/layouts-grid-column-count.png"  imageWidth="200" imageHeight="200" imageAlt='Wrapping with column-count'>
+```slint
+export component Foo inherits Window {
+    width: 200px;
+    height: 150px;
+    GridLayout {
+        column-count: 2;
+        for color in [Colors.red, Colors.blue, Colors.yellow, Colors.green]: Rectangle { background: color; }
     }
 }
 ```

@@ -200,14 +200,14 @@ inline SharedVector<float> solve_box_layout_ortho(const cbindgen_private::BoxLay
 inline SharedVector<uint16_t>
 organize_grid_layout(cbindgen_private::Slice<cbindgen_private::GridLayoutInputData> input_data,
                      cbindgen_private::Slice<int> repeater_indices,
-                     cbindgen_private::Slice<int> repeater_steps)
+                     cbindgen_private::Slice<int> repeater_steps, float column_count)
 {
     SharedVector<uint16_t> result;
     cbindgen_private::Slice<uint32_t> ri =
             make_slice(reinterpret_cast<uint32_t *>(repeater_indices.ptr), repeater_indices.len);
     cbindgen_private::Slice<uint32_t> rs =
             make_slice(reinterpret_cast<uint32_t *>(repeater_steps.ptr), repeater_steps.len);
-    cbindgen_private::slint_organize_grid_layout(input_data, ri, rs, &result);
+    cbindgen_private::slint_organize_grid_layout(input_data, ri, rs, column_count, &result);
     return result;
 }
 

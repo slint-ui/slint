@@ -2703,7 +2703,8 @@ fn build(l: &mut Loader) {
         /// The number of columns this element should span.
         /// </SlintProperty>
         ///
-        /// To implicitly sequentially assign row indices&mdash;just like with `col`&mdash;wrap cell elements in `Row` elements.
+        /// To implicitly sequentially assign row indices&mdash;just like with `col`&mdash;wrap cell elements in `Row` elements,
+        /// or set `column-count` on the `GridLayout` so that cells wrap to the next row.
         ///
         /// The following example creates a 2-by-2 grid with `Row` elements, omitting one cell:
         ///
@@ -2738,8 +2739,27 @@ fn build(l: &mut Loader) {
         ///     }
         /// }
         /// ```
+        ///
+        /// The following example places the items of a model on rows of three cells:
+        ///
+        /// ```slint
+        /// export component Foo inherits Window {
+        ///     width: 200px;
+        ///     height: 100px;
+        ///     GridLayout {
+        ///         column-count: 3;
+        ///         for color in [Colors.red, Colors.green, Colors.blue, Colors.yellow, Colors.black]: Rectangle { background: color; }
+        ///     }
+        /// }
+        /// ```
         /// \group:layouts
         GridLayout {
+            //! ## Placement Properties
+            /// The number of columns after which cells wrap to the next row.
+            /// A cell moves to the next row when its `colspan` doesn't fit in the current one.
+            /// Cells that set `row` or `col` stay where they are, and may extend the grid past this number.
+            /// The default of `0` disables wrapping.
+            @shadowable in property <int> column-count;
             //! ## Spacing Properties
             /// The distance between the elements in the layout. This single value is applied to both horizontal and vertical spacing.
             in property <length> spacing;

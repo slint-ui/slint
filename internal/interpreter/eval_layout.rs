@@ -198,6 +198,7 @@ pub(crate) fn call_extra_builtin(
                 Slice::from_slice(&input),
                 Slice::from_slice(&ri),
                 Slice::from_slice(&rs),
+                to_f32(&a[3]),
             ))
         }
         "grid_layout_info" => {

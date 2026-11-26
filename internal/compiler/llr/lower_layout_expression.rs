@@ -307,6 +307,12 @@ pub(super) fn organize_grid_layout(
                         ty: Type::Array(Type::Int32.into()),
                     }
                 },
+                layout.column_count.as_ref().map_or(
+                    llr_Expression::NumberLiteral(0.),
+                    |column_count| {
+                        llr_Expression::PropertyReference(ctx.map_property_reference(column_count))
+                    },
+                ),
             ],
             return_ty: Type::Array(Type::Int32.into()),
         };

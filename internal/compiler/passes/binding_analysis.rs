@@ -658,14 +658,22 @@ fn report_binding_loop(
     }
     // Skip a cycle whose bindings were all reported already: most often it's one reported cycle
     // entered from another of its properties. One that shares only some is another loop.
-    let is_error = context.error_on_binding_loop_with_window_layout || !has_window_layout;
+    let through_grid_column_count = cycle.iter().any(|it| {
+        it.prop.element().borrow().debug.iter().any(|d| {
+            matches!(&d.layout, Some(crate::layout::Layout::GridLayout(grid))
+                if grid.column_count.as_ref().is_some_and(|c| cycle.iter().any(|p| &p.prop == c)))
+        })
+    });
+    let is_error = context.error_on_binding_loop_with_window_layout
+        || !has_window_layout
+        || through_grid_column_count;
     let all_bindings_of_edition_1_19 = || {
         reportable
             .iter()
             .filter_map(|(_, span, _)| span.source_file.as_ref())
             .all(|file| file.edition() >= Some(SlintEdition::V1_19))
     };
-    if all_reported && !(is_error && all_bindings_of_edition_1_19()) {
+    if all_reported && !through_grid_column_count && !(is_error && all_bindings_of_edition_1_19()) {
         return;
     }
     // Of equal blame, one in the user's own file over one in a widget, then the one written
