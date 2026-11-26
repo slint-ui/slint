@@ -119,6 +119,7 @@ export component EditorUi inherits Window {
     private property <bool> canvas-zoom-enabled: !Api.startup-wizard-visible
         && Api.editor-surface-mode == EditorSurfaceMode.component
         && CanvasView.navigation-enabled && !CanvasView.panning;
+    private property <bool> has-editable-selection: Diagnostics.preview-editable && Api.selection.highlight-index >= 0;
     private property <string> canvas-document: Api.current-element.source-uri;
     changed canvas-document => { CanvasView.manipulating = false; }
 
@@ -210,9 +211,25 @@ export component EditorUi inherits Window {
                 activated => { root.apply-history(true); }
             }
             MenuSeparator { }
+            MenuItem {
+                title: @tr("Copy");
+                enabled: root.has-editable-selection;
+                activated => { Api.selected-element-copy(); }
+            }
+            MenuItem {
+                title: @tr("Cut");
+                enabled: root.has-editable-selection;
+                activated => { Api.selected-element-cut(); }
+            }
+            MenuItem {
+                title: @tr("Paste");
+                enabled: root.has-editable-selection;
+                activated => { Api.paste-element(false, 0px, 0px); }
+            }
+            MenuSeparator { }
             Menu {
                 title: @tr("Wrap in Layout");
-                enabled: Diagnostics.preview-editable && Api.selection.highlight-index >= 0 && Api.selection.is-wrappable;
+                enabled: root.has-editable-selection && Api.selection.is-wrappable;
 
                 for layout in ["HorizontalLayout", "VerticalLayout", "GridLayout", "FlexboxLayout"]: MenuItem {
                     title: layout;
@@ -420,7 +437,7 @@ export component EditorUi inherits Window {
                     return accept;
                 }
                 if (event.text == Key.Delete || event.text == Key.Backspace)
-                    && Diagnostics.preview-editable && Api.selection.highlight-index >= 0 {
+                    && root.has-editable-selection {
                     Api.selected-element-delete();
                     return accept;
                 }
@@ -455,19 +472,19 @@ export component EditorUi inherits Window {
 
             KeyBinding {
                 keys: @keys(Control + C);
-                enabled: Diagnostics.preview-editable && Api.selection.highlight-index >= 0;
+                enabled: root.has-editable-selection;
                 activated => Api.selected-element-copy();
             }
 
             KeyBinding {
                 keys: @keys(Control + X);
-                enabled: Diagnostics.preview-editable && Api.selection.highlight-index >= 0;
+                enabled: root.has-editable-selection;
                 activated => Api.selected-element-cut();
             }
 
             KeyBinding {
                 keys: @keys(Control + V);
-                enabled: Diagnostics.preview-editable && (CanvasView.pointer-inside || Api.selection.highlight-index >= 0);
+                enabled: root.has-editable-selection || (Diagnostics.preview-editable && CanvasView.pointer-inside);
                 activated => Api.paste-element(CanvasView.pointer-inside, CanvasView.pointer.x, CanvasView.pointer.y);
             }
 
