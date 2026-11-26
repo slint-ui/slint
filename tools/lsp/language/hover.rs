@@ -104,7 +104,7 @@ pub fn get_tooltip(
 // Given a token that declares something, find a comment before that token that could be a documentation for this
 fn extract_documentation(declaration: &SyntaxNode) -> Option<String> {
     let mut token = declaration.first_token()?;
-    // Loop back to find the the previous line \n
+    // Loop back to find the previous line \n
     loop {
         if token.kind() == SyntaxKind::Whitespace {
             let mut ln = token.text().bytes().filter(|c| *c == b'\n');

@@ -1517,11 +1517,11 @@ fn build(l: &mut Loader) {
         /// Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. The returned <Link type="EventResult" />
         /// indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
         callback key-released(event: KeyEvent) -> EventResult;
-        /// Invoked when the focus on the `FocusScope` has changed. The argument is a a <Link type="FocusReason" /> enum containing the reason for focus change.
+        /// Invoked when the focus on the `FocusScope` has changed. The argument is a <Link type="FocusReason" /> enum containing the reason for focus change.
         callback focus-changed-event(reason: FocusReason);
-        /// Invoked when the `FocusScope` gains focus. The argument is a a <Link type="FocusReason" /> enum containing the reason for focus gain.
+        /// Invoked when the `FocusScope` gains focus. The argument is a <Link type="FocusReason" /> enum containing the reason for focus gain.
         callback focus-gained(reason: FocusReason);
-        /// Invoked when the `FocusScope` loses focus. The argument is a a <Link type="FocusReason" /> enum containing the reason for focus loss.
+        /// Invoked when the `FocusScope` loses focus. The argument is a <Link type="FocusReason" /> enum containing the reason for focus loss.
         callback focus-lost(reason: FocusReason);
         //! ## Functions
         //!
