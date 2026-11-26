@@ -196,14 +196,46 @@ color stops. The colors will be linearly interpolated between the stops, aligned
 that is rotated by the specified angle. This is called a linear gradient and is specified using the
 `@linear-gradient` macro with the following signature:
 
-### @linear-gradient(angle, color percentage, color percentage, ...)
+### @linear-gradient(angle [in color-space], color percentage, color percentage, ...)
 
-The first parameter to the macro is an angle (see <Link type="Types"/>). The gradient line's starting point
-will be rotated by the specified value.
+The first parameter is an angle (see <Link type="Types"/>) and an optional color space, described below.
+The gradient line's starting point is rotated by that angle.
 
-Following the initial angle is one or multiple color stops, describe as a space separated pair of a
-`color` value and a `percentage`. The color specifies which value the linear color interpolation should
+One or more color stops follow, each a space-separated pair of a `color` value and a `percentage`.
+The color specifies which value the linear color interpolation should
 reach at the specified percentage along the axis of the gradient.
+
+To choose the color space the stops are interpolated in, add `in <color-space>` after the angle or before it, as in CSS:
+
+- `srgb`: mixes the red, green, and blue channels. This is the default.
+- `oklab`: mixes in the perceptually uniform Oklab space, so the lightness changes evenly.
+- `oklch`: like `oklab`, but moves around the hue wheel, which keeps the colors in between saturated.
+- `hsl`: moves around the HSL hue wheel.
+
+With a color space, you can omit the angle; it then defaults to `180deg`.
+The following example shows the same stops interpolated in `srgb` and in `oklch`:
+
+<CodeSnippetMD imagePath="/src/assets/generated/gradients-linear-color-space.png" scale="3" imageWidth="400" imageHeight="200" imageAlt='Linear Gradients in sRGB and Oklch'>
+```slint
+export component Example inherits Window {
+    preferred-width: 200px;
+    preferred-height: 100px;
+
+    HorizontalLayout {
+        Rectangle {
+            background: @linear-gradient(90deg in srgb, blue, yellow);
+        }
+        Rectangle {
+            background: @linear-gradient(in oklch 90deg, blue, yellow);
+        }
+    }
+}
+```
+</CodeSnippetMD>
+
+:::note
+Only the Skia and FemtoVG [renderers](/guide/backends-and-renderers/backends_and_renderers/#renderers) support color spaces; the other renderers interpolate in `srgb`.
+:::
 
 The following example shows a rectangle that's filled with a linear gradient that starts with a light blue
 color, interpolates to a very light shade in the center and finishes with an orange tone:
@@ -227,7 +259,7 @@ Radial gradients are like linear gradients,
 but the colors are interpolated circularly or elliptically instead of along a line.
 To describe a radial gradient, use the `@radial-gradient` macro with the following signature:
 
-### @radial-gradient(shape [at x y], color percentage, color percentage, ...)
+### @radial-gradient(shape [at x y] [in color-space], color percentage, color percentage, ...)
 
 The `shape` parameter is one of:
 
@@ -248,6 +280,9 @@ The optional `at` parameter sets the gradient center in the element's local coor
 The `x` and `y` values are length expressions.
 If omitted, the gradient is centered in the element's bounding box.
 You can use a radius without `at` to keep the default center with an explicit radius.
+
+To choose the color space the stops are interpolated in, add `in <color-space>` after the shape and center, or before the shape.
+For the supported spaces and renderers, see [Linear Gradients](#linear-gradients).
 
 Example:
 
@@ -284,7 +319,7 @@ export component Example inherits Rectangle {
 Conic gradients are gradients where the color transitions rotate around a center point (like the angle on a color wheel).
 To describe a conic gradient, use the `@conic-gradient` macro with the following signature:
 
-### @conic-gradient([from angle] [at x y], color angle, color angle, ...)
+### @conic-gradient([from angle] [at x y] [in color-space], color angle, color angle, ...)
 
 The conic gradient is described by a series of color stops, each consisting of a color and an angle.
 The angle specifies where the color is placed along the circular sweep (0deg to 360deg).
@@ -297,6 +332,9 @@ the entire gradient 90 degrees clockwise.
 The optional `at` parameter sets the gradient center in the element's local coordinate space.
 The `x` and `y` values are length expressions.
 If omitted, the gradient is centered in the element's bounding box.
+
+To choose the color space the stops are interpolated in, add `in <color-space>` after `from` and `at`, or before them.
+For the supported spaces and renderers, see [Linear Gradients](#linear-gradients).
 
 Example:
 

@@ -893,6 +893,7 @@ fn map_value_and_type(
                         brush_kind: BrushKind::Linear,
                         value_float: lg.angle(),
                         value_brush: slint::Brush::LinearGradient(lg.clone()),
+                        color_space: brushes::color_space_to_string(lg.color_space()),
                         gradient_stops: Rc::new(VecModel::from(
                             lg.stops()
                                 .map(|gs| GradientStop { color: gs.color, position: gs.position })
@@ -917,6 +918,7 @@ fn map_value_and_type(
                         value_kind: PropertyValueKind::Brush,
                         brush_kind: BrushKind::Radial,
                         value_brush: slint::Brush::RadialGradient(rg.clone()),
+                        color_space: brushes::color_space_to_string(rg.color_space()),
                         gradient_stops: Rc::new(VecModel::from(
                             rg.stops()
                                 .map(|gs| GradientStop { color: gs.color, position: gs.position })
@@ -936,6 +938,7 @@ fn map_value_and_type(
                         value_kind: PropertyValueKind::Brush,
                         brush_kind: BrushKind::Conic,
                         value_brush: slint::Brush::ConicGradient(cg.clone()),
+                        color_space: brushes::color_space_to_string(cg.color_space()),
                         gradient_stops: Rc::new(VecModel::from(
                             cg.stops()
                                 .map(|gs| GradientStop { color: gs.color, position: gs.position })
@@ -2017,6 +2020,21 @@ export component Tester {{
             },
             "",
         );
+    }
+
+    fn mapped_color_space(code: &str) -> SharedString {
+        let (_, value) = generate_preview_data("in", "", "brush", code);
+        super::map_preview_data_to_property_value(&value).color_space
+    }
+
+    #[test]
+    fn test_map_preview_data_srgb_gradient_has_empty_color_space() {
+        assert_eq!(mapped_color_space("@linear-gradient(90deg, red, blue)"), "");
+    }
+
+    #[test]
+    fn test_map_preview_data_gradient_color_space() {
+        assert_eq!(mapped_color_space("@conic-gradient(in hsl, red 0deg, blue 360deg)"), "hsl");
     }
 
     #[test]

@@ -226,6 +226,9 @@ export global FillSession {
         } else {
             FillSession.draft = kind == BrushKind.linear ? FillSession.linear-fill : kind == BrushKind.radial ? FillSession.radial-fill : FillSession.conic-fill;
             FillSession.draft.stops = Properties.clone-gradient-stops(FillSession.working-fill.stops.length >= 1 ? FillSession.working-fill.stops : [{color: FillSession.working-color, position: 0}, {color: FillSession.working-color, position: 1}]);
+            if FillSession.working-fill.kind != BrushKind.solid {
+                FillSession.draft.color-space = FillSession.working-fill.color-space;
+            }
             FillSession.draft.kind = kind;
             FillSession.last-gradient = kind;
         }

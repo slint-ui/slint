@@ -113,6 +113,7 @@ export global PickerData {
     out property <brush> current-brush;
     in-out property <[GradientStop]> current-gradient-stops;
     in-out property <float> current-angle;
+    in-out property <string> current-color-space;
     in-out property <int> current-stop-index: 0;
     property <float> current-stop-position: current-gradient-stops[current-stop-index].position;
     property <color> current-stop-color: current-gradient-stops[current-stop-index].color;
@@ -146,6 +147,13 @@ export global PickerData {
     }
 
     changed current-angle => {
+        if WindowManager.widget-mode == WidgetMode.preview {
+            update-brush();
+            WindowManager.update-brush-preview();
+        }
+    }
+
+    changed current-color-space => {
         if WindowManager.widget-mode == WidgetMode.preview {
             update-brush();
             WindowManager.update-brush-preview();
@@ -211,6 +219,7 @@ export global PickerData {
         active-tab = PickerTab.color;
         picker-mode = BrushPropertyType.color;
         last-used-gradient-type = GradientType.linear;
+        current-color-space = "";
     }
 
     public function set-current-stop-as-color() {
@@ -218,7 +227,7 @@ export global PickerData {
     }
 
     public function update-brush() {
-        self.current-brush = Api.create-brush(current-brush-kind, current-angle, current-color, current-gradient-stops);
+        self.current-brush = Api.create-brush(current-brush-kind, current-angle, current-color, current-gradient-stops, current-color-space);
     }
 
     function set-svg-or-global-tab(property-value: PropertyValue) {
@@ -233,6 +242,7 @@ export global PickerData {
         PickerData.current-brush-kind = property-value.brush-kind;
         current-gradient-stops = Api.clone-gradient-stops(property-value.gradient-stops);
         current-angle = property-value.value-float;
+        current-color-space = property-value.color-space;
         brush-mode = property-value.brush-kind == BrushKind.solid ? BrushMode.color : property-value.brush-kind == BrushKind.linear ? BrushMode.linear : BrushMode.radial;
 
         if property-value.kind == PropertyValueKind.color {
@@ -393,7 +403,7 @@ export global WindowManager {
 
     update-brush-preview() => {
         if widget-mode == WidgetMode.preview {
-            brush-string = Api.as-slint-brush(PickerData.current-brush-kind, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops);
+            brush-string = Api.as-slint-brush(PickerData.current-brush-kind, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops, PickerData.current-color-space);
 
             if WindowManager.showing-table-editor {
                 TableData.set-color-preview("\"\{brush-string}\"");

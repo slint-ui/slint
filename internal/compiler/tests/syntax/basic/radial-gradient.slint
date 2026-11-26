@@ -61,4 +61,16 @@ export component X inherits Rectangle {
 //                                                     > <error{Unknown unqualified identifier 'foo'}
     property<brush> g30: @radial-gradient(ellipse 10px blue, red, blue);
 //                                                     >  <error{Unknown unqualified identifier 'blue'. Did you mean 'Colors.blue'?}
+
+    property<brush> g31: @radial-gradient(in oklch circle, red, blue);
+    property<brush> g32: @radial-gradient(in hsl circle, red, blue);
+    property<brush> g33: @radial-gradient(in bogus circle, red, blue);
+//                                           >   <error{'bogus' is not a valid color space, expected 'srgb', 'oklch', 'oklab', or 'hsl'}
+    property<brush> g34: @radial-gradient(in, circle, red, blue);
+//                                        ><error{Expected a color space after 'in'}
+    property<brush> g35: @radial-gradient(in oklab ellipse 100px 50px at 5px 5px, red, blue);
+    property<brush> g36: @radial-gradient(circle in oklab, red, blue);
+    property<brush> g37: @radial-gradient(ellipse 100px 50px at 5px 5px in hsl, red, blue);
+    property<brush> g38: @radial-gradient(circle in oklab at 5px 5px, red, blue);
+//                                               >      <error{'in <color-space>' must be at the start or the end of the gradient header, which ends at the first comma}
 }

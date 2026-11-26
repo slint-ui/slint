@@ -8,6 +8,7 @@ This module contains color related types for the run-time library.
 */
 
 use crate::properties::InterpolatedPropertyValue;
+use i_slint_common::gradient_color_space::GradientColorSpace;
 #[cfg(not(feature = "std"))]
 #[allow(unused_imports)]
 use num_traits::Float;
@@ -586,10 +587,13 @@ impl From<OklchColor> for OklabColor {
     }
 }
 
+/// Below this Oklch chroma, a color is gray and its hue is meaningless.
+const ACHROMATIC_CHROMA: f32 = 0.00001;
+
 impl From<OklabColor> for OklchColor {
     fn from(oklab: OklabColor) -> Self {
         let chroma = (oklab.a * oklab.a + oklab.b * oklab.b).sqrt();
-        let hue = if chroma < 0.00001 {
+        let hue = if chroma < ACHROMATIC_CHROMA {
             0.0
         } else {
             let hue_rad = oklab.b.atan2(oklab.a);
@@ -686,6 +690,184 @@ impl From<OklchColor> for Color {
 impl From<Color> for OklchColor {
     fn from(value: Color) -> Self {
         value.to_oklch()
+    }
+}
+
+/// Converts to CSS HSL: hue in degrees, NaN for a gray; saturation and lightness from 0 to 1.
+fn rgb_to_hsl(col: RgbaColor<f32>) -> [f32; 3] {
+    let (r, g, b) = (col.red, col.green, col.blue);
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let lightness = (max + min) / 2.;
+    let delta = max - min;
+    if delta <= f32::EPSILON {
+        return [f32::NAN, 0., lightness];
+    }
+    let saturation = delta / (1. - (2. * lightness - 1.).abs());
+    let hue = if max == r {
+        num_traits::Euclid::rem_euclid(&((g - b) / delta), &6.)
+    } else if max == g {
+        (b - r) / delta + 2.
+    } else {
+        (r - g) / delta + 4.
+    };
+    [hue * 60., saturation, lightness]
+}
+
+/// The inverse of [`rgb_to_hsl`], from the CSS Color 4 sample code.
+fn hsl_to_rgb([hue, saturation, lightness]: [f32; 3], alpha: f32) -> RgbaColor<f32> {
+    let a = saturation * lightness.min(1. - lightness);
+    let f = |n: f32| {
+        let k = num_traits::Euclid::rem_euclid(&(n + hue / 30.), &12.);
+        (lightness - a * (k - 3.).min(9. - k).clamp(-1., 1.)).clamp(0., 1.)
+    };
+    RgbaColor { red: f(0.), green: f(8.), blue: f(4.), alpha }
+}
+
+/// A color's components in a gradient color space.
+/// In a polar space, the hue is NaN for a gray.
+struct SpaceComponents {
+    components: [f32; 3],
+    alpha: f32,
+}
+
+impl SpaceComponents {
+    fn hue_index(color_space: GradientColorSpace) -> Option<usize> {
+        match color_space {
+            GradientColorSpace::Srgb | GradientColorSpace::Oklab => None,
+            GradientColorSpace::Oklch => Some(2),
+            GradientColorSpace::Hsl => Some(0),
+        }
+    }
+
+    fn new(color: Color, color_space: GradientColorSpace) -> Self {
+        let rgba = RgbaColor::<f32>::from(color);
+        let components = match color_space {
+            GradientColorSpace::Srgb => [rgba.red, rgba.green, rgba.blue],
+            GradientColorSpace::Oklab => {
+                let lab = OklabColor::from(rgba);
+                [lab.l, lab.a, lab.b]
+            }
+            GradientColorSpace::Oklch => {
+                let lch = OklchColor::from(rgba);
+                let hue = if lch.chroma < ACHROMATIC_CHROMA { f32::NAN } else { lch.hue };
+                [lch.lightness, lch.chroma, hue]
+            }
+            GradientColorSpace::Hsl => rgb_to_hsl(rgba),
+        };
+        Self { components, alpha: rgba.alpha }
+    }
+
+    fn to_color(&self, color_space: GradientColorSpace) -> Color {
+        let [x, y, z] = self.components;
+        let alpha = self.alpha;
+        let rgba = match color_space {
+            GradientColorSpace::Srgb => RgbaColor { red: x, green: y, blue: z, alpha },
+            GradientColorSpace::Oklab => OklabColor { l: x, a: y, b: z, alpha }.into(),
+            GradientColorSpace::Oklch => {
+                OklchColor { lightness: x, chroma: y, hue: z, alpha }.into()
+            }
+            GradientColorSpace::Hsl => hsl_to_rgb(self.components, alpha),
+        };
+        rgba.into()
+    }
+}
+
+impl Color {
+    /// Returns the color at `t` between `self` and `other` in a gradient that interpolates in
+    /// `color_space`.
+    ///
+    /// Like CSS, this uses premultiplied alpha and the shorter hue arc,
+    /// and a gray takes its hue from the other color.
+    pub(crate) fn interpolate_in(
+        self,
+        other: Self,
+        t: f32,
+        color_space: GradientColorSpace,
+    ) -> Self {
+        // The round trip through a space isn't exact, and its error differs per platform.
+        if t <= 0. {
+            return self;
+        } else if t >= 1. {
+            return other;
+        }
+        let from = SpaceComponents::new(self, color_space);
+        let to = SpaceComponents::new(other, color_space);
+        let alpha = from.alpha + (to.alpha - from.alpha) * t;
+        if alpha <= 0. {
+            return Color::default();
+        }
+        let hue_index = SpaceComponents::hue_index(color_space);
+        let mut components = [0.; 3];
+        for (i, component) in components.iter_mut().enumerate() {
+            let (a, b) = (from.components[i], to.components[i]);
+            *component = if Some(i) == hue_index {
+                let (mut a, mut b) = match (a.is_nan(), b.is_nan()) {
+                    (true, true) => (0., 0.),
+                    (true, false) => (b, b),
+                    (false, true) => (a, a),
+                    (false, false) => (a, b),
+                };
+                if b - a > 180. {
+                    a += 360.;
+                } else if b - a < -180. {
+                    b += 360.;
+                }
+                num_traits::Euclid::rem_euclid(&(a + (b - a) * t), &360.)
+            } else {
+                let (a, b) = (a * from.alpha, b * to.alpha);
+                (a + (b - a) * t) / alpha
+            };
+        }
+        SpaceComponents { components, alpha }.to_color(color_space)
+    }
+}
+
+#[test]
+fn test_interpolate_in_color_space() {
+    let red = Color::from_rgb_u8(255, 0, 0);
+    let cyan = Color::from_rgb_u8(0, 255, 255);
+    let white = Color::from_rgb_u8(255, 255, 255);
+
+    // The endpoints are the stop colors.
+    for space in [
+        GradientColorSpace::Srgb,
+        GradientColorSpace::Oklab,
+        GradientColorSpace::Oklch,
+        GradientColorSpace::Hsl,
+    ] {
+        assert_eq!(red.interpolate_in(cyan, 0., space), red, "{space}");
+        assert_eq!(red.interpolate_in(cyan, 1., space), cyan, "{space}");
+    }
+
+    // sRGB goes through gray, HSL keeps full saturation and goes through the hue wheel.
+    assert_eq!(
+        red.interpolate_in(cyan, 0.5, GradientColorSpace::Srgb).to_argb_u8(),
+        Color::from_rgb_u8(127, 127, 127).to_argb_u8()
+    );
+    let hsl_mid = red.interpolate_in(cyan, 0.5, GradientColorSpace::Hsl).to_argb_u8();
+    assert_eq!(
+        (
+            hsl_mid.red.max(hsl_mid.green).max(hsl_mid.blue),
+            hsl_mid.red.min(hsl_mid.green).min(hsl_mid.blue)
+        ),
+        (255, 0)
+    );
+
+    // The shorter hue arc from 350 to 10 degrees goes through 0, not 180.
+    let rose = Color::from_hsva(350., 1., 1., 1.);
+    let orange = Color::from_hsva(10., 1., 1., 1.);
+    assert_eq!(rose.interpolate_in(orange, 0.5, GradientColorSpace::Hsl), red);
+
+    // White has no hue, so the mix with red keeps red's hue (29°) instead of halving it.
+    let mid = white.interpolate_in(red, 0.5, GradientColorSpace::Oklch).to_oklch();
+    assert!((mid.hue - red.to_oklch().hue).abs() < 2., "{mid:?}");
+
+    // A transparent stop doesn't darken the mix: premultiplied alpha keeps the color.
+    let transparent_black = Color::from_argb_u8(0, 0, 0, 0);
+    for space in [GradientColorSpace::Oklab, GradientColorSpace::Srgb] {
+        let mid = transparent_black.interpolate_in(red, 0.5, space).to_argb_u8();
+        assert_eq!((mid.red, mid.green, mid.blue), (255, 0, 0), "{space}");
     }
 }
 

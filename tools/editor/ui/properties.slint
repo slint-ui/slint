@@ -47,6 +47,7 @@ export struct FillData {
     color: color,
     stops: [GradientStop],
     angle: float,
+    color-space: string,
     custom-center: bool,
     center-x: float,
     center-y: float,
@@ -233,7 +234,6 @@ export global Properties {
     pure callback fill-brush(value: FillData) -> brush;
     pure callback brush-fill(value: brush) -> FillData;
     pure callback fill-expression(value: FillData) -> string;
-    pure callback create-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> brush;
     callback dismiss-fill-picker(position: Point, button: PointerEventButton);
 
     // Gradient Geometry

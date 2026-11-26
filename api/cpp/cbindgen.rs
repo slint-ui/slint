@@ -755,9 +755,11 @@ fn gen_corelib(
         ),
         (
             vec!["Brush", "LinearGradient", "GradientStop", "RadialGradient", "ConicGradientBrush",
-                 "slint_conic_gradient_normalize_stops", "slint_conic_gradient_apply_rotation",
-                 "slint_brush_compare_equal", "RADIAL_GRADIENT_DEFAULT_RADIUS",
-                 "RADIAL_GRADIENT_SHAPE_CIRCLE", "RADIAL_GRADIENT_SHAPE_ELLIPSE"],
+                  "GradientColorSpace", "slint_conic_gradient_normalize_stops",
+                  "slint_conic_gradient_apply_rotation", "slint_brush_compare_equal",
+                  "RADIAL_GRADIENT_DEFAULT_RADIUS", "RADIAL_GRADIENT_SHAPE_CIRCLE",
+                  "RADIAL_GRADIENT_SHAPE_ELLIPSE", "LINEAR_GRADIENT_HEADER",
+                  "RADIAL_GRADIENT_HEADER", "CONIC_GRADIENT_HEADER"],
             "slint_brush_internal.h",
             "",
         ),
@@ -883,12 +885,16 @@ fn gen_corelib(
             // Handwritten in private/slint_color.h
             "Rgb565Pixel",
             "Gray8Pixel",
+            "GradientColorSpace",
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
             "slint_brush_compare_equal",
             "RADIAL_GRADIENT_DEFAULT_RADIUS",
             "RADIAL_GRADIENT_SHAPE_CIRCLE",
             "RADIAL_GRADIENT_SHAPE_ELLIPSE",
+            "LINEAR_GRADIENT_HEADER",
+            "RADIAL_GRADIENT_HEADER",
+            "CONIC_GRADIENT_HEADER",
             "PHYSICAL_REGION_MAX_SIZE",
         ]
         .into_iter()
@@ -927,6 +933,7 @@ fn gen_corelib(
             .with_src(crate_dir.join("graphics/image.rs"))
             .with_src(crate_dir.join("graphics/image/cache.rs"))
             .with_src(crate_dir.join("../common/pre_rendered.rs"))
+            .with_src(crate_dir.join("../common/gradient_color_space.rs"))
             .with_src(crate_dir.join("data_transfer/ffi.rs"))
             .with_src(crate_dir.join("animations.rs"))
             .with_src(crate_dir.join("input.rs"))

@@ -397,6 +397,11 @@ fn parse_template_string(p: &mut impl Parser) {
 /// @conic-gradient(red 0deg, green 120deg, blue 240deg, red 360deg)
 /// @conic-gradient(#fff 0turn, #000 0.5turn, #fff 1turn)
 /// @conic_gradient(red 0rad, blue 3.14159rad, red 6.28318rad)
+/// @linear-gradient(in oklch 0.25turn, #3f87a6, #ebf8e1, #f69d3c)
+/// @radial-gradient(in oklab circle, #e66465, blue 50%, #9198e5)
+/// @conic-gradient(in hsl from 90deg, #e66465 0deg, #9198e5 180deg, #e66465 360deg)
+/// @linear-gradient(-45deg in oklch, #3f87a6, #f69d3c)
+/// @radial-gradient(circle at 10px 20px in oklab, #e66465, #9198e5)
 /// ```
 fn parse_gradient(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::AtGradient);
@@ -407,11 +412,26 @@ fn parse_gradient(p: &mut impl Parser) {
     p.expect(SyntaxKind::LParent);
 
     while !p.test(SyntaxKind::RParent) {
-        if !parse_expression(&mut *p) {
+        if p.peek().as_str() == "in" {
+            parse_color_interpolation(&mut *p);
+        } else if !parse_expression(&mut *p) {
             return;
         }
         p.test(SyntaxKind::Comma);
     }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,ColorInterpolation
+/// in oklch
+/// in srgb
+/// ```
+fn parse_color_interpolation(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::ColorInterpolation);
+    debug_assert_eq!(p.peek().as_str(), "in");
+    p.expect(SyntaxKind::Identifier); // "in"
+    // A missing color space is reported during resolving, so the other diagnostics still show.
+    p.test(SyntaxKind::Identifier);
 }
 
 #[cfg_attr(test, parser_test)]

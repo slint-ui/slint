@@ -5,8 +5,8 @@ use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::element_type::{BuiltinElement, PropertyLookupMode};
 use crate::expression_types::{
-    EasingCurve, ImageReference, MinMaxOp, MouseCursorInner, OperatorClass, RadialGradientShape,
-    Unit, operator_class,
+    EasingCurve, GradientColorSpace, ImageReference, MinMaxOp, MouseCursorInner, OperatorClass,
+    RadialGradientShape, Unit, operator_class,
 };
 use crate::langtype::{ConstantExpression, EnumerationValue, Keys, Struct, Type};
 use crate::lookup::{LookupCtx, TypeSpecificLookup};
@@ -375,6 +375,8 @@ pub enum Expression {
 
     LinearGradient {
         angle: Box<Expression>,
+        /// The color space stops are interpolated in, corresponding to CSS's `in <space>`.
+        color_space: GradientColorSpace,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -385,6 +387,8 @@ pub enum Expression {
         center: Option<(Box<Expression>, Box<Expression>)>,
         /// Ending shape (`circle` or `ellipse`) with its optional explicit radii.
         shape: RadialGradientShape<Expression>,
+        /// The color space stops are interpolated in, corresponding to CSS's `in <space>`.
+        color_space: GradientColorSpace,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -395,6 +399,8 @@ pub enum Expression {
         /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
         /// `None` means use the element's bbox centre.
         center: Option<(Box<Expression>, Box<Expression>)>,
+        /// The color space stops are interpolated in, corresponding to CSS's `in <space>`.
+        color_space: GradientColorSpace,
         /// First expression in the tuple is a color, second expression is the stop angle
         stops: Vec<(Expression, Expression)>,
     },
@@ -738,14 +744,14 @@ impl Expression {
                 }
                 MouseCursorInner::BuiltIn(e) => visitor(e),
             },
-            Expression::LinearGradient { angle, stops } => {
+            Expression::LinearGradient { angle, color_space: _, stops } => {
                 visitor(angle);
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { center, shape, stops } => {
+            Expression::RadialGradient { center, shape, color_space: _, stops } => {
                 if let Some((cx, cy)) = center {
                     visitor(cx);
                     visitor(cy);
@@ -758,7 +764,7 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::ConicGradient { from_angle, center, stops } => {
+            Expression::ConicGradient { from_angle, center, color_space: _, stops } => {
                 visitor(from_angle);
                 if let Some((cx, cy)) = center {
                     visitor(cx);
@@ -888,14 +894,14 @@ impl Expression {
                 }
                 MouseCursorInner::BuiltIn(e) => visitor(e),
             },
-            Expression::LinearGradient { angle, stops } => {
+            Expression::LinearGradient { angle, color_space: _, stops } => {
                 visitor(angle);
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { center, shape, stops } => {
+            Expression::RadialGradient { center, shape, color_space: _, stops } => {
                 if let Some((cx, cy)) = center {
                     visitor(cx);
                     visitor(cy);
@@ -908,7 +914,7 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::ConicGradient { from_angle, center, stops } => {
+            Expression::ConicGradient { from_angle, center, color_space: _, stops } => {
                 visitor(from_angle);
                 if let Some((cx, cy)) = center {
                     visitor(cx);
@@ -1045,16 +1051,16 @@ impl Expression {
                     image.is_constant(ga) && hotspot_x.is_constant(ga) && hotspot_y.is_constant(ga)
                 }
             },
-            Expression::LinearGradient { angle, stops } => {
+            Expression::LinearGradient { angle, color_space: _, stops } => {
                 angle.is_constant(ga)
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
-            Expression::RadialGradient { center, shape, stops } => {
+            Expression::RadialGradient { center, shape, color_space: _, stops } => {
                 center.as_ref().is_none_or(|(cx, cy)| cx.is_constant(ga) && cy.is_constant(ga))
                     && shape.iter().all(|r| r.is_constant(ga))
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
-            Expression::ConicGradient { from_angle, center, stops } => {
+            Expression::ConicGradient { from_angle, center, color_space: _, stops } => {
                 from_angle.is_constant(ga)
                     && center
                         .as_ref()
@@ -2044,9 +2050,10 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::EmptyDataTransfer => write!(f, "{{ }}"),
         Expression::EasingCurve(e) => write!(f, "{e:?}"),
         Expression::MouseCursor(m) => write!(f, "{m:?}"),
-        Expression::LinearGradient { angle, stops } => {
+        Expression::LinearGradient { angle, color_space, stops } => {
             write!(f, "@linear-gradient(")?;
             pretty_print(f, angle)?;
+            write!(f, "{}", color_space.css_suffix())?;
             for (c, s) in stops {
                 write!(f, ", ")?;
                 pretty_print(f, c)?;
@@ -2055,17 +2062,18 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, ")")
         }
-        Expression::RadialGradient { center, shape, stops } => {
+        Expression::RadialGradient { center, shape, color_space, stops } => {
+            write!(f, "@radial-gradient(")?;
             match shape {
                 RadialGradientShape::Circle(r) => {
-                    write!(f, "@radial-gradient(circle")?;
+                    write!(f, "circle")?;
                     if let Some(r) = r {
                         write!(f, " ")?;
                         pretty_print(f, r)?;
                     }
                 }
                 RadialGradientShape::Ellipse(r) => {
-                    write!(f, "@radial-gradient(ellipse")?;
+                    write!(f, "ellipse")?;
                     if let Some((rx, ry)) = r {
                         write!(f, " ")?;
                         pretty_print(f, rx)?;
@@ -2080,6 +2088,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
                 write!(f, " ")?;
                 pretty_print(f, cy)?;
             }
+            write!(f, "{}", color_space.css_suffix())?;
             for (c, s) in stops {
                 write!(f, ", ")?;
                 pretty_print(f, c)?;
@@ -2088,8 +2097,9 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, ")")
         }
-        Expression::ConicGradient { from_angle, center, stops } => {
-            write!(f, "@conic-gradient(from ")?;
+        Expression::ConicGradient { from_angle, center, color_space, stops } => {
+            write!(f, "@conic-gradient(")?;
+            write!(f, "from ")?;
             pretty_print(f, from_angle)?;
             if let Some((cx, cy)) = center {
                 write!(f, " at ")?;
@@ -2097,6 +2107,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
                 write!(f, " ")?;
                 pretty_print(f, cy)?;
             }
+            write!(f, "{}", color_space.css_suffix())?;
             for (c, s) in stops {
                 write!(f, ", ")?;
                 pretty_print(f, c)?;
