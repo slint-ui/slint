@@ -1898,9 +1898,13 @@ impl WindowInner {
     /// Re-evaluates the position tracker for the popup with the given ID, re-subscribing to its
     /// property dependencies so subsequent changes continue to trigger notifications.
     fn update_popup_properties(&self, popup_id: NonZeroU32) {
-        let offset = {
-            let active_popups = self.active_popups.borrow();
-            let Some(popup) = active_popups.iter().find(|p| p.popup_id == popup_id) else { return };
+        // Everything is read under a shared borrow: finding where the parent is in the window
+        // looks at the active popups too.
+        let active_popups = self.active_popups.borrow();
+        let Some(popup) = active_popups.iter().find(|p| p.popup_id == popup_id) else { return };
+        // Where the popup asks to be, in the window. Read within the tracker, so a parent that
+        // moves (its layout, or its ancestors' layouts, changed) places the popup again too.
+        let anchor = || {
             if let Some(parent) = popup.parent_item.clone().upgrade() {
                 parent.map_to_native_window(
                     parent.geometry().origin + (popup.position_access)().to_euclid().to_vector(),
@@ -1909,12 +1913,12 @@ impl WindowInner {
                 LogicalPoint::zero()
             }
         };
-        let mut active_popups = self.active_popups.borrow_mut();
-        let Some(popup) = active_popups.iter_mut().find(|p| p.popup_id == popup_id) else { return };
-        match &mut popup.location {
+        match &popup.location {
             PopupWindowLocation::ChildWindow(old_location) => {
+                let old_location = *old_location;
                 let (old_popup_region, new_popup_region) =
                     popup.properties_tracker.as_ref().evaluate_as_dependency_root(|| {
+                        let offset = anchor();
                         let component = ItemTreeRc::borrow_pin(&popup.component);
                         let root_item = component.as_ref().get_item_ref(0);
                         let window_item =
@@ -1922,7 +1926,7 @@ impl WindowInner {
                                 .expect("Popup component is a Window item");
                         // Access the properties to set them as dependencies
                         let old_popup_region = LogicalRect::new(
-                            *old_location,
+                            old_location,
                             crate::lengths::LogicalSize::new(
                                 window_item.width().0,
                                 window_item.height().0,
@@ -1971,11 +1975,20 @@ impl WindowInner {
 
                         (old_popup_region, new_region_clipped)
                     });
-
-                self.window_adapter().request_redraw();
+                drop(active_popups);
 
                 // Set new location
-                *old_location = new_popup_region.origin;
+                if let Some(PopupWindowLocation::ChildWindow(location)) = self
+                    .active_popups
+                    .borrow_mut()
+                    .iter_mut()
+                    .find(|p| p.popup_id == popup_id)
+                    .map(|p| &mut p.location)
+                {
+                    *location = new_popup_region.origin;
+                }
+
+                self.window_adapter().request_redraw();
 
                 if let Some(adapter) = self.window_adapter_weak.upgrade() {
                     if !old_popup_region.is_empty() {
@@ -1992,8 +2005,7 @@ impl WindowInner {
                 // The size is already tracked in the windowadapter
                 let mut new_position: Option<LogicalPosition> = None;
                 popup.properties_tracker.as_ref().evaluate_as_dependency_root(|| {
-                    (popup.position_access)(); // Dummy access to track position changes
-                    new_position = Some(LogicalPosition::from_euclid(offset));
+                    new_position = Some(LogicalPosition::from_euclid(anchor()));
                 });
                 if let Some(pos) = new_position {
                     adapter.window().set_position(pos);
