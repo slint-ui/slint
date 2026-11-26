@@ -205,25 +205,15 @@ pub(crate) mod dependency_tracker {
             }
         }
 
-        pub fn for_each(&self, mut f: impl FnMut(&T)) {
-            unsafe {
-                let mut next = self.0.get();
-                while let Some(node) = next.as_ref() {
-                    node.debug_assert_valid();
-                    next = node.next.get();
-                    f(&node.binding);
-                }
-            }
-        }
-
         /// Returns the first node of the list, if any
         pub fn take_head(&self) -> Option<T>
         where
-            T: Copy,
+            T: DependencyBinding,
         {
             unsafe {
                 if let Some(node) = self.0.get().as_ref() {
                     node.debug_assert_valid();
+                    debug_assert!(!node.binding.is_null());
                     node.remove();
                     Some(node.binding)
                 } else {
@@ -233,8 +223,47 @@ pub(crate) mod dependency_tracker {
         }
     }
 
-    /// The node is owned by the binding; so the binding is always valid
-    /// The next and pref
+    pub trait DependencyBinding: Copy {
+        const NULL: Self;
+        fn is_null(self) -> bool;
+    }
+
+    impl<B> DependencyBinding for *const B {
+        const NULL: Self = core::ptr::null();
+        fn is_null(self) -> bool {
+            <*const B>::is_null(self)
+        }
+    }
+
+    impl<T: DependencyBinding> DependencyListHead<T> {
+        pub fn for_each(&self, mut f: impl FnMut(&T)) {
+            let cursor = core::pin::pin!(DependencyNode::new(T::NULL));
+            let cursor = cursor.into_ref();
+            self.append(cursor);
+            unsafe { Self::for_each_from_cursor(cursor, &mut f) };
+        }
+
+        /// Safety: `cursor` must be a pinned cursor node owned by this traversal and
+        /// already linked into the dependency list to traverse.
+        pub(super) unsafe fn for_each_from_cursor(
+            cursor: Pin<&DependencyNode<T>>,
+            mut f: impl FnMut(&T),
+        ) {
+            unsafe {
+                while let Some(node) = cursor.next.get().as_ref() {
+                    node.debug_assert_valid();
+                    let binding = node.binding;
+                    let after_node = &*(&raw const node.next as *const DependencyListHead<T>);
+                    after_node.append(cursor);
+                    if !binding.is_null() {
+                        f(&binding);
+                    }
+                }
+                cursor.remove();
+            }
+        }
+    }
+
     pub struct DependencyNode<T> {
         next: Cell<*const DependencyNode<T>>,
         /// This is either null, or a pointer to a pointer to ourself
@@ -862,20 +891,33 @@ impl Drop for PropertyHandle {
 unsafe fn mark_dependencies_dirty(dependencies: *mut DependencyListHead) {
     unsafe {
         debug_assert!(*(dependencies as *mut *mut ()) != const_sentinel());
-        DependencyListHead::for_each(&*dependencies, |binding| {
-            let binding: &BindingHolder = &**binding;
-            let was_dirty = binding.dirty.replace(true);
-            (binding.vtable.mark_dirty)(binding as *const BindingHolder, was_dirty);
+        DependencyListHead::for_each(&*dependencies, |binding| mark_binding_dirty(*binding));
+    }
+}
 
-            assert!(
-                binding.dependencies.get() != const_sentinel(),
-                "Const property marked as dirty"
-            );
+/// Safety: `binding` must point to a live `BindingHolder`
+unsafe fn mark_binding_dirty(binding: *const BindingHolder) {
+    unsafe {
+        let was_dirty = (*binding).dirty.replace(true);
+        let dependencies = (*binding).dependencies.as_ptr() as *mut DependencyListHead;
 
-            if !was_dirty {
-                mark_dependencies_dirty(binding.dependencies.as_ptr() as *mut DependencyListHead)
-            }
-        });
+        assert!(
+            *(dependencies as *mut *mut ()) != const_sentinel(),
+            "Const property marked as dirty"
+        );
+
+        let mark_dirty = (*binding).vtable.mark_dirty;
+        if !was_dirty && !(*dependencies).is_empty() {
+            let sub_cursor = core::pin::pin!(DependencyNode::new(core::ptr::null()));
+            let sub_cursor = sub_cursor.into_ref();
+            (&*dependencies).append(sub_cursor);
+            mark_dirty(binding, was_dirty);
+            DependencyListHead::for_each_from_cursor(sub_cursor, |binding| {
+                mark_binding_dirty(*binding)
+            });
+        } else {
+            mark_dirty(binding, was_dirty);
+        }
     }
 }
 
@@ -1652,6 +1694,171 @@ fn test_nested_property_tracker_evaluate_if_dirty() {
     assert!(inner_tracker.is_dirty());
     let r = outer_tracker.as_ref().evaluate(|| cache_or_evaluate());
     assert_eq!(r, 12);
+}
+
+#[test]
+fn test_dirty_handler_frees_next_dependency_node() {
+    use std::rc::Rc;
+
+    let prop1 = Rc::pin(Property::new(1));
+    let prop2 = Rc::pin(Property::new(10));
+    let dep = Rc::pin(Property::new(0));
+    dep.as_ref().set_binding({
+        let prop1 = prop1.clone();
+        let prop2 = prop2.clone();
+        move || prop1.as_ref().get() + prop2.as_ref().get()
+    });
+
+    // Register `dep` on `prop1` and `prop2` first, so its node sits after
+    // later dependents in `prop1`'s LIFO dependency list.
+    assert_eq!(dep.as_ref().get(), 11);
+
+    let dropped_tracker: Rc<RefCell<Option<Pin<Box<PropertyTracker<false, _>>>>>> =
+        Rc::new(RefCell::new(Some(Box::pin(PropertyTracker::new_with_dirty_handler(|| {
+            unreachable!("dropped tracker must not be notified");
+        })))));
+    dropped_tracker.borrow().as_ref().unwrap().as_ref().evaluate(|| prop1.as_ref().get());
+
+    let mid: Rc<RefCell<Option<Pin<Box<Property<i32>>>>>> =
+        Rc::new(RefCell::new(Some(Box::pin(Property::new(0)))));
+    mid.borrow().as_ref().unwrap().as_ref().set_binding({
+        let prop1 = prop1.clone();
+        move || prop1.as_ref().get() + 100
+    });
+
+    let surviving_mid_notified = Rc::new(Cell::new(false));
+    let surviving_mid_tracker = Box::pin(PropertyTracker::<false, _>::new_with_dirty_handler({
+        let surviving_mid_notified = surviving_mid_notified.clone();
+        move || {
+            surviving_mid_notified.set(true);
+        }
+    }));
+    assert_eq!(
+        surviving_mid_tracker.as_ref().evaluate(|| mid.borrow().as_ref().unwrap().as_ref().get()),
+        101
+    );
+
+    let observed = Rc::new(Cell::new(0));
+    let tracker = Box::pin(PropertyTracker::<false, _>::new_with_dirty_handler({
+        let dep = dep.clone();
+        let dropped_tracker = dropped_tracker.clone();
+        let mid = mid.clone();
+        let observed = observed.clone();
+        move || {
+            // Drop the intermediate property whose `mark_dependencies_dirty` frame is
+            // currently on the call stack (while `surviving_mid_tracker` is still queued
+            // after this tracker in `mid`'s dependency list), along with the next sibling
+            // tracker in `prop1`'s dependency list.
+            mid.borrow_mut().take();
+            dropped_tracker.borrow_mut().take();
+            // Re-evaluate `dep` while it is already dirty, freeing its old dependency
+            // nodes and registering a fresh node on `prop1`.
+            observed.set(dep.as_ref().get());
+        }
+    }));
+    assert_eq!(tracker.as_ref().evaluate(|| mid.borrow().as_ref().unwrap().as_ref().get()), 101);
+
+    // Mark `dep` dirty via `prop2` while leaving its node in `prop1`'s list.
+    prop2.as_ref().set(20);
+    assert!(dep.as_ref().is_dirty());
+
+    prop1.as_ref().set(2);
+    assert_eq!(observed.get(), 22);
+    assert!(surviving_mid_notified.get());
+    assert!(!dep.as_ref().is_dirty());
+}
+
+#[test]
+fn test_dirty_handler_mutates_source_property_state() {
+    use std::rc::Rc;
+
+    let source = Rc::pin(Property::new(1));
+    let survivor_notified = Rc::new(Cell::new(false));
+    let survivor = Box::pin(PropertyTracker::<false, _>::new_with_dirty_handler({
+        let survivor_notified = survivor_notified.clone();
+        move || survivor_notified.set(true)
+    }));
+    assert_eq!(survivor.as_ref().evaluate(|| source.as_ref().get()), 1);
+    let constant_setter = Box::pin(PropertyTracker::<false, _>::new_with_dirty_handler({
+        let source = source.clone();
+        move || source.as_ref().set_constant()
+    }));
+    assert_eq!(constant_setter.as_ref().evaluate(|| source.as_ref().get()), 1);
+    source.as_ref().set(2);
+    assert!(survivor_notified.get());
+
+    let source2 = Rc::pin(Property::new(1));
+    let survivor2_notified = Rc::new(Cell::new(0));
+    let survivor2 = Box::pin(PropertyTracker::<false, _>::new_with_dirty_handler({
+        let survivor2_notified = survivor2_notified.clone();
+        move || survivor2_notified.set(survivor2_notified.get() + 1)
+    }));
+    assert_eq!(survivor2.as_ref().evaluate(|| source2.as_ref().get()), 1);
+    let binding_setter = Box::pin(PropertyTracker::<false, _>::new_with_dirty_handler({
+        let source2 = source2.clone();
+        move || source2.as_ref().set_binding(|| 42)
+    }));
+    assert_eq!(binding_setter.as_ref().evaluate(|| source2.as_ref().get()), 1);
+    source2.as_ref().set(2);
+    assert_eq!(survivor2_notified.get(), 1);
+    assert_eq!(source2.as_ref().get(), 42);
+}
+
+#[test]
+fn test_dirty_handler_unwind_preserves_unvisited_dependents() {
+    use std::rc::Rc;
+
+    let panic_source = Rc::pin(Property::new(1));
+    let panic_dep = Rc::pin(Property::new(0));
+    panic_dep.as_ref().set_binding({
+        let panic_source = panic_source.clone();
+        move || panic_source.as_ref().get() + 10
+    });
+    assert_eq!(panic_dep.as_ref().get(), 11);
+    let panicking_tracker = Box::pin(PropertyTracker::<false, _>::new_with_dirty_handler(|| {
+        panic!("expected dirty handler panic");
+    }));
+    assert_eq!(panicking_tracker.as_ref().evaluate(|| panic_source.as_ref().get()), 1);
+    let unwind = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        panic_source.as_ref().set(2);
+    }));
+    assert!(unwind.is_err());
+    panic_source.as_ref().set(3);
+    assert_eq!(panic_dep.as_ref().get(), 13);
+}
+
+#[test]
+fn test_dirty_handler_self_drop_marks_downstream_dependents_dirty() {
+    use std::rc::Rc;
+
+    struct DropSelfHandler;
+    std::thread_local! {
+        static SELF_DROP_SLOT: RefCell<Option<Pin<Box<PropertyTracker<false, DropSelfHandler>>>>> =
+            const { RefCell::new(None) };
+    }
+    impl PropertyDirtyHandler for DropSelfHandler {
+        fn notify(self: Pin<&Self>) {
+            SELF_DROP_SLOT.with(|slot| {
+                slot.borrow_mut().take();
+            });
+        }
+    }
+    let self_drop_source = Rc::pin(Property::new(1));
+    let self_drop_tracker = Box::pin(
+        PropertyTracker::<false, DropSelfHandler>::new_with_dirty_handler(DropSelfHandler),
+    );
+    let outer_of_self_drop = Box::pin(<PropertyTracker>::default());
+    assert_eq!(
+        outer_of_self_drop
+            .as_ref()
+            .evaluate(|| self_drop_tracker.as_ref().evaluate(|| self_drop_source.as_ref().get())),
+        1
+    );
+    assert!(!outer_of_self_drop.as_ref().is_dirty());
+    SELF_DROP_SLOT.with(|slot| *slot.borrow_mut() = Some(self_drop_tracker));
+    self_drop_source.as_ref().set(2);
+    assert!(SELF_DROP_SLOT.with(|slot| slot.borrow().is_none()));
+    assert!(outer_of_self_drop.as_ref().is_dirty());
 }
 
 #[cfg(feature = "ffi")]

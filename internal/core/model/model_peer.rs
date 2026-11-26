@@ -162,6 +162,22 @@ pub trait ModelChangeListener {
     fn reset(self: Pin<&Self>);
 }
 
+impl crate::properties::dependency_tracker::DependencyBinding for *const dyn ModelChangeListener {
+    const NULL: Self = {
+        struct DummyModelChangeListener;
+        impl ModelChangeListener for DummyModelChangeListener {
+            fn row_changed(self: Pin<&Self>, _row: usize) {}
+            fn row_added(self: Pin<&Self>, _index: usize, _count: usize) {}
+            fn row_removed(self: Pin<&Self>, _index: usize, _count: usize) {}
+            fn reset(self: Pin<&Self>) {}
+        }
+        core::ptr::null::<DummyModelChangeListener>() as *const dyn ModelChangeListener
+    };
+    fn is_null(self) -> bool {
+        <*const dyn ModelChangeListener>::is_null(self)
+    }
+}
+
 #[pin_project(PinnedDrop)]
 #[derive(Default, derive_more::Deref)]
 /// This is a structure that contains a T which implements [`ModelChangeListener`]
@@ -242,5 +258,58 @@ impl<T: ModelChangeListener + 'static> Drop for ModelChangeListenerBox<T> {
         // Safety: we own the allocation and it was created by Box::new.
         // Box::from_raw runs PinnedDrop which calls peer.remove().
         unsafe { drop(Box::from_raw(self.ptr.as_ptr())) }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use core::cell::Cell;
+    use std::rc::Rc;
+
+    struct CallbackListener<F>(F);
+
+    impl<F: Fn(usize)> ModelChangeListener for CallbackListener<F> {
+        fn row_changed(self: Pin<&Self>, row: usize) {
+            (self.0)(row);
+        }
+        fn row_added(self: Pin<&Self>, _index: usize, _count: usize) {}
+        fn row_removed(self: Pin<&Self>, _index: usize, _count: usize) {}
+        fn reset(self: Pin<&Self>) {}
+    }
+
+    #[test]
+    fn test_model_notify_peer_drops_next_and_reenters() {
+        let notify = Rc::new(ModelNotify::default());
+
+        let survivor_rows = Rc::new(RefCell::new(std::vec::Vec::new()));
+        let survivor = ModelChangeListenerBox::new(CallbackListener({
+            let survivor_rows = survivor_rows.clone();
+            move |row| survivor_rows.borrow_mut().push(row)
+        }));
+        notify.attach_peer(survivor.as_ref().model_peer());
+
+        let dropped_peer =
+            Rc::new(RefCell::new(Some(ModelChangeListenerBox::new(CallbackListener(|_| {
+                unreachable!("dropped peer must not be notified")
+            })))));
+        notify.attach_peer(dropped_peer.borrow().as_ref().unwrap().as_ref().model_peer());
+
+        let reentered = Rc::new(Cell::new(false));
+        let trigger = ModelChangeListenerBox::new(CallbackListener({
+            let dropped_peer = dropped_peer.clone();
+            let notify = notify.clone();
+            let reentered = reentered.clone();
+            move |row| {
+                dropped_peer.borrow_mut().take();
+                if row == 1 && !reentered.replace(true) {
+                    notify.row_changed(2);
+                }
+            }
+        }));
+        notify.attach_peer(trigger.as_ref().model_peer());
+
+        notify.row_changed(1);
+        assert_eq!(*survivor_rows.borrow(), std::vec![2, 1]);
     }
 }
