@@ -29,7 +29,7 @@ export component InspectorTextContentSection inherits InspectorSection {
             source-value: Properties.source-property-value-data("text", {});
             default-value: Properties.editor-property-value-data("text").value-string;
             commit-key: InspectorContext.field-key("text");
-            expandable: true;
+            expandable: !InspectorContext.is-lineedit-selection();
             history-key(event) => { return root.history-key(event); }
         }
 

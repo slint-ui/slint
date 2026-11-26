@@ -6,13 +6,15 @@ from pathlib import Path
 import pytest
 import slint_testing
 from editor_sync import wait_for_source
-from inspector_interactions import edit_field, wait_for_field
+from inspector_interactions import edit_field, inspector_field, wait_for_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once
 from ui_driver import (
     element,
+    elements,
     first_window,
     launch_editor,
+    press_keys,
     press_shortcut,
     select_outline_row,
 )
@@ -68,3 +70,32 @@ def test_input_type_writes_exact_source(
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline, relative_path=INPUT_TYPE_SOURCE)
         wait_for_field(window, "Input Type", label, role)
+
+
+def test_line_edit_text_is_single_line_without_expand_button(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INPUT_TYPE_SOURCE
+    baseline = source_file.read_bytes()
+    expected = replace_once(baseline, b'text: "Default";', b'text: "Changed";')
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, baseline)
+        window = first_window(editor)
+        select_outline_row(window, "default-line-edit")
+        element(window, "Selected LineEdit", role=slint_testing.AccessibleRole.Region)
+        role = slint_testing.AccessibleRole.TextInput
+        wait_for_field(window, "Text content", "Default", role)
+        assert not elements(
+            window, "Edit text", role=slint_testing.AccessibleRole.Button
+        )
+        field = inspector_field(window, "Text content", role)
+        field.single_click(slint_testing.PointerEventButton.Left)
+        press_shortcut(window, keys.Control, "a")
+        press_keys(window, "Changed")
+        press_keys(window, keys.Return)
+        snapshot.wait_for_applied(expected, relative_path=INPUT_TYPE_SOURCE)
+        wait_for_field(window, "Text content", "Changed", role)
