@@ -744,9 +744,9 @@ pub mod winit_030 {
     pub type WinitWindowEventResult = EventResult;
 }
 
-#[cfg(feature = "unstable-fontique-012")]
-pub mod fontique_012 {
-    //! Fontique 0.12 specific types and re-exports.
+#[cfg(feature = "unstable-fontique-013")]
+pub mod fontique_013 {
+    //! Fontique 0.13 specific types and re-exports.
     //!
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major Fontique releases become available.
@@ -768,18 +768,18 @@ pub mod fontique_012 {
     ///
     /// `Cargo.toml`:
     /// ```toml
-    /// slint = { version = "~1.20", features = ["unstable-fontique-012"] }
+    /// slint = { version = "~1.20", features = ["unstable-fontique-013"] }
     /// ```
     ///
     /// `main.rs`:
     /// ```rust,no_run
-    /// use slint::fontique_012::fontique;
+    /// use slint::fontique_013::fontique;
     ///
     /// fn main() {
     ///     // ...
     ///     let downloaded_font: Vec<u8> = todo!("Download https://somewebsite.com/font.ttf");
     ///     let blob = fontique::Blob::new(std::sync::Arc::new(downloaded_font));
-    ///     let mut collection = slint::fontique_012::shared_collection();
+    ///     let mut collection = slint::fontique_013::shared_collection();
     ///     let fonts = collection.register_fonts(blob, None);
     ///     collection
     ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_bytes(*b"Hira"), None), fonts.iter().map(|x| x.0));
@@ -810,7 +810,7 @@ pub mod fontique_012 {
     /// For example, to make a font bundled with your application the default font:
     ///
     /// ```rust,no_run
-    /// use slint::fontique_012::fontique;
+    /// use slint::fontique_013::fontique;
     ///
     /// let mut collection = fontique::Collection::new(fontique::CollectionOptions {
     ///     system_fonts: false,
@@ -823,7 +823,7 @@ pub mod fontique_012 {
     ///     fontique::GenericFamily::SansSerif,
     ///     fonts.iter().map(|(family_id, _)| *family_id),
     /// );
-    /// slint::fontique_012::set_shared_collection(collection)?;
+    /// slint::fontique_013::set_shared_collection(collection)?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn set_shared_collection(

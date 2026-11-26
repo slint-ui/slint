@@ -62,6 +62,18 @@ fn rc_test() {
     assert_eq!(rc.e, 55);
     drop(rc);
     assert_eq!(Rc::strong_count(&string), 1);
+
+    let rc = VRc::new_with(|| SomeStruct { e: 56, x: "_".into(), foo: string.clone() });
+    assert_eq!(rc.e, 56);
+    assert_eq!(VRc::strong_count(&rc), 1);
+    assert!(Rc::ptr_eq(&string, &VRc::borrow(&rc).rc_string()));
+    let w = VRc::downgrade(&rc);
+    assert!(VRc::ptr_eq(&rc, &w.upgrade().unwrap()));
+    let dyn_rc: VRc<FooVTable> = VRc::into_dyn(rc);
+    assert!(Rc::ptr_eq(&string, &VRc::borrow(&dyn_rc).rc_string()));
+    drop(dyn_rc);
+    assert_eq!(Rc::strong_count(&string), 1);
+    assert!(w.upgrade().is_none());
 }
 
 #[test]
@@ -313,4 +325,28 @@ fn ptr_eq() {
     assert!(!vtable::VWeak::ptr_eq(&vweak2clone, &vweak1clone));
     assert!(!vtable::VWeak::ptr_eq(&vweak2, &vweak1));
     assert!(!vtable::VWeak::ptr_eq(&vweak2, &vweak1clone));
+}
+
+/// Smaller than a `Layout`, and with a lower alignment.
+struct SmallStruct {
+    x: u32,
+}
+impl Foo for SmallStruct {
+    fn rc_string(&self) -> Rc<String> {
+        Rc::new(self.x.to_string())
+    }
+}
+
+FooVTable_static!(static SMALL_STRUCT_TYPE for SmallStruct);
+
+#[test]
+fn rc_small_type() {
+    let rc = VRc::new(SmallStruct { x: 42 });
+    assert_eq!(*VRc::borrow(&rc).rc_string(), "42");
+    drop(rc);
+
+    let rc = VRc::into_dyn(VRc::new(SmallStruct { x: 43 }));
+    let weak = VRc::downgrade(&rc);
+    drop(rc);
+    assert!(weak.upgrade().is_none());
 }

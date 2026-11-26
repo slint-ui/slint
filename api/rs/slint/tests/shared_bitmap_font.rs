@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use i_slint_core::shared_pointer::SharedPtr;
 use std::rc::Rc;
 
 use i_slint_core::graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, OwnedStorage};
@@ -80,8 +81,12 @@ const fn static_font(family_name: &'static [u8], sdf: bool) -> BitmapFont {
 static STATIC_FONT: BitmapFont = static_font(b"Static", false);
 static STATIC_SDF_FONT: BitmapFont = static_font(b"StaticSdf", true);
 
-fn shared_font(family_name: &str, glyph_data: [u8; 4], sdf: bool) -> Rc<BitmapFont<OwnedStorage>> {
-    Rc::new(BitmapFont::<OwnedStorage> {
+fn shared_font(
+    family_name: &str,
+    glyph_data: [u8; 4],
+    sdf: bool,
+) -> SharedPtr<BitmapFont<OwnedStorage>> {
+    SharedPtr::new(BitmapFont::<OwnedStorage> {
         family_name: family_name.as_bytes().to_vec(),
         character_map: vec!['A'],
         units_per_em: 4.,

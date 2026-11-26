@@ -188,13 +188,14 @@ For running callbacks when property values actually change:
 ```rust
 let change = ChangeTracker::default();
 change.init(
+    ctx.change_handler_queue(),     // Queue of the component's SlintContext
     data,                           // User data passed to callbacks
     |data| property.get(),          // Eval function (reads property)
     |data, new_value| { ... },      // Notify function (called on change)
 );
 
-// Later, process all pending changes:
-ChangeTracker::run_change_handlers();
+// Later, the event loop processes all pending changes:
+ctx.run_change_handlers();
 ```
 
 **Key difference from PropertyTracker:**

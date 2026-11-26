@@ -7,6 +7,8 @@ if(NOT BOARD)
     message(FATAL_ERROR "No BOARD option specified")
 endif()
 
+set(SLINT_HOME_AUTOMATION_UI "demo-sw-renderer")
+
 if(BOARD STREQUAL "native_sim/native/64")
     set(Rust_CARGO_TARGET "x86_64-unknown-linux-gnu")
     set(SLINT_LIBRARY_CARGO_FLAGS "-Zbuild-std=core,alloc")
@@ -21,6 +23,12 @@ elseif(BOARD STREQUAL "rza3m_ek")
     # The panel is mounted in portrait orientation, so the software renderer turns the user
     # interface by a quarter. See SLINT_ZEPHYR_PANEL_ROTATION in slint-zephyr.cpp.
     set(SLINT_ZEPHYR_PANEL_ROTATION 90)
+elseif(BOARD STREQUAL "frdm_mcxn947/mcxn947/cpu0")
+    set(Rust_CARGO_TARGET "thumbv8m.main-none-eabihf")
+    set(BOARD_CONF_NAME "frdm_mcxn947_mcxn947_cpu0")
+    # main-480x320.slint lays out 960x640 logical pixels for the 480x320 panel.
+    set(SLINT_HOME_AUTOMATION_UI "main-480x320")
+    set(SLINT_ZEPHYR_SCALE_FACTOR 0.5)
 else()
     # See rustc --print target-list for available targets. Match that up with you supported board
     # https://docs.zephyrproject.org/latest/boards
@@ -51,8 +59,10 @@ set(SLINT_FEATURE_SDF_FONTS ON CACHE BOOL "" FORCE)
 set(DEFAULT_SLINT_EMBED_RESOURCES "embed-for-software-renderer-with-sdf" CACHE STRING "")
 set(BUILD_SHARED_LIBS OFF)
 
-# Work around gcc_s linker issue?
-set(Rust_CARGO_TARGET_LINK_NATIVE_LIBS "" CACHE INTERNAL "" FORCE)
+# Zephyr links native_sim partially, which can't take the shared libgcc_s that rustc asks for.
+if(CONFIG_ARCH_POSIX)
+    set(Rust_CARGO_TARGET_LINK_NATIVE_LIBS "" CACHE INTERNAL "" FORCE)
+endif()
 
 # TODO: FetchContent?
 add_subdirectory(../../.. slint_build)
@@ -73,4 +83,13 @@ if(DEFINED SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN)
         SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN=${SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN})
 endif()
 
-slint_target_sources(app ../ui/demo-sw-renderer.slint EDITION 1.20)
+slint_target_sources(app ../ui/${SLINT_HOME_AUTOMATION_UI}.slint EDITION 1.20)
+target_compile_definitions(app PRIVATE
+    SLINT_HOME_AUTOMATION_UI_HEADER="${SLINT_HOME_AUTOMATION_UI}.h")
+
+if(DEFINED SLINT_ZEPHYR_SCALE_FACTOR)
+    target_compile_definitions(app PRIVATE
+        SLINT_ZEPHYR_SCALE_FACTOR=${SLINT_ZEPHYR_SCALE_FACTOR}f)
+    # The Slint compiler scales the embedded images down by the same factor.
+    set_target_properties(app PROPERTIES SLINT_SCALE_FACTOR ${SLINT_ZEPHYR_SCALE_FACTOR})
+endif()

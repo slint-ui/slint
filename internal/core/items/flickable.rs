@@ -137,6 +137,7 @@ impl Item for Flickable {
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
         self.data.inner.borrow_mut().item = self_rc.downgrade();
         self.data.in_bound_change_handler.init_delayed(
+            self_rc.slint_context().change_handler_queue(),
             self_rc.downgrade(),
             // Binding that returns if the Flickable is out of bounds:
             |self_weak| {
@@ -171,6 +172,7 @@ impl Item for Flickable {
             },
         );
         self.data.limit_change_handler.init_delayed(
+            self_rc.slint_context().change_handler_queue(),
             self_rc.downgrade(),
             |self_weak| {
                 let Some(flick_rc) = self_weak.upgrade() else { return (0., 0.) };

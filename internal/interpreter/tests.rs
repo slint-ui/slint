@@ -1293,3 +1293,57 @@ export component App inherits Window { Label { font-family: "01 Digitall"; } }
             .is_some()
     );
 }
+
+#[test]
+#[cfg(feature = "internal")]
+fn change_handlers_run_on_their_context() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, Value};
+
+    let code = r#"
+        global Glob {
+            in-out property <int> value: 1;
+            out property <int> changes;
+            changed value => { changes += 1; }
+        }
+        export component TestCase inherits Window {
+            in property <int> value: 1;
+            out property <int> changes;
+            changed value => { changes += 1; }
+            in-out property <int> global-value <=> Glob.value;
+            out property <int> global-changes: Glob.changes;
+        }
+    "#;
+    let result = i_slint_compiler::poll_ready(
+        Compiler::default().build_from_source(code.into(), Default::default()),
+    );
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let new_context = || {
+        i_slint_core::SlintContext::new(Box::new(i_slint_backend_testing::TestingBackend::new(
+            Default::default(),
+        )))
+    };
+    // The handlers must not run on the current context, so `ctx` must be another one.
+    let current = i_slint_core::SlintContext::current().unwrap_or_else(new_context);
+    let ctx = new_context();
+    let instance = definition.create_with_context(ctx.clone()).unwrap();
+
+    instance.set_property("value", Value::from(5)).unwrap();
+    instance.set_property("global-value", Value::from(5)).unwrap();
+    current.run_change_handlers();
+    assert_eq!(instance.get_property("changes").unwrap(), Value::from(0));
+    assert_eq!(instance.get_property("global-changes").unwrap(), Value::from(0));
+
+    ctx.update_timers_and_animations();
+    assert_eq!(instance.get_property("changes").unwrap(), Value::from(1));
+    assert_eq!(instance.get_property("global-changes").unwrap(), Value::from(1));
+
+    // Driving a context also runs the handlers of the contexts sharing its platform.
+    let sibling = definition.create_with_context(ctx.new_sharing_platform()).unwrap();
+    sibling.set_property("value", Value::from(5)).unwrap();
+    sibling.set_property("global-value", Value::from(5)).unwrap();
+    ctx.update_timers_and_animations();
+    assert_eq!(sibling.get_property("changes").unwrap(), Value::from(1));
+    assert_eq!(sibling.get_property("global-changes").unwrap(), Value::from(1));
+}

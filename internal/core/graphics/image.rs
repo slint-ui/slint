@@ -501,7 +501,6 @@ impl ImageCacheKey {
             ImageInner::Svg(parsed_svg) => parsed_svg.cache_key().clone(),
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             ImageInner::HTMLImage(htmlimage) => Self::URL(htmlimage.source().into()),
-            ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).cache_key(),
             ImageInner::BorrowedOpenGLTexture(..) => return None,
             ImageInner::NineSlice(nine) => vtable::VRc::borrow(nine).cache_key(),
             #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
@@ -590,14 +589,13 @@ pub enum ImageInner {
     Svg(vtable::VRc<OpaqueImageVTable, svg::ParsedSVG>) = 2,
     #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     HTMLImage(vtable::VRc<OpaqueImageVTable, htmlimage::HTMLImage>) = 4,
-    BackendStorage(vtable::VRc<OpaqueImageVTable>) = 5,
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
     NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
     #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
     WGPUTexture(vtable::VRc<OpaqueImageVTable, WGPUTexture>) = 8,
     AnimatedImage(vtable::VRc<OpaqueImageVTable, AnimatedImage>) = 9,
     #[cfg(feature = "owned-pre-rendered-resources")]
-    OwnedTextures(alloc::rc::Rc<StaticTextures<OwnedStorage>>) = 10,
+    OwnedTextures(alloc::sync::Arc<StaticTextures<OwnedStorage>>) = 10,
     StaticTextures(&'static StaticTextures<StaticStorage>) = 11,
 }
 
@@ -717,7 +715,6 @@ impl ImageInner {
             ImageInner::Svg(svg) => svg.size(),
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             ImageInner::HTMLImage(htmlimage) => htmlimage.size().unwrap_or_default(),
-            ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).size(),
             ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { size, .. }) => *size,
             ImageInner::NineSlice(nine) => nine.0.size(),
             #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
@@ -866,10 +863,9 @@ impl PartialEq for ImageInner {
             (Self::Svg(l0), Self::Svg(r0)) => vtable::VRc::ptr_eq(l0, r0),
             (Self::StaticTextures(l0), Self::StaticTextures(r0)) => core::ptr::eq(*l0, *r0),
             #[cfg(feature = "owned-pre-rendered-resources")]
-            (Self::OwnedTextures(l0), Self::OwnedTextures(r0)) => alloc::rc::Rc::ptr_eq(l0, r0),
+            (Self::OwnedTextures(l0), Self::OwnedTextures(r0)) => alloc::sync::Arc::ptr_eq(l0, r0),
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             (Self::HTMLImage(l0), Self::HTMLImage(r0)) => vtable::VRc::ptr_eq(l0, r0),
-            (Self::BackendStorage(l0), Self::BackendStorage(r0)) => vtable::VRc::ptr_eq(l0, r0),
             (Self::BorrowedOpenGLTexture(l0), Self::BorrowedOpenGLTexture(r0)) => l0 == r0,
             (Self::NineSlice(l), Self::NineSlice(r)) => l.0 == r.0 && l.1 == r.1,
             (Self::AnimatedImage(l), Self::AnimatedImage(r)) => **l == **r,
@@ -1015,10 +1011,8 @@ impl Image {
     ///
     /// This function always fails on the web, where there is no file system.
     pub fn load_from_path(path: &std::path::Path) -> Result<Self, LoadImageError> {
-        self::cache::IMAGE_CACHE.with(|global_cache| {
-            let path: SharedString = path.to_str().ok_or(LoadImageError(()))?.into();
-            global_cache.borrow_mut().load_image_from_path(&path).ok_or(LoadImageError(()))
-        })
+        let path: SharedString = path.to_str().ok_or(LoadImageError(()))?.into();
+        self::cache::load_image_from_path(&path).ok_or(LoadImageError(()))
     }
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has three color
@@ -1372,12 +1366,7 @@ pub fn load_image_from_data_uri(
         not(feature = "image-decoders")
     ))]
     {
-        self::cache::IMAGE_CACHE.with(|global_cache| {
-            global_cache
-                .borrow_mut()
-                .load_image_from_data_uri(uri, bytes, format)
-                .ok_or(LoadImageError(()))
-        })
+        self::cache::load_image_from_data_uri(uri, bytes, format).ok_or(LoadImageError(()))
     }
     // Native decoding is synchronous; don't fill the cache with one-shot images.
     #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten", feature = "image-decoders"))]
@@ -1506,9 +1495,7 @@ impl BorrowedOpenGLTextureBuilder {
 /// This is called by the interpreter and the generated code.
 #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std"))]
 pub fn load_as_html_image(url: &str) -> Result<Image, LoadImageError> {
-    self::cache::IMAGE_CACHE.with(|global_cache| {
-        global_cache.borrow_mut().load_as_html_image(url).ok_or(LoadImageError(()))
-    })
+    self::cache::load_as_html_image(url).ok_or(LoadImageError(()))
 }
 
 /// Load an image from an image embedded in the binary.
@@ -1518,9 +1505,7 @@ pub fn load_as_html_image(url: &str) -> Result<Image, LoadImageError> {
     all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
 ))]
 pub fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'_, u8>) -> Image {
-    self::cache::IMAGE_CACHE.with(|global_cache| {
-        global_cache.borrow_mut().load_image_from_embedded_data(data, format).unwrap_or_default()
-    })
+    self::cache::load_image_from_embedded_data(data, format).unwrap_or_default()
 }
 
 #[test]
@@ -1849,6 +1834,32 @@ pub fn scalable_render_size(
         (source.height * fit.source_to_target_y) as u32,
     );
     (!size.is_empty()).then_some(size)
+}
+
+/// The largest size with the aspect ratio of `source_size` that fits into `target`,
+/// which is the size a scalable image (an SVG) is rasterized at for a `target` render size.
+/// The renderer then stretches the result to `target` as `image-fit` requires.
+///
+/// The side that limits the scale is exactly that of `target`, the other one is rounded up,
+/// matching how `tiny_skia::IntSize::scale_to` scales.
+/// Returns `target` when `source_size` has no area.
+pub fn aspect_preserving_render_size(
+    source_size: IntSize,
+    target: euclid::Size2D<u32, PhysicalPx>,
+) -> euclid::Size2D<u32, PhysicalPx> {
+    if source_size.is_empty() {
+        return target;
+    }
+    let source = source_size.cast::<f32>();
+    let width_for_target_height =
+        (target.height as f32 * source.width / source.height).ceil() as u32;
+    if width_for_target_height < target.width {
+        euclid::size2(width_for_target_height, target.height)
+    } else {
+        let height_for_target_width =
+            (target.width as f32 * source.height / source.width).ceil() as u32;
+        euclid::size2(target.width, height_for_target_width)
+    }
 }
 
 /// The pixel size to rasterize a scalable image (an SVG) at when a transform, such as `transform-scale`, magnifies it by `transform_scale`.

@@ -3521,7 +3521,6 @@ dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
  "chrono",
- "clru",
  "const-field-offset",
  "derive_more",
  "euclid",
@@ -3664,9 +3663,6 @@ dependencies = [
 [[package]]
 name = "i-slint-parser-test-macro"
 version = "1.20.0"
-dependencies = [
- "quote",
-]
 
 [[package]]
 name = "i-slint-renderer-anyrender"
@@ -3727,7 +3723,6 @@ dependencies = [
  "pin-weak",
  "raw-window-handle",
  "read-fonts 0.46.0",
- "scoped-tls-hkt",
  "skia-safe",
  "slint",
  "softbuffer",
@@ -9082,7 +9077,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vtable"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "const-field-offset",
  "portable-atomic",
@@ -9092,7 +9087,7 @@ dependencies = [
 
 [[package]]
 name = "vtable-macro"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "proc-macro2",
  "quote",

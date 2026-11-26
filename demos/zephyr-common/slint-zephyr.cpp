@@ -162,6 +162,11 @@ using namespace std::chrono_literals;
 
 using RepaintBufferType = slint::platform::SoftwareRenderer::RepaintBufferType;
 
+// Boards with a small panel set this below 1.0 to show a larger logical user interface on it.
+#ifndef SLINT_ZEPHYR_SCALE_FACTOR
+#    define SLINT_ZEPHYR_SCALE_FACTOR 1.0f
+#endif
+
 K_SEM_DEFINE(SLINT_SEM, 0, 1);
 
 class ZephyrPlatform : public slint::platform::Platform
@@ -210,21 +215,37 @@ private:
     const bool m_needs_byte_swap;
 
     bool m_needs_redraw = true;
+#ifdef CONFIG_SHIELD_LCD_PAR_S035
+    slint::platform::Rgb565Pixel *m_buffer;
+#else
     std::vector<slint::platform::Rgb565Pixel> m_buffer;
+#endif
     display_buffer_descriptor m_buffer_descriptor;
 };
 
 static ZephyrWindowAdapter *ZEPHYR_WINDOW = nullptr;
+
+// The LCD-PAR-S035 renders line by line: its board has 320 KB of SRAM.
+#ifdef CONFIG_SHIELD_LCD_PAR_S035
+static constexpr std::size_t RENDER_BUFFER_WIDTH = 480;
+static constexpr std::size_t RENDER_BUFFER_HEIGHT = 1;
+alignas(8) static slint::platform::Rgb565Pixel
+        render_buffer[RENDER_BUFFER_WIDTH * RENDER_BUFFER_HEIGHT];
+#endif
 
 std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device *display)
 {
     display_capabilities capabilities;
     display_get_capabilities(display, &capabilities);
 
+#ifdef CONFIG_SHIELD_LCD_PAR_S035
+    RepaintBufferType bufferType = RepaintBufferType::NewBuffer;
+#else
     // TODO: Double buffer
     RepaintBufferType bufferType = RepaintBufferType::ReusedBuffer;
     // if (capabilities.screen_info & SCREEN_INFO_DOUBLE_BUFFER)
     //     bufferType = RepaintBufferType::SwappedBuffers;
+#endif
 
     LOG_INF("Screen size: %u x %u", capabilities.x_resolution, capabilities.y_resolution);
     LOG_INF("Double buffering: %d", (capabilities.screen_info & SCREEN_INFO_DOUBLE_BUFFER));
@@ -320,11 +341,17 @@ ZephyrWindowAdapter::ZephyrWindowAdapter(const device *display, RepaintBufferTyp
       m_buffer_size(rotation.buffer_size()),
       m_needs_byte_swap(needs_byte_swap)
 {
+#ifdef CONFIG_SHIELD_LCD_PAR_S035
+    m_buffer = render_buffer;
+    m_buffer_descriptor.buf_size = sizeof(render_buffer);
+    m_buffer_descriptor.width = m_buffer_size.width;
+    m_buffer_descriptor.height = RENDER_BUFFER_HEIGHT;
+#else
     m_buffer.resize(m_buffer_size.width * m_buffer_size.height);
-
     m_buffer_descriptor.buf_size = sizeof(m_buffer[0]) * m_buffer.size();
     m_buffer_descriptor.width = m_buffer_size.width;
     m_buffer_descriptor.height = m_buffer_size.height;
+#endif
     m_buffer_descriptor.pitch = m_buffer_size.width;
 
     m_renderer.set_rendering_rotation(m_rotation.rendering);
@@ -350,6 +377,29 @@ void ZephyrWindowAdapter::maybe_redraw()
     if (!std::exchange(m_needs_redraw, false))
         return;
 
+#ifdef CONFIG_SHIELD_LCD_PAR_S035
+    display_buffer_descriptor line_desc {};
+    line_desc.pitch = m_buffer_size.width;
+
+    m_renderer.render_by_line<slint::platform::Rgb565Pixel>(
+            [this, &line_desc](size_t line_y, size_t first_x, size_t last_x, auto render_fn) {
+                size_t width = last_x - first_x;
+                render_fn(std::span<slint::platform::Rgb565Pixel>(m_buffer, width));
+
+                if (m_needs_byte_swap) {
+                    for (size_t x = 0; x < width; x++) {
+                        auto px = reinterpret_cast<uint16_t *>(&m_buffer[x]);
+                        *px = (*px << 8) | (*px >> 8);
+                    }
+                }
+
+                line_desc.width = width;
+                line_desc.height = 1;
+                line_desc.buf_size = width * sizeof(slint::platform::Rgb565Pixel);
+
+                display_write(m_display, first_x, line_y, &line_desc, m_buffer);
+            });
+#else
     auto start = k_uptime_get();
     auto region = m_renderer.render(m_buffer, m_buffer_size.width);
     const auto slintRenderDelta = k_uptime_delta(&start);
@@ -366,7 +416,7 @@ void ZephyrWindowAdapter::maybe_redraw()
                     s.height);
         }
 
-#ifndef CONFIG_MCUX_ELCDIF_PXP
+#    ifndef CONFIG_MCUX_ELCDIF_PXP
         m_buffer_descriptor.width = s.width;
         m_buffer_descriptor.height = s.height;
 
@@ -376,10 +426,10 @@ void ZephyrWindowAdapter::maybe_redraw()
             LOG_WRN("display_write returned non-zero: %d", ret);
         }
         LOG_DBG("   - rendered x: %d y: %d w: %d h: %d", o.x, o.y, s.width, s.height);
-#endif
+#    endif
     }
 
-#ifdef CONFIG_MCUX_ELCDIF_PXP
+#    ifdef CONFIG_MCUX_ELCDIF_PXP
     // The display driver cannot do partial updates when the PXP is using the DMA API.
     if (const auto ret =
                 display_write(m_display, 0, 0, &m_buffer_descriptor, m_buffer.data()) != 0) {
@@ -387,11 +437,12 @@ void ZephyrWindowAdapter::maybe_redraw()
     }
     LOG_DBG("   - rendered x: 0 y: 0 w: %d h: %d", m_buffer_descriptor.width,
             m_buffer_descriptor.height);
-#endif
+#    endif
 
     const auto displayWriteDelta = k_uptime_delta(&start);
     LOG_DBG(" - total: %lld ms, slint: %lld ms, write: %lld ms",
             slintRenderDelta + displayWriteDelta, slintRenderDelta, displayWriteDelta);
+#endif
 }
 
 slint::LogicalPosition
@@ -427,6 +478,17 @@ std::chrono::milliseconds ZephyrPlatform::duration_since_start()
 void ZephyrPlatform::run_event_loop()
 {
     LOG_DBG("Start");
+
+    if (m_window && SLINT_ZEPHYR_SCALE_FACTOR != 1.0f) {
+        const auto physical = m_window->size();
+        m_window->window().dispatch_scale_factor_change_event(SLINT_ZEPHYR_SCALE_FACTOR);
+        m_window->window().dispatch_resize_event(
+                slint::LogicalSize({ physical.width / SLINT_ZEPHYR_SCALE_FACTOR,
+                                     physical.height / SLINT_ZEPHYR_SCALE_FACTOR }));
+        LOG_INF("Scale factor: %f, logical size: %f x %f", (double)SLINT_ZEPHYR_SCALE_FACTOR,
+                (double)(physical.width / SLINT_ZEPHYR_SCALE_FACTOR),
+                (double)(physical.height / SLINT_ZEPHYR_SCALE_FACTOR));
+    }
 
     while (true) {
         LOG_DBG("Loop");
@@ -502,6 +564,12 @@ void ZephyrPlatform::run_in_event_loop(Task event)
     k_sem_give(&SLINT_SEM);
 }
 
+static slint::LogicalPosition to_logical(slint::LogicalPosition p)
+{
+    return slint::LogicalPosition(
+            { p.x / SLINT_ZEPHYR_SCALE_FACTOR, p.y / SLINT_ZEPHYR_SCALE_FACTOR });
+}
+
 void zephyr_process_input_event(struct input_event *event, void *user_data)
 {
     ARG_UNUSED(user_data);
@@ -540,7 +608,7 @@ void zephyr_process_input_event(struct input_event *event, void *user_data)
             slint::invoke_from_event_loop([=, button = button.value()] {
                 __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
                 // Transform the panel position to the logical coordinate
-                const auto slintPos = ZEPHYR_WINDOW->map_touch_position(pos);
+                const auto slintPos = to_logical(ZEPHYR_WINDOW->map_touch_position(pos));
                 ZEPHYR_WINDOW->window().dispatch_pointer_move_event(slintPos);
                 ZEPHYR_WINDOW->window().dispatch_pointer_press_event(slintPos, button);
             });
@@ -549,7 +617,7 @@ void zephyr_process_input_event(struct input_event *event, void *user_data)
             slint::invoke_from_event_loop([=] {
                 __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
                 // Transform the panel position to the logical coordinate
-                const auto slintPos = ZEPHYR_WINDOW->map_touch_position(pos);
+                const auto slintPos = to_logical(ZEPHYR_WINDOW->map_touch_position(pos));
                 ZEPHYR_WINDOW->window().dispatch_pointer_move_event(slintPos);
             });
         } else {
@@ -557,7 +625,7 @@ void zephyr_process_input_event(struct input_event *event, void *user_data)
             slint::invoke_from_event_loop([=, button = button.value()] {
                 __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
                 // Transform the panel position to the logical coordinate
-                const auto slintPos = ZEPHYR_WINDOW->map_touch_position(pos);
+                const auto slintPos = to_logical(ZEPHYR_WINDOW->map_touch_position(pos));
                 ZEPHYR_WINDOW->window().dispatch_pointer_release_event(slintPos, button);
                 ZEPHYR_WINDOW->window().dispatch_pointer_exit_event();
             });

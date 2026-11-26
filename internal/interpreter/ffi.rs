@@ -821,6 +821,15 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_set_style(
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_interpreter_component_compiler_set_edition(
+    compiler: &mut ComponentCompilerOpaque,
+    major: u32,
+    minor: u32,
+) {
+    compiler.as_component_compiler_mut().set_edition((major, minor))
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_interpreter_component_compiler_set_translation_domain(
     compiler: &mut ComponentCompilerOpaque,
     translation_domain: Slice<u8>,

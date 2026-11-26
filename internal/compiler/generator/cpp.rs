@@ -6343,16 +6343,18 @@ fn generate_translation(
     compilation_unit: &llr::CompilationUnit,
     declarations: &mut Vec<Declaration>,
 ) {
-    for (idx, m) in translations.strings.iter().enumerate() {
+    let languages = 0..translations.languages.len();
+    for idx in 0..translations.string_count() {
         declarations.push(Declaration::Var(Var {
             ty: "const char8_t* const".into(),
             name: format_smolstr!("slint_translation_bundle_{idx}"),
-            array_size: Some(m.len()),
+            array_size: Some(languages.len()),
             init: Some(format!(
                 "{{ {} }}",
-                m.iter()
-                    .map(|s| match s {
-                        Some(s) => format_smolstr!("u8\"{}\"", escape_string(s.as_str())),
+                languages
+                    .clone()
+                    .map(|language| match translations.string(language, idx) {
+                        Some(s) => format_smolstr!("u8\"{}\"", escape_string(s)),
                         None => "nullptr".into(),
                     })
                     .join(", ")
@@ -6379,8 +6381,11 @@ fn generate_translation(
         )),
         ..Default::default()
     }));
-    for (idx, ms) in translations.plurals.iter().enumerate() {
-        let all_strs = ms.iter().flatten().flatten();
+    for idx in 0..translations.plural_count() {
+        let all_strs = languages
+            .clone()
+            .filter_map(|language| translations.plural_forms(language, idx))
+            .flatten();
         let all_strs_len = all_strs.clone().count();
         declarations.push(Declaration::Var(Var {
             ty: "const char8_t* const".into(),
@@ -6388,7 +6393,7 @@ fn generate_translation(
             array_size: Some(all_strs_len),
             init: Some(format!(
                 "{{ {} }}",
-                all_strs.map(|s| format_smolstr!("u8\"{}\"", escape_string(s.as_str()))).join(", ")
+                all_strs.map(|s| format_smolstr!("u8\"{}\"", escape_string(s))).join(", ")
             )),
             ..Default::default()
         }));
@@ -6397,12 +6402,14 @@ fn generate_translation(
         declarations.push(Declaration::Var(Var {
             ty: "const uint32_t".into(),
             name: format_smolstr!("slint_translation_bundle_plural_{}_idx", idx),
-            array_size: Some(ms.len()),
+            array_size: Some(languages.len()),
             init: Some(format!(
                 "{{ {} }}",
-                ms.iter()
-                    .map(|x| {
-                        count += x.as_ref().map_or(0, |x| x.len());
+                languages
+                    .clone()
+                    .map(|language| {
+                        count +=
+                            translations.plural_forms(language, idx).map_or(0, Iterator::count);
                         count
                     })
                     .join(", ")
