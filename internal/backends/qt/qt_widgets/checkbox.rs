@@ -176,7 +176,7 @@ impl Item for NativeCheckBox {
         }
     }
 
-    fn_render! { this dpr size painter widget initial_state =>
+    fn_render! { this size painter widget initial_state =>
         let checked: bool = this.checked();
         let enabled = this.enabled();
         let has_focus = this.has_focus();
@@ -192,14 +192,13 @@ impl Item for NativeCheckBox {
             checked as "bool",
             has_focus as "bool",
             has_hover as "bool",
-            dpr as "float",
             initial_state as "int"
         ] {
             QStyleOptionButton option;
             option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             option.text = std::move(text);
-            option.rect = QRect(QPoint(), size / dpr);
+            option.rect = QRect(QPoint(), size);
             option.state |= checked ? QStyle::State_On : QStyle::State_Off;
             if (enabled) {
                 option.state |= QStyle::State_Enabled;

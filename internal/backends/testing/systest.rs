@@ -11,8 +11,24 @@ use prost::Message;
 use std::io::Cursor;
 use std::rc::Rc;
 
-use crate::introspection::{self, IntrospectionState, dispatch, proto};
+use crate::introspection::{self, IntrospectionState, dispatch, proto, subscriptions};
 use introspection::handle_to_index;
+
+const SERVER_VAR: &str = "SLINT_TEST_SERVER";
+
+/// Returns true if [`init`] connects to a system-testing server.
+pub fn requested() -> bool {
+    std::env::var_os(SERVER_VAR).is_some()
+}
+
+/// Receives the changes of the subscriptions created through [`handle_encoded_request`],
+/// each a protobuf-encoded `SubscriptionNotification` from `slint_systest.proto`.
+/// Return `Err` when the notification can't be delivered, which ends its subscription.
+pub type NotificationSink = Rc<dyn Fn(Vec<u8>) -> Result<(), Disconnected>>;
+
+/// The receiver of a [`NotificationSink`] is gone.
+#[derive(Debug)]
+pub struct Disconnected;
 
 struct TestingClient {
     state: Rc<IntrospectionState>,
@@ -22,7 +38,7 @@ struct TestingClient {
 
 impl TestingClient {
     fn new(state: Rc<IntrospectionState>) -> Option<Rc<Self>> {
-        let Ok(server_addr) = std::env::var("SLINT_TEST_SERVER") else {
+        let Ok(server_addr) = std::env::var(SERVER_VAR) else {
             return None;
         };
 
@@ -38,7 +54,9 @@ impl TestingClient {
                     .spawn_local(async move {
                         message_loop(&this.server_addr, |request| {
                             let this = this.clone();
-                            Box::pin(async move { this.handle_request(request).await })
+                            Box::pin(async move {
+                                Self::handle_request(&this.state, request, None).await
+                            })
                         })
                         .await;
                     })
@@ -49,8 +67,9 @@ impl TestingClient {
     }
 
     async fn handle_request(
-        &self,
+        state: &Rc<IntrospectionState>,
         request: Option<proto::request_to_aut::Msg>,
+        sink: Option<&NotificationSink>,
     ) -> Result<proto::aut_response::Msg, String> {
         use proto::aut_response::Msg as Resp;
         use proto::request_to_aut::Msg as Req;
@@ -58,12 +77,12 @@ impl TestingClient {
         let request = request.ok_or_else(|| "Empty request".to_string())?;
 
         Ok(match request {
-            Req::RequestWindowList(..) => Resp::WindowList(dispatch::list_windows(&self.state)),
+            Req::RequestWindowList(..) => Resp::WindowList(dispatch::list_windows(state)),
             Req::RequestWindowProperties(proto::RequestWindowProperties { window_handle }) => {
                 let window_index = handle_to_index(window_handle.ok_or_else(|| {
                     "window properties request missing window handle".to_string()
                 })?)?;
-                Resp::WindowProperties(dispatch::window_properties(&self.state, window_index)?)
+                Resp::WindowProperties(dispatch::window_properties(state, window_index)?)
             }
             Req::RequestFindElementsById(proto::RequestFindElementsById {
                 window_handle,
@@ -72,17 +91,13 @@ impl TestingClient {
                 let window_index = handle_to_index(window_handle.ok_or_else(|| {
                     "find elements by id request missing window handle".to_string()
                 })?)?;
-                Resp::Elements(dispatch::find_elements_by_id(
-                    &self.state,
-                    window_index,
-                    &elements_id,
-                )?)
+                Resp::Elements(dispatch::find_elements_by_id(state, window_index, &elements_id)?)
             }
             Req::RequestElementProperties(proto::RequestElementProperties { element_handle }) => {
                 let element_index = handle_to_index(element_handle.ok_or_else(|| {
                     "element properties request missing element handle".to_string()
                 })?)?;
-                Resp::ElementProperties(dispatch::element_properties(&self.state, element_index)?)
+                Resp::ElementProperties(dispatch::element_properties(state, element_index)?)
             }
             Req::RequestInvokeElementAccessibilityAction(
                 msg @ proto::RequestInvokeElementAccessibilityAction { element_handle, .. },
@@ -94,7 +109,7 @@ impl TestingClient {
                 let element_index = handle_to_index(element_handle.ok_or_else(|| {
                     "invoke element accessibility action request missing element handle".to_string()
                 })?)?;
-                dispatch::invoke_accessibility_action(&self.state, element_index, action)?;
+                dispatch::invoke_accessibility_action(state, element_index, action)?;
                 Resp::InvokeElementAccessibilityActionResponse(
                     proto::InvokeElementAccessibilityActionResponse {},
                 )
@@ -106,7 +121,7 @@ impl TestingClient {
                 let element_index = handle_to_index(element_handle.ok_or_else(|| {
                     "set element accessible value request missing element handle".to_string()
                 })?)?;
-                dispatch::set_accessible_value(&self.state, element_index, value)?;
+                dispatch::set_accessible_value(state, element_index, value)?;
                 Resp::SetElementAccessibleValueResponse(proto::SetElementAccessibleValueResponse {})
             }
             Req::RequestTakeSnapshot(proto::RequestTakeSnapshot {
@@ -118,7 +133,7 @@ impl TestingClient {
                         .ok_or_else(|| "grab window request missing window handle".to_string())?,
                 )?;
                 Resp::TakeSnapshotResponse(dispatch::take_snapshot(
-                    &self.state,
+                    state,
                     window_index,
                     &image_mime_type,
                 )?)
@@ -137,7 +152,7 @@ impl TestingClient {
                     .map_err(|_| format!("invalid PointerEventButton value: {button}"))?;
                 let action = proto::ClickAction::try_from(action)
                     .map_err(|_| format!("invalid ClickAction value: {action}"))?;
-                dispatch::click(&self.state, element_index, action, button, modifiers).await?;
+                dispatch::click(state, element_index, action, button, modifiers).await?;
                 Resp::ElementClickResponse(proto::ElementClickResponse {})
             }
             Req::RequestElementDrag(proto::RequestElementDrag {
@@ -154,7 +169,7 @@ impl TestingClient {
                     .map_err(|_| format!("invalid PointerEventButton value: {button}"))?;
                 let target =
                     target.ok_or_else(|| "element drag request missing target".to_string())?;
-                dispatch::drag(&self.state, element_index, target, button, modifiers).await?;
+                dispatch::drag(state, element_index, target, button, modifiers).await?;
                 Resp::ElementDragResponse(proto::ElementDragResponse {})
             }
             Req::RequestDispatchWindowEvent(proto::RequestDispatchWindowEvent {
@@ -164,7 +179,7 @@ impl TestingClient {
                 let window_index = handle_to_index(window_handle.ok_or_else(|| {
                     "window event dispatch request missing window handle".to_string()
                 })?)?;
-                self.state.dispatch_window_event(
+                state.dispatch_window_event(
                     window_index,
                     convert_window_event(event.ok_or_else(|| {
                         "window event dispatch request missing event".to_string()
@@ -181,7 +196,7 @@ impl TestingClient {
                     "run element query request missing element handle".to_string()
                 })?)?;
                 Resp::ElementQueryResponse(dispatch::query_element_descendants(
-                    &self.state,
+                    state,
                     element_index,
                     query_stack,
                     find_all,
@@ -195,7 +210,7 @@ impl TestingClient {
             }) => {
                 let window_index = window_handle.map(handle_to_index).transpose()?;
                 Resp::EventLogResponse(dispatch::event_log(
-                    &self.state,
+                    state,
                     window_index,
                     since_sequence,
                     max_events,
@@ -203,13 +218,35 @@ impl TestingClient {
                 ))
             }
             Req::RequestClearEventLog(..) => {
-                Resp::ClearEventLogResponse(dispatch::clear_event_log(&self.state))
+                Resp::ClearEventLogResponse(dispatch::clear_event_log(state))
             }
             Req::RequestStartEventRecording(..) => {
-                Resp::StartEventRecordingResponse(dispatch::start_event_recording(&self.state))
+                Resp::StartEventRecordingResponse(dispatch::start_event_recording(state))
             }
             Req::RequestStopEventRecording(..) => {
-                Resp::StopEventRecordingResponse(dispatch::stop_event_recording(&self.state))
+                Resp::StopEventRecordingResponse(dispatch::stop_event_recording(state))
+            }
+            Req::RequestGetElementChildren(proto::RequestGetElementChildren { element_handle }) => {
+                let parent = element_handle.map(handle_to_index).transpose()?;
+                Resp::GetElementChildrenResponse(subscriptions::element_children(
+                    state, parent, sink,
+                )?)
+            }
+            Req::RequestSubscribeElementProperties(proto::RequestSubscribeElementProperties {
+                element_handle,
+            }) => {
+                let sink = sink.ok_or_else(debugger_only)?;
+                let element_index = handle_to_index(element_handle.ok_or_else(|| {
+                    "subscribe element properties request missing element handle".to_string()
+                })?)?;
+                Resp::SubscribeElementPropertiesResponse(
+                    subscriptions::subscribe_element_properties(state, element_index, sink)?,
+                )
+            }
+            Req::RequestUnsubscribe(proto::RequestUnsubscribe { subscription_id }) => {
+                sink.ok_or_else(debugger_only)?;
+                state.subscriptions.remove(subscription_id);
+                Resp::UnsubscribeResponse(proto::UnsubscribeResponse { subscription_id })
             }
             // MCP-only tools — not supported over the binary system-testing transport
             Req::RequestDispatchKeyEvent(..) | Req::RequestGetElementTree(..) => {
@@ -217,6 +254,27 @@ impl TestingClient {
             }
         })
     }
+}
+
+fn debugger_only() -> String {
+    "this request is only supported over the debugger transport".into()
+}
+
+/// Handles a protobuf-encoded `RequestToAut` and returns the encoded `AutResponse`.
+/// Use it to serve system-testing requests that arrive over another transport than TCP.
+/// The subscriptions that the requests create push their changes to `sink`.
+pub async fn handle_encoded_request(request: &[u8], sink: NotificationSink) -> Vec<u8> {
+    let response = match proto::RequestToAut::decode(request) {
+        Ok(request) => {
+            TestingClient::handle_request(&introspection::shared_state(), request.msg, Some(&sink))
+                .await
+        }
+        Err(error) => Err(format!("Error de-serializing AUT request message: {error}")),
+    };
+    let response = response.unwrap_or_else(|message| {
+        proto::aut_response::Msg::Error(proto::ErrorResponse { message })
+    });
+    proto::AutResponse { msg: Some(response) }.encode_to_vec()
 }
 
 pub fn init() -> Result<(), EventLoopError> {
@@ -393,6 +451,51 @@ fn convert_window_event(
 mod tests {
     use super::*;
 
+    fn handle_encoded(request: &[u8]) -> Option<proto::aut_response::Msg> {
+        let response =
+            futures_lite::future::block_on(handle_encoded_request(request, Rc::new(|_| Ok(()))));
+        proto::AutResponse::decode(&response[..]).unwrap().msg
+    }
+
+    #[test]
+    fn encoded_request_gets_encoded_response() {
+        let request = proto::RequestToAut {
+            msg: Some(proto::request_to_aut::Msg::RequestWindowList(
+                proto::RequestWindowListMessage {},
+            )),
+        };
+        assert!(matches!(
+            handle_encoded(&request.encode_to_vec()),
+            Some(proto::aut_response::Msg::WindowList(_))
+        ));
+    }
+
+    #[test]
+    fn subscribing_without_a_sink_errors() {
+        let state = Rc::new(IntrospectionState::new());
+        for request in [
+            proto::request_to_aut::Msg::RequestSubscribeElementProperties(
+                proto::RequestSubscribeElementProperties { element_handle: None },
+            ),
+            proto::request_to_aut::Msg::RequestUnsubscribe(proto::RequestUnsubscribe {
+                subscription_id: 1,
+            }),
+        ] {
+            let err = futures_lite::future::block_on(TestingClient::handle_request(
+                &state,
+                Some(request),
+                None,
+            ))
+            .unwrap_err();
+            assert!(err.contains("debugger transport"), "got: {err}");
+        }
+    }
+
+    #[test]
+    fn undecodable_request_gets_error_response() {
+        assert!(matches!(handle_encoded(&[0xff]), Some(proto::aut_response::Msg::Error(_))));
+    }
+
     #[test]
     fn buffered_request_observes_pending_timers_and_change_handlers() {
         use std::io::{Read, Write};
@@ -424,7 +527,7 @@ mod tests {
             &i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter(),
         );
         let root = Some(introspection::index_to_handle(
-            state.windows.borrow().values().next().unwrap().root_element_handle,
+            state.root_element_handle(state.window_handles()[0]).unwrap(),
         ));
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let client = Rc::new(TestingClient {

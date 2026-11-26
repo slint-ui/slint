@@ -77,7 +77,7 @@ use slint::platform::Key;
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
 let wide = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Preferred selection").next().unwrap();
-let arrow = wide.query_descendants().match_type_name("Path").find_first().unwrap();
+let arrow = wide.query_descendants().match_inherits("Path").find_first().unwrap();
 assert!(arrow.absolute_position().x + arrow.size().width <= wide.absolute_position().x + wide.size().width - 40. + 0.1,
     "The ComboBox preferred size clips its configured indicator");
 let compact = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Compact selection").next().unwrap();

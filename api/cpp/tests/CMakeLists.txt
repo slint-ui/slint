@@ -44,11 +44,17 @@ if(SLINT_FEATURE_INTERPRETER)
     slint_test(window)
 endif()
 
+if(SLINT_FEATURE_INTERPRETER AND SLINT_FEATURE_BACKEND_QT AND TARGET Qt::Widgets)
+    slint_test(qt_input_method)
+    target_link_libraries(test_qt_input_method PRIVATE Qt::Widgets)
+endif()
+
 if(SLINT_FEATURE_INTERPRETER AND SLINT_FEATURE_EXPERIMENTAL)
     slint_test(translator)
 endif()
 
 slint_test(properties)
+slint_test(vtable)
 if(NOT SLINT_FEATURE_FREESTANDING)
     slint_test(eventloop)
     target_link_libraries(test_eventloop PRIVATE Threads::Threads)

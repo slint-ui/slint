@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { ComboBoxChevronIcon } from "../../../ui/icons/stroked-icons.slint";
 import {
     ComboBoxBase,
     ComboBoxPopupBase,
@@ -329,27 +330,11 @@ export component ComboBox inherits ComboBoxBase {
         overflow: elide;
     }
 
-    indicator << Path {
+    indicator << ComboBoxChevronIcon {
         width: root.indicator-width;
         height: 100%;
-        viewbox-width: 16;
-        viewbox-height: 20;
         stroke: root.enabled ? root.foreground-color : root.state-style.foreground-color;
         stroke-width: root.indicator-stroke-width;
-        MoveTo {
-            x: 3;
-            y: 8;
-        }
-
-        LineTo {
-            x: 8;
-            y: 13;
-        }
-
-        LineTo {
-            x: 13;
-            y: 8;
-        }
     }
 
     popup << ComboBoxPopup {

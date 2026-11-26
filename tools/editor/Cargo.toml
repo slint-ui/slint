@@ -31,8 +31,9 @@ path = "gallery/main.rs"
 preview-remote = ["dep:mdns-sd"]
 ## Enable the out-of-process system-testing transport.
 system-testing = ["slint/system-testing"]
-## Open the Slint Debugger window from the Window menu or with --debugger.
-debugger = []
+## Open the Slint Debugger window from the Window menu or with --debugger,
+## and answer its system-testing requests in the preview.
+debugger = ["i-slint-live-preview/system-testing"]
 
 [dependencies]
 i-slint-backend-selector = { workspace = true }
@@ -47,6 +48,7 @@ cfg-if = "1"
 clap = { workspace = true }
 clru = { workspace = true }
 crossbeam-channel = "0.5"
+dunce = "1.0.5"
 futures-util = "0.3.32"
 itertools = { workspace = true }
 jsonc-parser = "0.34.0"
@@ -69,7 +71,6 @@ slint-build = { workspace = true, features = ["experimental-module-builds"] }
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing", features = ["internal", "renderer-software"] }
 i-slint-editor-preview = { path = "../../internal/editor-preview", features = ["testing"] }
-spin_on = { workspace = true }
 tempfile = "3"
 
 # Used by the visual editor for the auto-updater, the title bar, and opening files from Finder.
@@ -90,7 +91,6 @@ windows-core = "0.62.2"
 windows-collections = "0.3.2"
 windows-future = "0.3.2"
 raw-window-handle = "0.6"
-dunce = "1.0.5"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus = { version = "5.14.0", default-features = false, features = ["async-io", "blocking-api"] }
@@ -100,8 +100,8 @@ reqwest = { version = "0.13", default-features = false, features = ["blocking", 
 rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-mdns-sd = { version = "0.21.6", default-features = false, optional = true }
-rfd = "0.17.2"
+mdns-sd = { version = "0.22.0", default-features = false, optional = true }
+rfd = "0.18.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { workspace = true, features = ["Navigator", "Window"] }

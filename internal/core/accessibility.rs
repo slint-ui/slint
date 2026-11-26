@@ -12,6 +12,9 @@ use alloc::vec::Vec;
 use bitflags::bitflags;
 use vtable::VRcMapped;
 
+#[cfg(feature = "accessibility-text")]
+pub mod accesskit_tree;
+
 /// The property names of the accessible-properties
 #[repr(u32)]
 #[derive(PartialEq, Eq, Copy, Clone, strum::Display)]

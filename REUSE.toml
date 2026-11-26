@@ -65,6 +65,7 @@ path = [
   "logo/README.md",
   "**/public/favicon.svg",
   "ai-plugins/icon.svg",
+  "ai-plugins/mcp/icon.svg",
   "logo/documentation-site-favicons/**",
   "**/public/slint-logo-small-light.svg",
   "**/public/slint-logo.woff",
@@ -81,22 +82,22 @@ SPDX-License-Identifier = "CC-BY-ND-4.0"
 
 [[annotations]]
 path = [
-  "tools/editor/ui/assets/cursors/default-32.png",
-  "tools/editor/ui/assets/cursors/default-64.png",
-  "tools/editor/ui/assets/cursors/rotate.svg",
-  "tools/editor/ui/assets/cursors/corner-radius.svg",
-  "tools/editor/ui/assets/cursors/corner-radius.png",
+  "tools/editor/ui/cursors/default-32.png",
+  "tools/editor/ui/cursors/default-64.png",
+  "tools/editor/ui/cursors/rotate.svg",
+  "tools/editor/ui/cursors/corner-radius.svg",
+  "tools/editor/ui/cursors/corner-radius.png",
 ]
 SPDX-FileCopyrightText = "Grida <https://github.com/gridaco/grida>"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = ["tools/editor/ui/assets/cursors/scrub-horizontal.svg"]
+path = ["tools/editor/ui/cursors/scrub-horizontal.svg"]
 SPDX-FileCopyrightText = "Grida <https://github.com/gridaco/grida>"
 SPDX-License-Identifier = "CC-PDDC"
 
 [[annotations]]
-path = ["tools/editor/ui/assets/cursors/resize.svg"]
+path = ["tools/editor/ui/cursors/resize.svg"]
 SPDX-FileCopyrightText = "Grida <https://github.com/gridaco/grida>"
 SPDX-License-Identifier = "MIT"
 
@@ -241,7 +242,8 @@ path = [
 
   "ai-plugins/*.json",
   "ai-plugins/.claude-plugin/*.json",
-  "ai-plugins/.codex-plugin/*.json",
+  "ai-plugins/mcp/.codex-plugin/*.json",
+  "ai-plugins/mcp/.claude-plugin/*.json",
   "ai-plugins/.cursor-plugin/*.json",
   "ai-plugins/**/*.md",
 ]
@@ -301,7 +303,8 @@ path = [
   "tools/editor/packaging/tile-backdrop-wide.svg",
   "tools/editor/packaging/tile-backdrop.svg",
   "tools/editor/packaging/windows-appx/Package.appxmanifest.in",
-  "tools/editor/ui/assets/**.svg",
+  "tools/editor/ui/icons/**.svg",
+  "tools/editor/ui/images/**.svg",
   "tools/editor/ui/visual-editor/example/image.png",
   "tools/editor/ui/visual-editor/example/title-frame.png",
 ]
@@ -723,30 +726,36 @@ SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = ["tools/editor/ui/assets/octicons/*.svg"]
+path = ["tools/editor/ui/icons/codicons/*.svg"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Codicon Icons <https://github.com/microsoft/vscode-codicons/>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = ["tools/editor/ui/icons/octicons/*.svg"]
 SPDX-FileCopyrightText = "Copyright © 2026 GitHub Inc."
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = ["tools/editor/ui/assets/lucide/*.svg"]
+path = ["tools/editor/ui/icons/lucide/*.svg"]
 SPDX-FileCopyrightText = "Copyright (c) 2026 Lucide Icons and Contributors"
 SPDX-License-Identifier = "ISC"
 
 [[annotations]]
 path = [
-  "tools/editor/ui/assets/lucide/arrow-up.svg",
-  "tools/editor/ui/assets/lucide/moon.svg",
-  "tools/editor/ui/assets/lucide/check.svg",
-  "tools/editor/ui/assets/lucide/chevron-down.svg",
-  "tools/editor/ui/assets/lucide/monitor.svg",
-  "tools/editor/ui/assets/lucide/move.svg",
-  "tools/editor/ui/assets/lucide/plus.svg",
-  "tools/editor/ui/assets/lucide/smartphone.svg",
-  "tools/editor/ui/assets/lucide/square.svg",
-  "tools/editor/ui/assets/lucide/square-filled.svg",
-  "tools/editor/ui/assets/lucide/trash.svg",
-  "tools/editor/ui/assets/lucide/type.svg",
-  "tools/editor/ui/assets/lucide/x.svg",
+  "tools/editor/ui/icons/lucide/arrow-up.svg",
+  "tools/editor/ui/icons/lucide/moon.svg",
+  "tools/editor/ui/icons/lucide/check.svg",
+  "tools/editor/ui/icons/lucide/chevron-down.svg",
+  "tools/editor/ui/icons/lucide/monitor.svg",
+  "tools/editor/ui/icons/lucide/move.svg",
+  "tools/editor/ui/icons/lucide/plus.svg",
+  "tools/editor/ui/icons/lucide/smartphone.svg",
+  "tools/editor/ui/icons/lucide/square.svg",
+  "tools/editor/ui/icons/lucide/square-filled.svg",
+  "tools/editor/ui/icons/lucide/trash.svg",
+  "tools/editor/ui/icons/lucide/type.svg",
+  "tools/editor/ui/icons/lucide/x.svg",
 ]
 SPDX-FileCopyrightText = ["Copyright (c) 2026 Lucide Icons and Contributors", "Copyright (c) 2013-present Cole Bemis"]
 SPDX-License-Identifier = "ISC AND MIT"

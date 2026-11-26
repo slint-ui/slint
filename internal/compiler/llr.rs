@@ -61,7 +61,7 @@ pub(crate) fn lower_test_source_with_config(
         &mut diags,
     );
     let (doc, diag, _) =
-        spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config.clone()));
+        crate::poll_ready(crate::compile_syntax_node(doc_node, diags, config.clone()));
     assert!(!diag.has_errors(), "compile error: {:#?}", diag.to_string_vec());
     lower_to_item_tree::lower_to_item_tree(&doc, &config)
 }

@@ -4,6 +4,7 @@
 # cspell:ignore getcolors
 
 import socket
+import sys
 
 import pytest
 import slint_testing
@@ -218,3 +219,63 @@ def test_viewer_transport_and_popup(
                 window, "Close device manager", role=slint_testing.AccessibleRole.Button
             )
         ).to_be_hidden()
+
+
+def test_connection_error_wraps_in_device_manager_and_viewer_options(
+    editor_binary, editor_environment, radial_scene, tmp_path
+):
+    missing_port = tmp_path / ("unavailable-viewer-" * 6)
+    left = slint_testing.PointerEventButton.Left
+    with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+        wait_for_source(radial_scene, radial_scene.read_bytes())
+        window = first_window(editor)
+        element(window, "Viewer controls").single_click(left)
+        element(
+            window, "Manage devices...", role=slint_testing.AccessibleRole.Button
+        ).single_click(left)
+        element(
+            window, "Pair a device", role=slint_testing.AccessibleRole.Button
+        ).single_click(left)
+        element(
+            window,
+            "Add pseudo-terminal path...",
+            role=slint_testing.AccessibleRole.Button,
+        ).single_click(left)
+        placeholder = "/dev/ttys003" if sys.platform == "darwin" else "/dev/pts/3"
+        field = element(
+            window, placeholder, role=slint_testing.AccessibleRole.TextInput
+        )
+        field.single_click(left)
+        press_keys(window, str(missing_port))
+        element(
+            window, "Connect", role=slint_testing.AccessibleRole.Button
+        ).single_click(left)
+        expect(query(window, "Connection failed")).to_be_visible()
+        message = element(
+            window, id="ErrorNotice::message", role=slint_testing.AccessibleRole.Text
+        )
+        expect.poll(
+            lambda: message.accessible_label.startswith(f"Cannot open {missing_port}:")
+        ).to_equal(True)
+        full_message = message.accessible_label
+        assert message.size.height > 2 * 12
+        manager = element(window, "Device manager")
+        assert message.absolute_position.x >= manager.absolute_position.x
+        assert (
+            message.absolute_position.x + message.size.width
+            <= manager.absolute_position.x + manager.size.width
+        )
+        screenshot(window).save(tmp_path / "device-connection-error.png")
+
+        element(
+            window, "Close device manager", role=slint_testing.AccessibleRole.Button
+        ).single_click(left)
+        element(window, "Viewer controls").single_click(left)
+        message = element(window, full_message, role=slint_testing.AccessibleRole.Text)
+        assert message.size.height > 2 * 12
+        options = element(window, "Viewer options")
+        assert (
+            message.absolute_position.y + message.size.height
+            <= options.absolute_position.y + options.size.height
+        )
+        screenshot(window).save(tmp_path / "viewer-connection-error.png")

@@ -192,12 +192,29 @@ impl RenderingMetricsCollector {
         }
         self.trim_frame_data_to_second_boundary(now);
 
-        if self.output_overlay {
+        if let Some(overlay_rect) = self.overlay_rect() {
+            renderer.save_state();
+            renderer.combine_clip(overlay_rect, Default::default());
             renderer.draw_string(
                 &format!("FPS: {}", self.collected_frame_data_since_second_ago.borrow().len()),
                 crate::Color::from_rgb_u8(0, 128, 128),
             );
+            renderer.restore_state();
         }
+    }
+
+    /// The area of the window that the overlay draws into, if enabled.
+    ///
+    /// A renderer that only repaints the dirty region of a frame must add this
+    /// area to it, or the overlay shows a stale value.
+    pub fn overlay_rect(&self) -> Option<crate::lengths::LogicalRect> {
+        self.output_overlay.then(|| {
+            let font_size = crate::textlayout::DEFAULT_FONT_SIZE.get();
+            crate::lengths::LogicalRect::new(
+                Default::default(),
+                euclid::size2(font_size * 10 as crate::Coord, font_size * 2 as crate::Coord),
+            )
+        })
     }
 
     /// Always render the full screen.

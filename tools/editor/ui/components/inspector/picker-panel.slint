@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../../icons/index.slint";
 import { Style, Colors, Metrics, Typography, FillPickerStyle } from "../../style.slint";
 import { EditorWindow } from "../index.slint";
 import { EditorScrollView } from "../editor-scroll-view.slint";
@@ -108,7 +109,7 @@ export component InspectorPickerPanel inherits FloatingSurface {
                 selected: root.gradient == gradient;
                 label: gradient ? @tr("Gradient") : @tr("Solid");
                 Image { width: 18px; height: 18px;
-                    source: gradient ? @image-url("../../assets/fill-gradient.svg") : @image-url("../../assets/fill-solid.svg");
+                    source: gradient ? Icons.fill-gradient : Icons.fill-solid;
                     colorize: root.gradient == gradient ? Colors.foreground : Colors.muted;
                 }
                 clicked => { root.mode-selected(gradient); }

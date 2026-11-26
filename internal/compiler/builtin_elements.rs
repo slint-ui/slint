@@ -1283,8 +1283,6 @@ fn build(l: &mut Loader) {
         in property <styled-text> text;
         /// The vertical alignment of the text.
         in property <TextVerticalAlignment> vertical-alignment;
-        /// A callback that's invoked when a link in the text is clicked. The parameter contains the clicked link as a string.
-        callback link-clicked(link: string);
         /// Whether the text can be selected with the mouse.
         /// Pressing and dragging selects, a double click selects a word and a triple click a paragraph.
         /// A click that doesn't drag still follows a link.
@@ -1300,6 +1298,8 @@ fn build(l: &mut Loader) {
         @shadowable in property <color> selection-foreground-color: computed; // Palette.selection-foreground set in apply_default_properties_from_style
         /// `true` when text is selected.
         @shadowable out property <bool> has-selection { BuiltinFunction.StyledTextHasSelection }
+        /// A callback that's invoked when a link in the text is clicked. The parameter contains the clicked link as a string.
+        callback link-clicked(link: string);
 
         /// Selects the text between two UTF-8 byte offsets.
         /// `anchor` is the end of the selection that stays put and `focus` the end the cursor moves to,
@@ -1505,13 +1505,6 @@ fn build(l: &mut Loader) {
         ///
         /// This property has no effect if the `enabled` property is set to false.
         in property <bool> focus-on-tab-navigation: true;
-        //! ## Functions
-        //!
-        //! ### focus()
-        //! Call this function to transfer keyboard focus to this `FocusScope`, to receive future <Link type="KeyEvent" />s.
-        //!
-        //! ### clear-focus()
-        //! Call this function to remove keyboard focus from this `FocusScope` if it currently has the focus. See also <Link type="FocusHandling" />.
         /// This function is called during key event handling, *before* `key-pressed` is called. Use this to intercept key press events. The returned <Link type="EventResult" />
         /// indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
         callback capture-key-pressed(event: KeyEvent) -> EventResult;
@@ -1530,9 +1523,13 @@ fn build(l: &mut Loader) {
         callback focus-gained(reason: FocusReason);
         /// Invoked when the `FocusScope` loses focus. The argument is a a <Link type="FocusReason" /> enum containing the reason for focus loss.
         callback focus-lost(reason: FocusReason);
-
-
-
+        //! ## Functions
+        //!
+        //! ### focus()
+        //! Call this function to transfer keyboard focus to this `FocusScope`, to receive future <Link type="KeyEvent" />s.
+        //!
+        //! ### clear-focus()
+        //! Call this function to remove keyboard focus from this `FocusScope` if it currently has the focus. See also <Link type="FocusHandling" />.
     } }
 
     element! {
@@ -1614,14 +1611,14 @@ fn build(l: &mut Loader) {
         @deprecated in-out property <length> viewport-x <=> content-x;
         @deprecated in-out property <length> viewport-y <=> content-y;
 
+        /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
+        callback flicked;
         /// Scrolls so that the point `pos` of the content is at the top-left corner of the `Flickable`.
         /// `pos` is in content coordinates, so it's positive where `content-x` and `content-y` are usually negative.
         /// For example, `scroll-to({ x: 0px, y: 100px }, ScrollBehavior.instant)` sets `content-y` to `-100px`.
         /// A `pos` outside the scrollable range is clamped to it.
         /// Pass `ScrollBehavior.instant` to jump or `ScrollBehavior.smooth` to animate.
         @shadowable function scroll-to(pos: Point, behavior: ScrollBehavior) { BuiltinFunction.ScrollTo }
-        /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
-        callback flicked;
     } }
 
     element! {
@@ -1939,6 +1936,12 @@ fn build(l: &mut Loader) {
     item! { DropArea {
         /// Set to `false` to stop the `DropArea` from accepting any drops.
         in property <bool> enabled: true;
+        /// `true` while an accepted drag hovers over the area, `false` otherwise.
+        /// Bind it to a visual property to give the user feedback, for example a background color.
+        out property <bool> has-drag;
+        /// The action the runtime is currently negotiating with the source: `none` when no drag is hovering,
+        /// or `copy`/`move`/`link` once a concrete action is settled.
+        out property <DragAction> current-action;
         /// Return the action this target wants to perform with the drag, or `DragAction.none` to reject.
         /// The runtime clamps the returned value to the source's allowed set: anything the source did not
         /// allow is treated as `none`.
@@ -1950,12 +1953,6 @@ fn build(l: &mut Loader) {
         /// to mirror what was negotiated during hover, or a different action to refine the choice at
         /// drop time. The runtime clamps the return value against the source's allowed set.
         callback dropped(event: DropEvent) -> DragAction;
-        /// `true` while an accepted drag hovers over the area, `false` otherwise.
-        /// Bind it to a visual property to give the user feedback, for example a background color.
-        out property <bool> has-drag;
-        /// The action the runtime is currently negotiating with the source: `none` when no drag is hovering,
-        /// or `copy`/`move`/`link` once a concrete action is settled.
-        out property <DragAction> current-action;
     } }
 
     element! {
@@ -2474,6 +2471,19 @@ fn build(l: &mut Loader) {
         out property <int> anchor-position-byte-offset;
         /// `TextInput` sets this to `true` when it's focused. Only then it receives <Link type="KeyEvent"/>s.
         out property <bool> has-focus;
+        /// When set to `false`, the `TextInput` doesn't take focus, ignores pointer and key events (including `key-pressed` and `key-released`), and hides the text cursor.
+        /// Unlike `read-only`, it also prevents the user from selecting text.
+        in property <bool> enabled: true;
+        /// When set to `true`, the text is always rendered as a single line, regardless of new line separators in the text.
+        in property <bool> single-line: true;
+        /// When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically.
+        in property <bool> read-only: false;
+        // Internal, undocumented property, only exposed for IME.
+        out property <string> preedit-text;
+        /// The design metrics of the font scaled to the font pixel size used by the element.
+        out property <FontMetrics> font-metrics { BuiltinFunction.ItemFontMetrics }
+        /// `true` when text is selected.
+        @shadowable out property <bool> has-selection { BuiltinFunction.HasSelection }
         /// Invoked when the enter key is pressed.
         callback accepted;
         /// Invoked when the text has changed because the user modified it.
@@ -2488,20 +2498,6 @@ fn build(l: &mut Loader) {
         /// handle keys before `TextInput` does. Return `accept` to indicate that you've handled the event, or return
         /// `reject` to let `TextInput` handle it.
         callback key-released(event: KeyEvent) -> EventResult;
-        /// When set to `false`, the `TextInput` doesn't take focus, ignores pointer and key events (including `key-pressed` and `key-released`), and hides the text cursor.
-        /// Unlike `read-only`, it also prevents the user from selecting text.
-        in property <bool> enabled: true;
-        /// When set to `true`, the text is always rendered as a single line, regardless of new line separators in the text.
-        in property <bool> single-line: true;
-        /// When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically.
-        in property <bool> read-only: false;
-        // Internal, undocumented property, only exposed for IME.
-        out property <string> preedit-text;
-        /// The design metrics of the font scaled to the font pixel size used by the element.
-        out property <FontMetrics> font-metrics { BuiltinFunction.ItemFontMetrics }
-        /// `true` when text is selected.
-        @shadowable out property <bool> has-selection { BuiltinFunction.HasSelection }
-
 
         /// Selects the text between two UTF-8 offsets.
         /// `anchor` is the end of the selection that stays put and `focus` the end the cursor moves to,

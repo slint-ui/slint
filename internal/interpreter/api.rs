@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore theproperty underscoresanddashespreserved xreadonly
+#[cfg(feature = "std")]
+use crate::component::AnimationMode;
 use crate::prelude::*;
 #[cfg(test)]
 use alloc::sync::Arc;
@@ -678,7 +680,7 @@ impl ComponentCompiler {
     /// let mut compiler = ComponentCompiler::default();
     /// compiler.set_style("material".into());
     /// let definition =
-    ///     spin_on::spin_on(compiler.build_from_path("hello.slint"));
+    ///     pollster::block_on(compiler.build_from_path("hello.slint"));
     /// ```
     ///
     pub fn set_style(&mut self, style: String) {
@@ -689,6 +691,15 @@ impl ComponentCompiler {
     /// Returns the widget style the compiler is currently using when compiling .slint files.
     pub fn style(&self) -> Option<&String> {
         self.config.style.as_ref()
+    }
+
+    /// Selects the edition whose language behavior to use, as its major and minor version,
+    /// such as `(1, 19)`.
+    ///
+    /// This wins over the edition of the project file.
+    /// If the edition is older than 1.18 or newer than this version of Slint, compilation fails.
+    pub fn set_edition(&mut self, edition: (u32, u32)) {
+        self.overrides.project.edition = Some(edition.into());
     }
 
     /// The domain used for translations
@@ -740,10 +751,9 @@ impl ComponentCompiler {
     /// A `.slint` file path compiles without loading a project file.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
     ///
-    /// This function is `async` but in practice, this is only asynchronous if
-    /// [`Self::set_file_loader`] was called and its future is actually asynchronous.
-    /// If that is not used, then it is fine to use a very simple executor, such as the one
-    /// provided by the `spin_on` crate
+    /// This function is `async`, but its future resolves on the first poll,
+    /// unless a [`Self::set_file_loader`] callback returns a future that isn't ready yet.
+    /// Any executor works, such as `pollster::block_on`.
     pub async fn build_from_path<P: AsRef<Path>>(
         &mut self,
         path: P,
@@ -751,9 +761,7 @@ impl ComponentCompiler {
         let compiler = Compiler {
             config: self.config.clone(),
             overrides: self.overrides.clone(),
-            project_file_loader: None,
-            project_root: None,
-            resource_loader: None,
+            ..Default::default()
         };
         let r = compiler.build_from_path(path).await;
         self.diagnostics = r.diagnostics.into_iter().collect();
@@ -772,10 +780,9 @@ impl ComponentCompiler {
     ///
     /// Diagnostics from previous calls are cleared when calling this function.
     ///
-    /// This function is `async` but in practice, this is only asynchronous if
-    /// [`Self::set_file_loader`] is set and its future is actually asynchronous.
-    /// If that is not used, then it is fine to use a very simple executor, such as the one
-    /// provided by the `spin_on` crate
+    /// This function is `async`, but its future resolves on the first poll,
+    /// unless a [`Self::set_file_loader`] callback returns a future that isn't ready yet.
+    /// Any executor works, such as `pollster::block_on`.
     pub async fn build_from_source(
         &mut self,
         source_code: String,
@@ -784,9 +791,7 @@ impl ComponentCompiler {
         let compiler = Compiler {
             config: self.config.clone(),
             overrides: self.overrides.clone(),
-            project_file_loader: None,
-            project_root: None,
-            resource_loader: None,
+            ..Default::default()
         };
         let r = compiler.build_from_source(source_code, path).await;
         self.diagnostics = r.diagnostics.into_iter().collect();
@@ -920,7 +925,7 @@ impl Compiler {
     ///
     /// let mut compiler = Compiler::default();
     /// compiler.set_style("material".into());
-    /// let result = spin_on::spin_on(compiler.build_from_path("hello.slint"));
+    /// let result = pollster::block_on(compiler.build_from_path("hello.slint"));
     /// ```
     ///
     pub fn set_style(&mut self, style: String) {
@@ -992,6 +997,7 @@ impl Compiler {
     }
 
     /// Sets the callback that loads the contents of imported font files while compiling.
+    /// With Slint's image decoders enabled, it also loads images referenced by the component.
     /// The compiled components register these fonts when they're created.
     /// Without it, the browser build fetches the fonts by URL,
     /// and other builds read them from the file system when a component is created.
@@ -1026,10 +1032,9 @@ impl Compiler {
     /// A `.slint` file path compiles without loading a project file.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
     ///
-    /// This function is `async` but in practice, this is only asynchronous if
-    /// [`Self::set_file_loader`] was called and its future is actually asynchronous.
-    /// If that is not used, then it is fine to use a very simple executor, such as the one
-    /// provided by the `spin_on` crate
+    /// This function is `async`, but its future resolves on the first poll,
+    /// unless a [`Self::set_file_loader`] callback returns a future that isn't ready yet.
+    /// Any executor works, such as `pollster::block_on`.
     pub async fn build_from_path<P: AsRef<Path>>(&self, path: P) -> CompilationResult {
         let input_path = i_slint_compiler::source_path::clean_path(path.as_ref());
         self.build(
@@ -1037,8 +1042,10 @@ impl Compiler {
             SourcePath::File(input_path),
             AnimationMode::Running,
             self.project_root.clone(),
+            false,
         )
         .await
+        .0
     }
 
     /// Compile some .slint code
@@ -1049,18 +1056,19 @@ impl Compiler {
     /// Any diagnostics produced during the compilation, such as warnings or errors, can be retrieved
     /// after the call using [`CompilationResult::diagnostics()`].
     ///
-    /// This function is `async` but in practice, this is only asynchronous if
-    /// [`Self::set_file_loader`] is set and its future is actually asynchronous.
-    /// If that is not used, then it is fine to use a very simple executor, such as the one
-    /// provided by the `spin_on` crate
+    /// This function is `async`, but its future resolves on the first poll,
+    /// unless a [`Self::set_file_loader`] callback returns a future that isn't ready yet.
+    /// Any executor works, such as `pollster::block_on`.
     pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
         self.build(
             Some(source_code),
             SourcePath::new(path),
             AnimationMode::Running,
             self.project_root.clone(),
+            false,
         )
         .await
+        .0
     }
 
     /// [`Self::build_from_source`] for a file that may only be reachable by URL.
@@ -1077,28 +1085,33 @@ impl Compiler {
         path: SourcePath,
         _: i_slint_core::InternalToken,
     ) -> CompilationResult {
-        self.build(source_code, path, AnimationMode::Running, self.project_root.clone()).await
+        self.build(source_code, path, AnimationMode::Running, self.project_root.clone(), false)
+            .await
+            .0
     }
 
-    /// [`Self::build_from_source_path`] without timers or animations.
+    /// [`Self::build_from_source_path`] with debug info, which also returns the type loader
+    /// in its state before most passes ran, or `None` if the loading or the compilation failed.
     #[doc(hidden)]
-    #[cfg(feature = "internal")]
-    pub async fn build_static_from_source(
+    #[cfg(any(feature = "internal", feature = "internal-highlight"))]
+    pub async fn build_with_raw_type_loader(
         &self,
         source_code: Option<String>,
         path: SourcePath,
+        animation_mode: AnimationMode,
         _: i_slint_core::InternalToken,
-    ) -> CompilationResult {
-        self.build(source_code, path, AnimationMode::Static, self.project_root.clone()).await
+    ) -> (CompilationResult, Option<i_slint_compiler::typeloader::TypeLoader>) {
+        self.build(source_code, path, animation_mode, self.project_root.clone(), true).await
     }
 
-    async fn build(
+    pub(crate) async fn build(
         &self,
         source_code: Option<String>,
         input: SourcePath,
         animation_mode: AnimationMode,
         project_root: Option<SourcePath>,
-    ) -> CompilationResult {
+        keep_raw_type_loader: bool,
+    ) -> (CompilationResult, Option<i_slint_compiler::typeloader::TypeLoader>) {
         let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
         #[cfg_attr(not(feature = "internal"), expect(unused_variables))]
         let (loaded, attempted_paths) = i_slint_compiler::project_file::load_input(
@@ -1110,24 +1123,30 @@ impl Compiler {
         )
         .await;
         #[cfg_attr(not(feature = "internal"), allow(unused_mut))]
-        let mut result = match loaded {
-            None => CompilationResult {
-                components: HashMap::new(),
-                diagnostics: diagnostics.into_iter().collect(),
-                #[cfg(feature = "internal")]
-                watch_paths: Vec::new(),
-                #[cfg(feature = "internal")]
-                structs_and_enums: Vec::new(),
-            },
+        let (mut result, raw_type_loader) = match loaded {
+            None => (
+                CompilationResult {
+                    components: HashMap::new(),
+                    diagnostics: diagnostics.into_iter().collect(),
+                    #[cfg(feature = "internal")]
+                    watch_paths: Vec::new(),
+                    #[cfg(feature = "internal")]
+                    structs_and_enums: Vec::new(),
+                },
+                None,
+            ),
             Some(loaded) => {
                 let mut config = self.config.clone();
                 self.overrides.apply(loaded.project_file.as_ref(), &mut config);
+                config.debug_info |=
+                    keep_raw_type_loader || i_slint_backend_selector::testing_backends_requested();
                 build_compilation_result(
                     loaded.source_code,
                     loaded.source,
                     config,
                     animation_mode,
                     self.resource_loader.clone(),
+                    keep_raw_type_loader,
                 )
                 .await
             }
@@ -1139,17 +1158,8 @@ impl Compiler {
             result.watch_paths.sort();
             result.watch_paths.dedup();
         }
-        result
+        (result, raw_type_loader)
     }
-}
-
-#[cfg(feature = "std")]
-pub(crate) enum AnimationMode {
-    /// In static mode, all timers & animations are disabled.
-    /// The item tree should not update anything without interaction.
-    #[cfg_attr(not(feature = "internal"), allow(dead_code))]
-    Static,
-    Running,
 }
 
 #[cfg(feature = "std")]
@@ -1159,13 +1169,15 @@ async fn build_compilation_result(
     config: i_slint_compiler::CompilerConfiguration,
     animation_mode: AnimationMode,
     resource_loader: Option<crate::component::ResourceLoader>,
-) -> CompilationResult {
+    keep_raw_type_loader: bool,
+) -> (CompilationResult, Option<i_slint_compiler::typeloader::TypeLoader>) {
     let result = crate::component::build_from_source(
         source_code,
         path,
         config,
         animation_mode,
         resource_loader,
+        keep_raw_type_loader,
     )
     .await;
     let components = result
@@ -1173,14 +1185,15 @@ async fn build_compilation_result(
         .into_iter()
         .map(|(name, def)| (name, ComponentDefinition { inner: Rc::new(def) }))
         .collect::<HashMap<String, ComponentDefinition>>();
-    CompilationResult {
+    let compilation_result = CompilationResult {
         components,
         diagnostics: result.diagnostics,
         #[cfg(feature = "internal")]
         watch_paths: result.watch_paths,
         #[cfg(feature = "internal")]
         structs_and_enums: result.structs_and_enums,
-    }
+    };
+    (compilation_result, result.raw_type_loader)
 }
 
 /// A [`CompilationResult`] that can be sent to another thread.
@@ -1197,7 +1210,7 @@ async fn build_compilation_result(
 /// let source = "export component App inherits Window { out property <int> v: 42; }".into();
 /// let sent = std::thread::spawn(move || {
 ///     let compiler = slint_interpreter::Compiler::default();
-///     spin_on::spin_on(compiler.build_from_source(source, Default::default())).into_send()
+///     pollster::block_on(compiler.build_from_source(source, Default::default())).into_send()
 /// })
 /// .join()
 /// .unwrap();
@@ -1263,6 +1276,8 @@ impl CompilationResult {
         let compilation_unit = compilation_unit.map(Rc::new);
         let resources = Rc::new(crate::component::Resources {
             font_files,
+            #[cfg(feature = "std")]
+            images: Default::default(),
             #[cfg(feature = "internal-mcu-interpreter")]
             pre_rendered,
         });
@@ -1272,7 +1287,6 @@ impl CompilationResult {
                 let inner = Rc::new(crate::component::ComponentDefinitionInner {
                     compilation_unit: compilation_unit.clone()?,
                     public_index,
-                    type_loaders: Default::default(),
                     resources: resources.clone(),
                 });
                 Some((name, ComponentDefinition { inner }))
@@ -1377,6 +1391,8 @@ impl CompilationResult {
     }
 
     /// Consume the result so that it can be sent to another thread.
+    ///
+    /// Panics if the result contains images decoded through the internal resource loader.
     pub fn into_send(self) -> SendableCompilationResult {
         let Self {
             components,
@@ -1411,6 +1427,8 @@ impl CompilationResult {
         // the caller kept one of them, or an instance, alive.
         let compilation_unit = unit.map(Rc::unwrap_or_clone);
         let resources = resources.map(Rc::unwrap_or_clone).unwrap_or_default();
+        #[cfg(feature = "std")]
+        assert!(resources.images.is_empty(), "Decoded images cannot be sent to another thread");
 
         SendableCompilationResult {
             compilation_unit,
@@ -1700,44 +1718,6 @@ impl ComponentDefinition {
     pub fn is_window(&self) -> bool {
         self.inner.top_level_type() == i_slint_compiler::llr::TopLevelComponentType::Window
     }
-
-    /// This gives access to the tree of Elements.
-    #[cfg(all(feature = "internal", feature = "std"))]
-    #[doc(hidden)]
-    pub fn root_component(&self) -> Rc<i_slint_compiler::object_tree::Component> {
-        self.inner
-            .type_loaders
-            .originals
-            .get(self.inner.public_index)
-            .expect("root_component() called on a definition built without compiler state")
-            .clone()
-    }
-
-    /// Return the `TypeLoader` used when parsing the code in the interpreter.
-    ///
-    /// WARNING: this is not part of the public API
-    #[cfg(feature = "internal-highlight")]
-    pub fn type_loader(&self) -> Rc<i_slint_compiler::typeloader::TypeLoader> {
-        self.inner.type_loaders.type_loader.clone().expect(
-            "TypeLoader was not retained for this ComponentDefinition (reconstructed from an instance)",
-        )
-    }
-
-    /// Return the `TypeLoader` used when parsing the code in the interpreter in
-    /// a state before most passes were applied by the compiler.
-    ///
-    /// Each returned type loader is a deep copy of the entire state connected to it,
-    /// so this is a fairly expensive function!
-    ///
-    /// WARNING: this is not part of the public API
-    #[cfg(feature = "internal-highlight")]
-    pub fn raw_type_loader(&self) -> Option<i_slint_compiler::typeloader::TypeLoader> {
-        self.inner
-            .type_loaders
-            .raw_type_loader
-            .as_ref()
-            .and_then(|tl| i_slint_compiler::typeloader::snapshot(tl))
-    }
 }
 
 /// Print the diagnostics to stderr
@@ -1826,7 +1806,7 @@ impl ComponentInstance {
     /// "#;
     /// let mut compiler = Compiler::default();
     /// compiler.set_edition((1, 20));
-    /// let result = spin_on::spin_on(
+    /// let result = pollster::block_on(
     ///     compiler.build_from_source(code.into(), Default::default()));
     /// assert_eq!(result.diagnostics().count(), 0, "{:?}", result.diagnostics().collect::<Vec<_>>());
     /// let instance = result.component("MyWin").unwrap().create().unwrap();
@@ -1862,7 +1842,7 @@ impl ComponentInstance {
     /// "#;
     /// let mut compiler = Compiler::default();
     /// compiler.set_edition((1, 20));
-    /// let result = spin_on::spin_on(
+    /// let result = pollster::block_on(
     ///     compiler.build_from_source(code.into(), Default::default()));
     /// assert_eq!(result.diagnostics().count(), 0, "{:?}", result.diagnostics().collect::<Vec<_>>());
     /// let instance = result.component("MyWin").unwrap().create().unwrap();
@@ -1913,7 +1893,7 @@ impl ComponentInstance {
     /// "#;
     /// let mut compiler = Compiler::default();
     /// compiler.set_edition((1, 20));
-    /// let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    /// let result = pollster::block_on(compiler.build_from_source(code.into(), Default::default()));
     /// assert_eq!(result.diagnostics().count(), 0, "{:?}", result.diagnostics().collect::<Vec<_>>());
     /// let instance = result.component("MyWin").unwrap().create().unwrap();
     /// assert_eq!(instance.get_global_property("TheGlobal", "my_property").unwrap(), Value::from(42));
@@ -1954,7 +1934,7 @@ impl ComponentInstance {
     ///         out property <string> hello: Logic.to_uppercase("world");
     ///     }
     /// "#;
-    /// let result = spin_on::spin_on(
+    /// let result = pollster::block_on(
     ///     Compiler::default().build_from_source(code.into(), Default::default()));
     /// let instance = result.component("MyWin").unwrap().create().unwrap();
     /// instance.set_global_callback("Logic", "to_uppercase", |args: &[Value]| -> Value {
@@ -1996,38 +1976,37 @@ impl ComponentInstance {
 
     /// Find all positions of the components which are pointed by a given source location.
     ///
+    /// Returns nothing for components compiled without debug info.
+    ///
     /// WARNING: this is not part of the public API
     #[cfg(feature = "internal-highlight")]
     pub fn component_positions(
         &self,
-        path: &SourcePath,
-        offset: u32,
+        location: &i_slint_compiler::object_tree::ElementLocation,
     ) -> Vec<crate::highlight::HighlightedRect> {
-        crate::highlight::component_positions(self.inner.vrc(), path, offset)
+        crate::highlight::component_positions(self.inner.vrc(), location)
     }
 
     #[doc(hidden)]
     #[cfg(all(feature = "internal", feature = "internal-highlight"))]
     pub fn snapping_geometry(
         &self,
-        path: &SourcePath,
-        offset: u32,
+        location: &i_slint_compiler::object_tree::ElementLocation,
         instance_index: usize,
         _: i_slint_core::InternalToken,
     ) -> Option<crate::snapping::SnappingGeometry> {
-        crate::snapping::snapping_geometry(self.inner.vrc(), path, offset, instance_index)
+        crate::snapping::snapping_geometry(self.inner.vrc(), location, instance_index)
     }
 
     #[doc(hidden)]
     #[cfg(all(feature = "internal", feature = "internal-highlight"))]
     pub fn component_item(
         &self,
-        path: &SourcePath,
-        offset: u32,
+        location: &i_slint_compiler::object_tree::ElementLocation,
         instance_index: usize,
         _: i_slint_core::InternalToken,
     ) -> Option<i_slint_core::items::ItemRc> {
-        crate::highlight::component_item(self.inner.vrc(), path, offset, instance_index)
+        crate::highlight::component_item(self.inner.vrc(), location, instance_index)
     }
 
     #[doc(hidden)]
@@ -2049,6 +2028,8 @@ impl ComponentInstance {
 
     /// Find source elements rendered under `position`, in selection order.
     ///
+    /// Returns nothing for components compiled without debug info.
+    ///
     /// WARNING: this is not part of the public API
     #[cfg(feature = "internal-highlight")]
     pub fn element_candidates_at(
@@ -2058,20 +2039,8 @@ impl ComponentInstance {
         crate::highlight::element_candidates_at(self.inner.vrc(), position)
     }
 
-    /// Find the `element` that was defined at the text position.
-    ///
-    /// WARNING: this is not part of the public API
-    #[cfg(feature = "internal-highlight")]
-    pub fn element_node_at_source_code_position(
-        &self,
-        path: &SourcePath,
-        offset: u32,
-    ) -> Vec<(i_slint_compiler::object_tree::ElementRc, usize)> {
-        crate::highlight::element_node_at_source_code_position(self.inner.vrc(), path, offset)
-    }
-
     /// Set a callback triggered by `Expression::DebugHook`.
-    #[cfg(feature = "internal")]
+    #[cfg(all(feature = "internal", feature = "std"))]
     pub fn set_debug_hook_callback(&self, callback: Option<crate::debug_hook::DebugHookCallback>) {
         crate::debug_hook::set_debug_hook_callback(self.inner.vrc(), callback);
     }
@@ -2215,7 +2184,7 @@ fn component_definition_properties() {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let comp_def = spin_on::spin_on(
+    let comp_def = i_slint_compiler::poll_ready(
         compiler.build_from_source(
             r#"
     export component Dummy {
@@ -2264,7 +2233,7 @@ fn component_definition_properties2() {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let comp_def = spin_on::spin_on(
+    let comp_def = i_slint_compiler::poll_ready(
         compiler.build_from_source(
             r#"
     export component Dummy {
@@ -2316,7 +2285,7 @@ fn globals() {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let definition = spin_on::spin_on(
+    let definition = i_slint_compiler::poll_ready(
         compiler.build_from_source(
             r#"
     export global My-Super_Global {
@@ -2446,7 +2415,7 @@ fn call_functions() {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let definition = spin_on::spin_on(
+    let definition = i_slint_compiler::poll_ready(
         compiler.build_from_source(
             r#"
     export global Gl {
@@ -2498,7 +2467,7 @@ fn component_definition_struct_properties() {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let comp_def = spin_on::spin_on(
+    let comp_def = i_slint_compiler::poll_ready(
         compiler.build_from_source(
             r#"
     export struct Settings {
@@ -2550,7 +2519,7 @@ fn component_definition_model_properties() {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let comp_def = spin_on::spin_on(compiler.build_from_source(
+    let comp_def = i_slint_compiler::poll_ready(compiler.build_from_source(
         "export component Dummy { in-out property <[int]> prop: [42, 12]; }".into(),
         "".into(),
     ))
@@ -2634,7 +2603,7 @@ fn test_multi_components() {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_edition((1, 20));
-    let result = spin_on::spin_on(
+    let result = i_slint_compiler::poll_ready(
         compiler.build_from_source(
             r#"
         export struct Settings {
@@ -2695,14 +2664,24 @@ fn test_multi_components() {
     assert!(result.component("xyz").is_none());
 }
 
+#[cfg(all(test, feature = "internal"))]
+pub(crate) fn compiler_with_debug_info() -> Compiler {
+    let mut compiler = Compiler::default();
+    compiler.set_overrides(
+        i_slint_compiler::project_file::Overrides { debug_info: Some(true), ..Default::default() },
+        i_slint_core::InternalToken,
+    );
+    compiler
+}
+
 #[cfg(all(test, feature = "internal-highlight"))]
 fn compile(code: &str) -> (ComponentInstance, SourcePath) {
     i_slint_backend_testing::init_no_event_loop();
-    let mut compiler = Compiler::default();
+    let mut compiler = compiler_with_debug_info();
     compiler.set_style("fluent".into());
     let path = SourcePath::new("/tmp/test.slint");
 
-    let compile_result = spin_on::spin_on(compiler.build_from_source_path(
+    let compile_result = i_slint_compiler::poll_ready(compiler.build_from_source_path(
         Some(code.to_string()),
         path.clone(),
         i_slint_core::InternalToken,
@@ -2718,36 +2697,6 @@ fn compile(code: &str) -> (ComponentInstance, SourcePath) {
     let instance = definition.create().unwrap();
 
     (instance, path)
-}
-
-#[cfg(feature = "internal-highlight")]
-#[test]
-fn test_element_node_at_source_code_position() {
-    let code = r#"
-component Bar1 {}
-
-component Foo1 {
-}
-
-export component Foo2 inherits Window  {
-    Bar1 {}
-    Foo1   {}
-}"#;
-
-    let (handle, path) = compile(code);
-
-    for i in 0..code.len() as u32 {
-        let elements = handle.element_node_at_source_code_position(&path, i);
-        eprintln!("{i}: {}", code.as_bytes()[i as usize] as char);
-        match i {
-            16 => assert_eq!(elements.len(), 1),       // Bar1 (def)
-            35 => assert_eq!(elements.len(), 1),       // Foo1 (def)
-            71..=78 => assert_eq!(elements.len(), 1),  // Window + WS (from Foo2)
-            85..=89 => assert_eq!(elements.len(), 1),  // Bar1 + WS (use)
-            97..=103 => assert_eq!(elements.len(), 1), // Foo1 + WS (use)
-            _ => assert!(elements.is_empty()),
-        }
-    }
 }
 
 /// `component_positions` must return one rect per *instantiation*: a component
@@ -2778,8 +2727,12 @@ export component Foo3 inherits Window {
 
     let (handle, path) = compile(code);
 
-    let positions_at =
-        |pattern: &str| handle.component_positions(&path, code.find(pattern).unwrap() as u32);
+    let positions_at = |pattern: &str| {
+        handle.component_positions(&i_slint_compiler::object_tree::ElementLocation {
+            path: path.clone(),
+            offset: (code.find(pattern).unwrap() as u32).into(),
+        })
+    };
 
     // Each MyBox use highlights only its own instance.
     let b1_rects = positions_at("MyBox { x: 0px");
@@ -2806,8 +2759,23 @@ export component Foo3 inherits Window {
     // component_positions covers the same shapes, and an offset outside any
     // element matches nothing.
     let offset = code.find("Rectangle {\n        x: xo").unwrap() as u32;
-    assert_eq!(handle.component_positions(&path, offset).len(), 3);
-    assert!(handle.component_positions(&path, code.len() as u32 - 1).is_empty());
+    assert_eq!(
+        handle
+            .component_positions(&i_slint_compiler::object_tree::ElementLocation {
+                path: path.clone(),
+                offset: offset.into()
+            })
+            .len(),
+        3
+    );
+    assert!(
+        handle
+            .component_positions(&i_slint_compiler::object_tree::ElementLocation {
+                path: path.clone(),
+                offset: (code.len() as u32 - 1).into()
+            })
+            .is_empty()
+    );
 }
 
 #[cfg(feature = "internal-highlight")]
@@ -2855,14 +2823,19 @@ export component App inherits Window {
 }
 "#;
     let path = PathBuf::from("/virtual/round-trip.slint");
-    let result = spin_on::spin_on(Compiler::default().build_from_source(code.into(), path.clone()));
+    let compiler = compiler_with_debug_info();
+    let result =
+        i_slint_compiler::poll_ready(compiler.build_from_source(code.into(), path.clone()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let result = CompilationResult::from(result.into_send());
     let instance = result.component("App").unwrap().create().unwrap();
 
     let positions_at = |pattern: &str, inside_pattern: usize| {
         let offset = code.find(pattern).unwrap() + inside_pattern;
-        instance.component_positions(&SourcePath::new(&path), offset as u32)
+        instance.component_positions(&i_slint_compiler::object_tree::ElementLocation {
+            path: SourcePath::new(&path),
+            offset: (offset as u32).into(),
+        })
     };
 
     let first = positions_at("Derived { x: 10px", 2);
@@ -2876,7 +2849,11 @@ export component App inherits Window {
     assert_eq!(definition.len(), 6, "{definition:?}");
 
     let conditional_offset = code.find("Rectangle {\n        x: 100px").unwrap() as u32 + 4;
-    let conditional = instance.component_positions(&SourcePath::new(&path), conditional_offset);
+    let conditional =
+        instance.component_positions(&i_slint_compiler::object_tree::ElementLocation {
+            path: SourcePath::new(&path),
+            offset: conditional_offset.into(),
+        });
     assert_eq!(conditional.len(), 1, "{conditional:?}");
     assert_eq!(conditional[0].rect.origin, euclid::point2(100., 200.));
 
@@ -2924,7 +2901,7 @@ export component App inherits Window {
 "#;
     let main_path = PathBuf::from("/virtual/main.slint");
     let imported_path = PathBuf::from("/virtual/lib.slint");
-    let mut compiler = Compiler::default();
+    let mut compiler = compiler_with_debug_info();
     compiler.set_file_loader({
         let imported_path = imported_path.clone();
         move |path| {
@@ -2932,7 +2909,9 @@ export component App inherits Window {
             Box::pin(core::future::ready(source))
         }
     });
-    let result = spin_on::spin_on(compiler.build_from_source(main_code.into(), main_path.clone()));
+    let result = i_slint_compiler::poll_ready(
+        compiler.build_from_source(main_code.into(), main_path.clone()),
+    );
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let result = CompilationResult::from(result.into_send());
     let instance = result.component("App").unwrap().create().unwrap();
@@ -2942,7 +2921,11 @@ export component App inherits Window {
         (&imported_path, imported_code, "Rectangle"),
     ] {
         let offset = code.find(pattern).unwrap() as u32;
-        let positions = instance.component_positions(&SourcePath::new(path), offset);
+        let positions =
+            instance.component_positions(&i_slint_compiler::object_tree::ElementLocation {
+                path: SourcePath::new(path),
+                offset: offset.into(),
+            });
         assert_eq!(positions.len(), 1, "{positions:?}");
         assert_eq!(positions[0].rect.origin, euclid::point2(25., 35.));
         assert_eq!(positions[0].rect.size, euclid::size2(40., 30.));
@@ -2984,16 +2967,16 @@ export component App inherits Window {
         i_slint_compiler::CompilerConfiguration::new(OutputFormat::Interpreter);
     compiler_configuration.debug_info = true;
     compiler_configuration.inline_all_elements = true;
-    let (document, diagnostics, _) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
-        syntax_node,
-        diagnostics,
-        compiler_configuration.clone(),
-    ));
+    let (document, diagnostics, _) =
+        i_slint_compiler::poll_ready(i_slint_compiler::compile_syntax_node(
+            syntax_node,
+            diagnostics,
+            compiler_configuration.clone(),
+        ));
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
     let definition = crate::component::build_from_document(
         &document,
         &compiler_configuration,
-        Default::default(),
         Default::default(),
         AnimationMode::Running,
     )
@@ -3021,7 +3004,11 @@ export component App inherits Window {
     assert_eq!(matching_repeated_elements, 2);
 
     let instance = definition.create().unwrap();
-    let mut positions = instance.component_positions(&path, repeated_offset as u32 + 3);
+    let mut positions =
+        instance.component_positions(&i_slint_compiler::object_tree::ElementLocation {
+            path: path.clone(),
+            offset: (repeated_offset as u32 + 3).into(),
+        });
     positions.sort_by(|left, right| left.rect.origin.x.total_cmp(&right.rect.origin.x));
     assert_eq!(positions.len(), 4, "{positions:?}");
     for (geometry, expected_x) in positions.iter().zip([10., 30., 100., 120.]) {
@@ -3047,7 +3034,7 @@ mod project_file_tests {
     fn compile(root: &Path, source: &str) -> super::CompilationResult {
         let main = root.join("main.slint");
         std::fs::write(&main, source).unwrap();
-        spin_on::spin_on(Compiler::default().build_from_path(root))
+        i_slint_compiler::poll_ready(Compiler::default().build_from_path(root))
     }
 
     #[test]
@@ -3055,10 +3042,10 @@ mod project_file_tests {
     fn missing_source_files_have_no_line_or_column() {
         with_project(r#"{"edition":"1.20"}"#, |root| {
             let source = root.join("missing.slint");
-            let result = spin_on::spin_on(Compiler::default().build_from_path(&source));
+            let result = i_slint_compiler::poll_ready(Compiler::default().build_from_path(&source));
             assert!(result.has_errors());
             let mut compiler = super::ComponentCompiler::new();
-            assert!(spin_on::spin_on(compiler.build_from_path(&source)).is_none());
+            assert!(i_slint_compiler::poll_ready(compiler.build_from_path(&source)).is_none());
             for diagnostics in
                 [result.diagnostics().collect::<Vec<_>>(), compiler.diagnostics().clone()]
             {
@@ -3084,7 +3071,7 @@ mod project_file_tests {
                 if let Some(edition) = edition {
                     compiler.set_edition(edition);
                 }
-                spin_on::spin_on(compiler.build_from_path(root))
+                i_slint_compiler::poll_ready(compiler.build_from_path(root))
             };
             assert!(!build(None).has_errors());
             assert!(build(Some((1, 19))).has_errors());
@@ -3104,7 +3091,7 @@ mod project_file_tests {
         let build = |attribute: &str| {
             let source = format!("slint::slint! {{ {attribute} {EDITION_DEPENDENT_BODY} }}");
             std::fs::write(&main, source).unwrap();
-            spin_on::spin_on(Compiler::default().build_from_path(&main))
+            i_slint_compiler::poll_ready(Compiler::default().build_from_path(&main))
         };
         assert!(!build("").has_errors());
         assert!(!build(r#"#[edition = "1.18"]"#).has_errors());
@@ -3126,13 +3113,16 @@ mod project_file_tests {
     ) -> super::CompilationResult {
         let source = source.into();
         if static_compilation {
-            spin_on::spin_on(compiler.build_static_from_source(
+            i_slint_compiler::poll_ready(compiler.build(
                 Some(source),
                 path,
-                i_slint_core::InternalToken,
+                super::AnimationMode::Static,
+                compiler.project_root.clone(),
+                false,
             ))
+            .0
         } else {
-            spin_on::spin_on(compiler.build_from_source_path(
+            i_slint_compiler::poll_ready(compiler.build_from_source_path(
                 Some(source),
                 path,
                 i_slint_core::InternalToken,
@@ -3164,13 +3154,13 @@ mod project_file_tests {
                 Box::pin(async move { Some(Ok(source)) })
             });
             let result = if remote {
-                spin_on::spin_on(compiler.build_from_source_path(
+                i_slint_compiler::poll_ready(compiler.build_from_source_path(
                     Some(source.into()),
                     super::SourcePath::new("https://example.invalid/ui/main.slint"),
                     i_slint_core::InternalToken,
                 ))
             } else {
-                spin_on::spin_on(compiler.build_from_path(&main))
+                i_slint_compiler::poll_ready(compiler.build_from_path(&main))
             };
             assert!(!result.has_errors(), "{result:?}");
             assert!(result.component("Main").is_some());
@@ -3200,11 +3190,45 @@ mod project_file_tests {
             }),
             i_slint_core::InternalToken,
         );
-        let result = spin_on::spin_on(compiler.build_from_path(directory.path()));
+        let result = i_slint_compiler::poll_ready(compiler.build_from_path(directory.path()));
         assert!(!result.has_errors(), "{result:?}");
         assert!(result.component("Main").is_some());
         for dependency in [&manifest, &entry] {
             assert!(result.watch_paths.contains(&super::SourcePath::new(dependency)));
+        }
+    }
+
+    #[cfg(feature = "internal")]
+    #[test]
+    fn a_project_file_url_compiles_its_main_file_through_the_loader() {
+        let manifest = super::SourcePath::new("https://example.invalid/project/slint-project.json");
+        let entry = super::SourcePath::new("https://example.invalid/project/ui/main.slint");
+        let mut compiler = Compiler::default();
+        compiler.set_project_file_loader(
+            std::rc::Rc::new({
+                let (manifest, entry) = (manifest.clone(), entry.clone());
+                move |path| {
+                    let contents = if path == manifest {
+                        Ok(r#"{"edition":"1.20", /* comment */ "main":"ui/main.slint"}"#.into())
+                    } else if path == entry {
+                        Ok("export component Main inherits Window {}".into())
+                    } else {
+                        Err(std::io::ErrorKind::NotFound.into())
+                    };
+                    Box::pin(async move { Some(contents) })
+                }
+            }),
+            i_slint_core::InternalToken,
+        );
+        let result = i_slint_compiler::poll_ready(compiler.build_from_source_path(
+            None,
+            manifest.clone(),
+            i_slint_core::InternalToken,
+        ));
+        assert!(!result.has_errors(), "{result:?}");
+        assert!(result.component("Main").is_some());
+        for dependency in [&manifest, &entry] {
+            assert!(result.watch_paths.contains(dependency));
         }
     }
 
@@ -3316,7 +3340,9 @@ mod project_file_tests {
             if let Some(contents) = contents {
                 std::fs::write(&manifest, contents).unwrap();
             }
-            let result = spin_on::spin_on(compiler.build_from_source(source.into(), main.clone()));
+            let result = i_slint_compiler::poll_ready(
+                compiler.build_from_source(source.into(), main.clone()),
+            );
             assert!(!result.has_errors(), "{result:?}");
             let expected_paths = vec![super::SourcePath::new(&main)];
             let native_paths = result
@@ -3334,7 +3360,7 @@ mod project_file_tests {
     #[cfg(windows)]
     #[test]
     fn a_windows_root_relative_manifest_source_is_an_error() {
-        let result = spin_on::spin_on(
+        let result = i_slint_compiler::poll_ready(
             Compiler::default()
                 .build_from_source("{}".into(), r"\project\slint-project.json".into()),
         );
@@ -3359,8 +3385,9 @@ mod project_file_tests {
         let manifest = directory.path().join(FILE_NAME);
         std::fs::write(&manifest, "{").unwrap();
         let relative_manifest = manifest.strip_prefix(&current_directory).unwrap().to_path_buf();
-        let result =
-            spin_on::spin_on(Compiler::default().build_from_source("{}".into(), relative_manifest));
+        let result = i_slint_compiler::poll_ready(
+            Compiler::default().build_from_source("{}".into(), relative_manifest),
+        );
         assert!(result.has_errors(), "{result:?}");
         assert_eq!(
             result
@@ -3486,7 +3513,7 @@ mod project_file_tests {
             let mut compiler = Compiler::default();
             compiler.set_include_paths(vec![]);
             assert!(compiler.include_paths().is_empty());
-            let result = spin_on::spin_on(compiler.build_from_path(&main));
+            let result = i_slint_compiler::poll_ready(compiler.build_from_path(&main));
             assert!(result.has_errors());
             assert!(
                 result
@@ -3499,7 +3526,7 @@ mod project_file_tests {
             #[allow(deprecated)]
             compiler.set_include_paths(vec![]);
             #[allow(deprecated)]
-            let result = spin_on::spin_on(compiler.build_from_path(&main));
+            let result = i_slint_compiler::poll_ready(compiler.build_from_path(&main));
             assert!(result.is_none());
             #[allow(deprecated)]
             let missing_import = compiler
@@ -3530,13 +3557,16 @@ mod project_file_tests {
                         vec![include_directory.clone()];
                     compiler.set_include_paths(Vec::new());
                     let result = if static_compilation {
-                        spin_on::spin_on(compiler.build_static_from_source(
+                        i_slint_compiler::poll_ready(compiler.build(
                             Some(source.into()),
                             path.clone(),
-                            i_slint_core::InternalToken,
+                            super::AnimationMode::Static,
+                            compiler.project_root.clone(),
+                            false,
                         ))
+                        .0
                     } else {
-                        spin_on::spin_on(compiler.build_from_source_path(
+                        i_slint_compiler::poll_ready(compiler.build_from_source_path(
                             Some(source.into()),
                             path.clone(),
                             i_slint_core::InternalToken,
@@ -3581,7 +3611,7 @@ mod project_file_tests {
                 #[allow(deprecated)]
                 let mut compiler = super::ComponentCompiler::new();
                 #[allow(deprecated)]
-                let definition = spin_on::spin_on(compiler.build_from_path(root));
+                let definition = i_slint_compiler::poll_ready(compiler.build_from_path(root));
                 assert!(definition.is_some());
             },
         );
@@ -3594,7 +3624,7 @@ mod project_file_tests {
             std::fs::write(root.join("ui/main.slint"), "export component Main inherits Window { }")
                 .unwrap();
 
-            let result = spin_on::spin_on(Compiler::default().build_from_path(root));
+            let result = i_slint_compiler::poll_ready(Compiler::default().build_from_path(root));
             assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
             assert!(result.component_names().any(|name| name == "Main"));
         });
@@ -3603,7 +3633,7 @@ mod project_file_tests {
     #[test]
     fn a_project_directory_without_an_entry_is_an_error() {
         with_project(r#"{"edition":"1.20"}"#, |root| {
-            let result = spin_on::spin_on(Compiler::default().build_from_path(root));
+            let result = i_slint_compiler::poll_ready(Compiler::default().build_from_path(root));
             assert!(result.has_errors());
             assert!(
                 result
@@ -3619,8 +3649,9 @@ mod project_file_tests {
         with_project(r#"{"edition": "1.20", "main":"main.slint"}"#, |root| {
             std::fs::write(root.join("main.slint"), "export component Main inherits Window { }")
                 .unwrap();
-            let result =
-                spin_on::spin_on(Compiler::default().build_from_path(root.join(FILE_NAME)));
+            let result = i_slint_compiler::poll_ready(
+                Compiler::default().build_from_path(root.join(FILE_NAME)),
+            );
             assert!(!result.has_errors(), "{result:?}");
             assert!(result.component_names().any(|name| name == "Main"));
         });
@@ -3635,7 +3666,7 @@ mod project_file_tests {
             #[allow(deprecated)]
             let mut compiler = super::ComponentCompiler::new();
             #[allow(deprecated)]
-            let definition = spin_on::spin_on(compiler.build_from_path(root));
+            let definition = i_slint_compiler::poll_ready(compiler.build_from_path(root));
             assert_eq!(
                 definition.map(|definition| definition.name().to_string()),
                 Some("Main".into())
@@ -3649,7 +3680,7 @@ mod project_file_tests {
         let root = std::fs::canonicalize(directory.path()).unwrap();
         let main = root.join("main.slint");
         std::fs::write(&main, "export component Main inherits Window { }").unwrap();
-        let result = spin_on::spin_on(Compiler::default().build_from_path(&main));
+        let result = i_slint_compiler::poll_ready(Compiler::default().build_from_path(&main));
         assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     }
 
@@ -3657,7 +3688,8 @@ mod project_file_tests {
     fn relative_directory_inputs_compile() {
         if std::env::var_os("SLINT_INTERPRETER_PROJECT_ROOT_TEST").is_some() {
             for input in [".", "ui/.."] {
-                let result = spin_on::spin_on(Compiler::default().build_from_path(input));
+                let result =
+                    i_slint_compiler::poll_ready(Compiler::default().build_from_path(input));
                 assert!(!result.has_errors(), "{result:?}");
                 assert!(result.component("Main").is_some());
             }

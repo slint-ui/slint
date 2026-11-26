@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../../icons/index.slint";
 import { Style, Metrics, InfoIconStyle } from "../../style.slint";
 
 export component InspectorInfoIcon inherits Rectangle {
@@ -30,17 +31,12 @@ export component InspectorInfoIcon inherits Rectangle {
         }
     }
 
-    Text {
-        x: 0px;
-        y: -0.5px;
-        width: parent.width;
-        height: parent.height;
-        text: "i";
-        color: touch.has-hover || icon-focus.has-focus ? root.style.accent : root.style.foreground;
-        font-size: root.style.text.size;
-        font-weight: root.style.text.weight;
-        horizontal-alignment: center;
-        vertical-alignment: center;
+    Image {
+        y: (parent.height - self.height) / 2 - 0.5px;
+        width: root.style.text.size;
+        height: root.style.text.size;
+        source: Icons.info-letter;
+        colorize: touch.has-hover || icon-focus.has-focus ? root.style.accent : root.style.foreground;
     }
 
     touch := TouchArea {

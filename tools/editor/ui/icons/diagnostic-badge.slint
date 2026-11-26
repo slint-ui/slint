@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Colors } from "../style.slint";
+import { Icons } from "icons.slint";
+
+export component DiagnosticBadge inherits Rectangle {
+    in property <color> foreground: Colors.danger;
+    in property <length> icon-inset;
+    background: Colors.surface;
+    border-radius: self.width / 2;
+    Image {
+        source: Icons.alert;
+        width: parent.width - 2 * root.icon-inset;
+        height: parent.height - 2 * root.icon-inset;
+        colorize: root.foreground;
+    }
+}

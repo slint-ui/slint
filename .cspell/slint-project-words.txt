@@ -255,6 +255,7 @@ fooo
 FOURCC
 fract
 framebuffers
+frdm
 freetype
 frontends
 frontmatter
@@ -421,6 +422,7 @@ maturin
 mcp
 mcus
 MCUX
+mcxn
 mdbook
 memsize
 menuconfig
@@ -471,6 +473,7 @@ noopener
 Nord
 noseat
 nostrud
+notdef
 notexist
 noto
 nsview
@@ -481,6 +484,7 @@ NUMS
 Nunito
 NVIC
 nvim
+nxpdebugmbox
 O_WRONLY
 objc
 objfile
@@ -536,11 +540,13 @@ pyfunction
 pymethods
 pymodule
 pyobject
+pyocd
 pypi
 pypiserver
 pyproject
 pystruct
 pytest
+qreal
 qskinny
 qtbase
 qtsvg
@@ -590,6 +596,7 @@ rustup
 Rustybuzz
 safeui
 Schukat
+scanline
 scanout
 sclk
 scopeguard

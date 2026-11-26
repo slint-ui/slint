@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore CBDT frameless glyf qbrush qdrag qimage qpointf qreal qvariant qwidgetsize sbix svgz Nesw qsize qstring
+// cSpell: ignore CBDT frameless glyf qbrush qdrag qimage qpointf qvariant qwidgetsize sbix svgz Nesw qsize qstring
 
 use cpp::*;
 use i_slint_common::sharedfontique::HashedBlob;
@@ -479,7 +479,7 @@ cpp! {{
             case Qt::ImCurrentSelection: return ime_text.mid(qMin(ime_cursor, ime_anchor), qAbs(ime_cursor - ime_anchor));
             case Qt::ImAnchorPosition: return ime_anchor;
             case Qt::ImTextBeforeCursor: return ime_text.left(ime_cursor);
-            case Qt::ImTextAfterCursor: return ime_text.right(ime_cursor);
+            case Qt::ImTextAfterCursor: return ime_text.mid(ime_cursor);
             default: break;
             }
             return QWidget::inputMethodQuery(query);
@@ -490,13 +490,13 @@ cpp! {{
                 return;
             QString commit_string = event->commitString();
             QString preedit_string = event->preeditString();
-            int replacement_start = event->replacementStart();
             QStringView ime_text(this->ime_text);
-            replacement_start = replacement_start < 0 ?
-                -ime_text.mid(ime_cursor,-replacement_start).toUtf8().size() :
-                ime_text.mid(ime_cursor,replacement_start).toUtf8().size();
-            int replacement_length = qMax(0, event->replacementLength());
-            ime_text.mid(ime_cursor + replacement_start, replacement_length).toUtf8().size();
+            int utf16_start = qBound(0, ime_cursor + event->replacementStart(), int(ime_text.size()));
+            int utf16_length = qBound(0, event->replacementLength(), int(ime_text.size()) - utf16_start);
+            int replacement_start = utf16_start < ime_cursor ?
+                -ime_text.mid(utf16_start, ime_cursor - utf16_start).toUtf8().size() :
+                ime_text.mid(ime_cursor, utf16_start - ime_cursor).toUtf8().size();
+            int replacement_length = ime_text.mid(utf16_start, utf16_length).toUtf8().size();
             int preedit_cursor = -1;
             for (const QInputMethodEvent::Attribute &attribute: event->attributes()) {
                 if (attribute.type == QInputMethodEvent::Cursor) {
@@ -1400,6 +1400,7 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
+        _baseline: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
         let stroke = matches!(brush, GlyphBrush::Stroke(_));

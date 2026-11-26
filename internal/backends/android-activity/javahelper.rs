@@ -60,6 +60,14 @@ bind_java_type! {
             name = "font_scale",
             sig = () -> jfloat,
         },
+        fn horizontal_scroll_factor {
+            name = "horizontal_scroll_factor",
+            sig = () -> jfloat,
+        },
+        fn vertical_scroll_factor {
+            name = "vertical_scroll_factor",
+            sig = () -> jfloat,
+        },
         fn get_clipboard {
             name = "get_clipboard",
             sig = () -> JString,
@@ -628,6 +636,14 @@ impl JavaHelper {
         self.with_jni_env(|env, helper| helper.font_scale(env))
     }
 
+    /// Returns the horizontal and vertical distance that one notch of a mouse wheel scrolls,
+    /// in physical pixels.
+    pub fn scroll_factors(&self) -> Result<(f32, f32), jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            Ok((helper.horizontal_scroll_factor(env)?, helper.vertical_scroll_factor(env)?))
+        })
+    }
+
     /// Sets the motion preference of `ctx` to reduced when Android doesn't run animators,
     /// which "Remove animations" under Settings > Accessibility turns off. Android sends no
     /// configuration change for this setting, so call it at startup and again whenever the
@@ -977,11 +993,12 @@ fn callback_popup_menu_action<'local>(
                 if let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>() {
                     let text_input = text_input.as_pin_ref();
                     let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
-                    match id {
-                        0 => text_input.cut(&adaptor, &focus_item),
-                        1 => text_input.copy(&adaptor),
-                        2 => text_input.paste(&adaptor, &focus_item),
-                        3 => text_input.select_all(&adaptor, &focus_item),
+                    let access = text_input.user_edit_access();
+                    match (id, access) {
+                        (0, Some(access)) => text_input.cut(access, &adaptor, &focus_item),
+                        (1, _) => text_input.copy(&adaptor),
+                        (2, Some(access)) => text_input.paste(access, &adaptor, &focus_item),
+                        (3, _) => text_input.select_all(&adaptor, &focus_item),
                         _ => (),
                     }
                 }

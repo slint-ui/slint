@@ -36,9 +36,11 @@ pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
         let instance_index = usize::try_from(api.get_selection().highlight_index).ok()?;
         let instance = crate::preview::component_instance()?;
         let source_uri = lsp_types::Url::parse(element.source_uri.as_str()).ok()?;
-        let path = i_slint_compiler::source_path::SourcePath::from_url(&source_uri);
-        let offset = u32::try_from(element.offset).ok()?;
-        instance.component_item(&path, offset, instance_index, i_slint_core::InternalToken)
+        let location = i_slint_compiler::object_tree::ElementLocation {
+            path: i_slint_compiler::source_path::SourcePath::from_url(&source_uri),
+            offset: u32::try_from(element.offset).ok()?.into(),
+        };
+        instance.component_item(&location, instance_index, i_slint_core::InternalToken)
     });
     properties_api.on_source_property_value_data(move |property_name, fallback| {
         properties_api_weak
@@ -61,28 +63,20 @@ pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
             let properties_api = hooked_properties_api_weak.upgrade()?;
             properties_api.get_inspector_generation();
             let element = api.get_current_element();
-            let selection = crate::preview::element_selection::ElementSelection {
-                path: i_slint_compiler::source_path::SourcePath::from_url(
-                    &Url::parse(element.source_uri.as_str()).ok()?,
-                ),
-                offset: u32::try_from(element.offset).ok()?.into(),
-                instance_index: usize::try_from(api.get_selection().highlight_index)
-                    .unwrap_or_default(),
-                editing_text: false,
+            let id = i_slint_compiler::object_tree::ElementProperty {
+                element: i_slint_compiler::object_tree::ElementLocation {
+                    path: i_slint_compiler::source_path::SourcePath::from_url(
+                        &Url::parse(element.source_uri.as_str()).ok()?,
+                    ),
+                    offset: u32::try_from(element.offset).ok()?.into(),
+                },
+                property: property_name.as_str().into(),
             };
-            let instance = crate::preview::component_instance()?;
-            let node = selection.as_element_node_in(&instance)?;
-            let hash = node.with_element_debug(|debug| debug.element_hash);
-            if hash == 0 {
-                return None;
-            }
-            let id =
-                i_slint_compiler::passes::property_id(hash, &SmolStr::from(property_name.as_str()));
             let overrides = crate::preview::PREVIEW_STATE
                 .with_borrow(|state| state.debug_hook_overrides.clone());
             let mut overrides = (*overrides).borrow_mut();
             let runtime = overrides
-                .entry(id.clone())
+                .entry(id)
                 .or_insert_with(|| Box::pin(i_slint_core::Property::new(None)))
                 .as_ref()
                 .get()?;
@@ -674,8 +668,10 @@ mod tests {
         let select = |offset: usize| {
             preview::element_selection::restore_selection(
                 ElementSelection {
-                    path: path.clone(),
-                    offset: (offset as u32).into(),
+                    location: i_slint_compiler::object_tree::ElementLocation {
+                        path: path.clone(),
+                        offset: (offset as u32).into(),
+                    },
                     instance_index: 0,
                     editing_text: false,
                 },
@@ -688,10 +684,7 @@ mod tests {
                 .unwrap()
                 .as_element_node()
                 .unwrap();
-            i_slint_compiler::passes::property_id(
-                node.with_element_debug(|debug| debug.element_hash),
-                &smol_str::SmolStr::from(name),
-            )
+            node.property(name)
         };
         select(offsets[0]);
         let source_width =
@@ -756,20 +749,6 @@ mod tests {
         api.set_selection(ui::Selection { highlight_index: -1, ..api.get_selection() });
         preview::set_override(&hook_id("width"), Some(Value::Number(350.0)));
         assert_eq!(displayed.as_ref().get().value_float, 350.0);
-        let root = preview::PREVIEW_STATE
-            .with_borrow(|state| state.selected.clone())
-            .unwrap()
-            .as_element_node()
-            .unwrap();
-        root.element.borrow_mut().debug[root.debug_index].element_hash = 0;
-        preview::set_override(
-            &i_slint_compiler::passes::property_id(0, &smol_str::SmolStr::from("width")),
-            Some(Value::Number(123.0)),
-        );
-        assert_eq!(
-            properties_api.invoke_hooked_property_value_data("width".into(), source_width.clone()),
-            source_width
-        );
         preview::PREVIEW_STATE.with_borrow_mut(|state| state.clear_preview());
         assert!(!displayed.as_ref().get().value_resolved);
         assert!(displayed.as_ref().get().code.is_empty());
@@ -840,9 +819,15 @@ export component Win inherits Window {
 }"#;
         let path = i_slint_compiler::source_path::SourcePath::new("/tmp/property-query.slint");
         let mut compiler = slint_interpreter::Compiler::default();
-        compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
-            Some(std::hash::RandomState::new());
-        let compiled = spin_on::spin_on(compiler.build_from_source_path(
+        compiler.set_overrides(
+            i_slint_compiler::project_file::Overrides {
+                debug_info: Some(true),
+                ..Default::default()
+            },
+            i_slint_core::InternalToken,
+        );
+        compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = true;
+        let compiled = i_slint_compiler::poll_ready(compiler.build_from_source_path(
             Some(code.into()),
             path.clone(),
             i_slint_core::InternalToken,
@@ -851,8 +836,10 @@ export component Win inherits Window {
         let instance = compiled.components().next().unwrap().create().unwrap();
         let rectangle = instance
             .component_item(
-                &path,
-                code.find("Rectangle {").unwrap() as u32,
+                &i_slint_compiler::object_tree::ElementLocation {
+                    path: path.clone(),
+                    offset: (code.find("Rectangle {").unwrap() as u32).into(),
+                },
                 0,
                 i_slint_core::InternalToken,
             )
@@ -864,14 +851,16 @@ export component Win inherits Window {
             );
         }
         drop(rectangle);
-        let offset = code.find("Text {").unwrap() as u32;
+        let text = i_slint_compiler::object_tree::ElementLocation {
+            path: path.clone(),
+            offset: (code.find("Text {").unwrap() as u32).into(),
+        };
         for (index, color) in
             [slint::Color::from_rgb_u8(255, 0, 0), slint::Color::from_rgb_u8(0, 0, 255)]
                 .into_iter()
                 .enumerate()
         {
-            let item =
-                instance.component_item(&path, offset, index, i_slint_core::InternalToken).unwrap();
+            let item = instance.component_item(&text, index, i_slint_core::InternalToken).unwrap();
             assert_eq!(
                 slint_interpreter::ComponentInstance::item_property(
                     &item,
@@ -892,16 +881,11 @@ export component Win inherits Window {
             let current_instance = current_instance.clone();
             let generation = generation.clone();
             let lookups = lookups.clone();
-            let path = path.clone();
+            let text = text.clone();
             super::selected_item_cache(move || {
                 generation.as_ref().get();
                 lookups.set(lookups.get() + 1);
-                current_instance.borrow().component_item(
-                    &path,
-                    offset,
-                    1,
-                    i_slint_core::InternalToken,
-                )
+                current_instance.borrow().component_item(&text, 1, i_slint_core::InternalToken)
             })
         };
         assert!(cache.as_ref().get().upgrade().is_some());
@@ -920,7 +904,7 @@ export component Win inherits Window {
         assert_eq!(lookups.get(), 3);
         drop(item);
         let old_item = cache.as_ref().get();
-        let compiled = spin_on::spin_on(compiler.build_from_source_path(
+        let compiled = i_slint_compiler::poll_ready(compiler.build_from_source_path(
             Some(code.replace("Test Family", "Next Family")),
             path,
             i_slint_core::InternalToken,

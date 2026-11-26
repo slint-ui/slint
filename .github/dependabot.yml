@@ -16,8 +16,6 @@ updates:
       github-actions:
         patterns:
           - "*"  # Group all Actions updates into a single larger pull request
-    ignore:
-      - dependency-name: "lukka/run-cmake"
 
 
   # ruff and ty are pinned exactly in the dev dependency group of each of these

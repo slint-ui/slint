@@ -5,6 +5,7 @@
 use std::collections::BTreeMap;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
+use i_slint_compiler::object_tree::ElementLocation;
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{expression_types, langtype};
@@ -86,8 +87,8 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
             .borrow_mut()
             .entry(angle)
             .or_insert_with(|| {
-                let svg = include_str!("../ui/assets/cursors/rotate.svg")
-                    .replace("{angle}", &angle.to_string());
+                let svg =
+                    include_str!("../ui/cursors/rotate.svg").replace("{angle}", &angle.to_string());
                 let image = slint::Image::load_from_svg_data(svg.as_bytes())
                     .expect("valid rotation cursor SVG");
                 // Match the fixed-pixel canvas pointer; native SVG cursors scale with the display.
@@ -102,8 +103,8 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
             .borrow_mut()
             .entry(angle)
             .or_insert_with(|| {
-                let svg = include_str!("../ui/assets/cursors/resize.svg")
-                    .replace("{angle}", &angle.to_string());
+                let svg =
+                    include_str!("../ui/cursors/resize.svg").replace("{angle}", &angle.to_string());
                 let image = slint::Image::load_from_svg_data(svg.as_bytes())
                     .expect("valid resize cursor SVG");
                 slint::Image::from_rgba8(image.to_rgba8().expect("resize cursor pixels"))
@@ -111,10 +112,9 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
             .clone()
     });
     let scrub_horizontal_cursor = {
-        let image = slint::Image::load_from_svg_data(include_bytes!(
-            "../ui/assets/cursors/scrub-horizontal.svg"
-        ))
-        .expect("valid horizontal scrub cursor SVG");
+        let image =
+            slint::Image::load_from_svg_data(include_bytes!("../ui/cursors/scrub-horizontal.svg"))
+                .expect("valid horizontal scrub cursor SVG");
         slint::Image::from_rgba8(image.to_rgba8().expect("horizontal scrub cursor pixels"))
     };
     ui.global::<EditorCursors>().on_scrub_horizontal_image(move || scrub_horizontal_cursor.clone());
@@ -193,8 +193,10 @@ pub fn initialize_editor(
     });
     api.on_select_element(|path, offset, x, y| {
         super::element_selection::select_element_at_source_code_position(
-            SourcePath::new(path.as_str()),
-            preview::TextSize::from(offset as u32),
+            ElementLocation {
+                path: SourcePath::new(path.as_str()),
+                offset: preview::TextSize::from(offset as u32),
+            },
             Some(i_slint_core::lengths::LogicalPoint::new(x, y)),
             SelectionNotification::Now,
         );
@@ -276,6 +278,8 @@ pub fn initialize_editor(
     properties_api.on_set_code_bindings(|url, version, offset, bindings| {
         super::set_code_bindings(url, version, offset, bindings.iter())
     });
+    api.on_normalize_element_id(super::normalize_element_id);
+    api.on_normalized_element_id_cursor(super::normalized_element_id_cursor);
     api.on_set_element_id(super::set_element_id);
     properties_api.on_string_is_single_line(|value| !value.contains('\n') && !value.contains('\r'));
     properties_api.on_property_declaration_ranges(super::property_declaration_ranges);
@@ -3363,7 +3367,7 @@ mod tests {
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         for (type_name, expected) in [
             ("ComboBox", true),
-            ("RadioGroup", true),
+            ("RadioGroup", false),
             ("TabWidget", true),
             ("Slider", false),
             ("Rectangle", false),
@@ -3425,7 +3429,9 @@ mod tests {
         slint::platform::update_timers_and_animations();
         editor.invoke_focus_editor();
         inline.set_active(true);
-        i_slint_core::properties::ChangeTracker::run_change_handlers();
+        i_slint_core::window::WindowInner::from_pub(editor.window())
+            .context()
+            .run_change_handlers();
         let input = find_element(&editor, "Inline text editor");
         assert_eq!(input.accessible_value().unwrap(), "Text");
         for character in "Undo me".chars() {

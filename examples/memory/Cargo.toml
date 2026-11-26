@@ -17,9 +17,6 @@ name = "memory"
 rand = "0.10"
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-18", "std"] }
 
-[build-dependencies]
-slint-build = { path = "../../api/rs/build" }
-
 [features]
 default = ["slint/default"]
 

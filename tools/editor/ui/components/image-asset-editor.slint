@@ -3,6 +3,7 @@
 
 import { EditorGrid } from "editor-grid.slint";
 import { FloatingSurface } from "floating-surface.slint";
+import { ErrorNotice } from "error-notice.slint";
 import { Style, PaintStyle, Metrics, Typography, Colors, NineSliceStyle, ImageTabsStyle, ImageFieldStyle, ImageSyntaxStyle, ButtonStyle, ImageDetailsStyle, ImageAssetEditorStyle } from "../style.slint";
 // cspell:ignore nesw
 
@@ -476,31 +477,22 @@ export component ImageAssetEditor inherits Rectangle {
         }
     }
 
-    if Api.selected-image-asset.error != "": Rectangle {
+    if Api.selected-image-asset.error != "": FloatingSurface {
         width: min(parent.width - 2 * root.style.error.margin, root.style.error.max-width);
-        height: root.style.error.height;
-        border-radius: Metrics.radius-large;
-        border-width: Metrics.border-width;
-        border-color: Colors.border;
-        background: Colors.surface;
+        height: max(root.style.error.height, error-layout.preferred-height);
 
-        VerticalLayout {
+        error-layout := VerticalLayout {
             padding: Metrics.space-large;
-            spacing: Metrics.space-compact;
+            spacing: Metrics.space-medium;
             Text {
                 text: @tr("Image could not be loaded");
                 color: Colors.foreground;
                 font-size: Typography.action.size;
                 font-weight: FontWeight.bold;
                 horizontal-alignment: center;
+                wrap: word-wrap;
             }
-            Text {
-                text: Api.selected-image-asset.error;
-                color: Colors.muted;
-                font-size: Typography.control.size;
-                horizontal-alignment: center;
-                overflow: elide;
-            }
+            ErrorNotice { text: Api.selected-image-asset.error; }
         }
     }
 

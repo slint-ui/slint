@@ -50,6 +50,27 @@ pub enum Layout {
     FlexboxLayout(FlexboxLayout),
 }
 
+/// The layout that a builtin layout element, such as `HorizontalLayout`, lays out its children with.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LayoutKind {
+    Grid,
+    Box(Orientation),
+    Flexbox,
+}
+
+impl LayoutKind {
+    /// Returns the kind of the builtin element `name`, or `None` if it isn't a layout.
+    pub fn from_builtin_name(name: &str) -> Option<Self> {
+        match name {
+            "GridLayout" => Some(Self::Grid),
+            "HorizontalLayout" => Some(Self::Box(Orientation::Horizontal)),
+            "VerticalLayout" => Some(Self::Box(Orientation::Vertical)),
+            "FlexboxLayout" => Some(Self::Flexbox),
+            _ => None,
+        }
+    }
+}
+
 impl Layout {
     /// Call the visitor for each NamedReference stored in the layout
     pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
@@ -1178,12 +1199,7 @@ pub fn is_layout(base_type: &ElementType) -> bool {
                 && root.debug.iter().any(|d| d.layout.is_some());
             is_lowered_layout || is_layout(&root.base_type)
         }
-        ElementType::Builtin(be) => {
-            matches!(
-                be.name.as_str(),
-                "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "FlexboxLayout"
-            )
-        }
+        ElementType::Builtin(be) => LayoutKind::from_builtin_name(&be.name).is_some(),
         _ => false,
     }
 }
