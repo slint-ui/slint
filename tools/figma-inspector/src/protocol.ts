@@ -387,7 +387,7 @@ export function isExportPackage(value: unknown): value is ExportPackage {
             !file ||
             typeof file !== "object" ||
             typeof file.path !== "string" ||
-            !/^(?:assets\/[a-z0-9-]+\.(?:png|jpg|gif|svg)|fonts\/README\.txt|README\.txt)$/.test(
+            !/^(?:assets\/[a-z0-9-]+\.(?:png|jpg|gif|svg)|fonts\/README\.txt|README\.txt|slint-project\.json)$/.test(
                 file.path,
             ) ||
             paths.has(file.path) ||

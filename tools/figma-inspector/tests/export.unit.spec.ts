@@ -12,6 +12,7 @@ import { prepareExportValidation } from "../src/preview/export-validation";
 import { isExportPackage } from "../src/protocol";
 import { isPluginToUiMessage } from "../src/protocol";
 import { previewAssetSource } from "./preview-asset-source";
+import { version } from "../package.json";
 
 async function result(captureJson?: string) {
     const json =
@@ -114,6 +115,13 @@ test("one capture produces preview images and native export text with font impor
         '// import "fonts/example-font-regular.ttf";',
     );
     expect(output.exportPackage.source).not.toMatch(/^import "fonts\//m);
+    const project = requireValue(
+        output.exportPackage.files.find((f) => f.path === "slint-project.json"),
+    ).data;
+    expect(JSON.parse(project)).toEqual({
+        edition: version.split(".").slice(0, 2).join("."),
+        main: "main.slint",
+    });
     expect(output.exportPackage.source).not.toContain("data:image");
     expect(
         output.exportPackage.files.filter((f) => f.path.startsWith("assets/")),
@@ -136,6 +144,7 @@ test("ZIP has exact syntax-view code, decodable image bytes and a font checklist
     expect(fontReadme).toContain("commented out");
     expect(fontReadme).toContain("uncomment their import lines");
     expect(fontReadme).toContain("removing the leading //");
+    expect(zip.file("slint-project.json")).not.toBeNull();
     expect(Object.keys(zip.files).some((name) => name.endsWith(".ttf"))).toBe(
         false,
     );
