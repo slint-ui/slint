@@ -361,7 +361,9 @@ The named slot feature is in its early stages. The following restrictions apply:
 
 - The name `children` is reserved for the default slot. Use `@children`, or declare a default collection slot.
 
-- A scalar slot must be rendered exactly once, and it may not be placed inside a `for`, `if`, or `match` element.
+- A slot must be rendered exactly once, and it may not be placed inside a `for`, `if`, or `match` element.
+
+- A collection slot must be rendered by a `for` loop.
 
 - A slot cannot be placed inside a `PopupWindow` or a `ComponentContainer`.
 
