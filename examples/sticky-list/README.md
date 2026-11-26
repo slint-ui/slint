@@ -5,9 +5,9 @@ The next section's header pushes the current one out.
 
 ![Scrolling the sticky list](sticky-list.gif "Sticky List")
 
-The overlay header follows the `ListView`'s `current-row` and `item-offset` properties:
-`current-row` tells which section is at the top,
-and `item-offset` tells how far the next header is from the top edge.
+The overlay header follows the `ListView`'s `item-at-anchor` and `item-anchor-offset` properties:
+`item-at-anchor` tells which section is at the top,
+and `item-anchor-offset` tells how far the next header is from the top edge.
 
 Run it:
 

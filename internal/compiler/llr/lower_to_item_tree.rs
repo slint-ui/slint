@@ -1401,8 +1401,11 @@ fn lower_repeated_component_body(
                 .map(|content_width| ctx.map_property_reference(content_width)),
             listview_height: ctx.map_property_reference(&lv.listview_height),
             listview_width: ctx.map_property_reference(&lv.listview_width),
-            current_row: lv.current_row.as_ref().map(|row| ctx.map_property_reference(row)),
-            item_offset: lv.item_offset.as_ref().map(|o| ctx.map_property_reference(o)),
+            item_at_anchor: lv.item_at_anchor.as_ref().map(|row| ctx.map_property_reference(row)),
+            item_anchor_offset: lv
+                .item_anchor_offset
+                .as_ref()
+                .map(|o| ctx.map_property_reference(o)),
             prop_y: sc.mapping.map_property_reference(&geom.y, ctx.state),
             prop_height: sc.mapping.map_property_reference(&lv.row_height, ctx.state),
         }

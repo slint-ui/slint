@@ -1567,11 +1567,11 @@ pub struct ListViewInfo {
     pub listview_width: NamedReference,
     /// The ListView's `ensure-row-visible` function, if it declares one
     pub ensure_row_visible: Option<NamedReference>,
-    /// The property the layout sets to the ListView's current row, if it declares one
-    pub current_row: Option<NamedReference>,
-    /// The property the layout sets to the current row's offset within the ListView's viewport,
+    /// The property the layout sets to the ListView's item at the anchor, if it declares one
+    pub item_at_anchor: Option<NamedReference>,
+    /// The property the layout sets to the anchor item's offset from the anchor line,
     /// if the ListView declares one
-    pub item_offset: Option<NamedReference>,
+    pub item_anchor_offset: Option<NamedReference>,
     /// The row's `height`. Unlike the root's geometry, a wrapper such as the
     /// zero-size Clip of the `visible` pass doesn't replace it.
     pub row_height: NamedReference,
@@ -2178,12 +2178,12 @@ impl Element {
                 )
             };
             let declares_ensure_row_visible = Self::declares_ensure_row_visible(&parent_elem);
-            let declares_current_row = parent_elem
-                .lookup_property("current-row", PropertyLookupMode::InternalName)
+            let declares_item_at_anchor = parent_elem
+                .lookup_property("item-at-anchor", PropertyLookupMode::InternalName)
                 .property_type
                 == Type::Int32;
-            let declares_item_offset = parent_elem
-                .lookup_property("viewport-item-offset", PropertyLookupMode::InternalName)
+            let declares_item_anchor_offset = parent_elem
+                .lookup_property("item-anchor-offset", PropertyLookupMode::InternalName)
                 .property_type
                 == Type::LogicalLength;
             drop(parent_elem); // Drop the borrow before creating NamedReference
@@ -2199,10 +2199,10 @@ impl Element {
                 ensure_row_visible: declares_ensure_row_visible.then(|| {
                     NamedReference::new(parent, SmolStr::new_static("ensure-row-visible"))
                 }),
-                current_row: declares_current_row
-                    .then(|| NamedReference::new(parent, SmolStr::new_static("current-row"))),
-                item_offset: declares_item_offset.then(|| {
-                    NamedReference::new(parent, SmolStr::new_static("viewport-item-offset"))
+                item_at_anchor: declares_item_at_anchor
+                    .then(|| NamedReference::new(parent, SmolStr::new_static("item-at-anchor"))),
+                item_anchor_offset: declares_item_anchor_offset.then(|| {
+                    NamedReference::new(parent, SmolStr::new_static("item-anchor-offset"))
                 }),
                 row_height: geometry_props.height.clone(),
             };
@@ -2213,11 +2213,11 @@ impl Element {
             if let Some(content_width) = &lvi.content_width {
                 content_width.mark_as_set();
             }
-            if let Some(current_row) = &lvi.current_row {
-                current_row.mark_as_set();
+            if let Some(item_at_anchor) = &lvi.item_at_anchor {
+                item_at_anchor.mark_as_set();
             }
-            if let Some(item_offset) = &lvi.item_offset {
-                item_offset.mark_as_set();
+            if let Some(item_anchor_offset) = &lvi.item_anchor_offset {
+                item_anchor_offset.mark_as_set();
             }
             geometry_props.y.mark_as_set();
             Some(lvi)
@@ -3973,11 +3973,11 @@ fn visit_all_named_references_in_element_dyn(
         if let Some(ensure_row_visible) = &mut lv.ensure_row_visible {
             vis(ensure_row_visible);
         }
-        if let Some(current_row) = &mut lv.current_row {
-            vis(current_row);
+        if let Some(item_at_anchor) = &mut lv.item_at_anchor {
+            vis(item_at_anchor);
         }
-        if let Some(item_offset) = &mut lv.item_offset {
-            vis(item_offset);
+        if let Some(item_anchor_offset) = &mut lv.item_anchor_offset {
+            vis(item_anchor_offset);
         }
         vis(&mut lv.row_height);
     }

@@ -42,14 +42,14 @@ component StickyList inherits Rectangle {
     }
 
     // The section of the topmost row, even if it's only partly visible
-    property <int> section: root.rows[max(0, list.current-row)].section;
+    property <int> section: root.rows[max(0, list.item-at-anchor)].section;
     property <bool> has-next: root.section + 1 < root.sections.length;
     // Distance from the topmost row's top to the next section's header row.
     // Only the topmost row can be a header, the current section's own.
-    property <length> to-next-header: (root.sections[root.section + 1].first-row - list.current-row) * root.row-height
-        + (root.rows[max(0, list.current-row)].header ? root.section-height - root.row-height : 0px);
+    property <length> to-next-header: (root.sections[root.section + 1].first-row - list.item-at-anchor) * root.row-height
+        + (root.rows[max(0, list.item-at-anchor)].header ? root.section-height - root.row-height : 0px);
     // Position of the next section's header row, relative to the list's visible area
-    property <length> next-header-y: list.item-offset - list.visible-y + root.to-next-header;
+    property <length> next-header-y: list.item-anchor-offset + root.to-next-header;
 
     // Hides the header while the next one pushes it out of the visible area
     Rectangle {

@@ -51,18 +51,20 @@ export component Example inherits Window {
 
 Same as <Link type="ScrollView"/>, and:
 
-### current-row
-<SlintProperty propName="current-row" typeName="int" propertyVisibility="out">
-The index of the row the list is scrolled to: the topmost visible row, even if it's only partly visible.
-It's -1 while the list has no rows.
-The list updates it when it lays out its rows.
+### item-at-anchor
+<SlintProperty propName="item-at-anchor" typeName="int" propertyVisibility="out">
+The index of the item at the list's anchor line, the top edge of the visible area.
+That's the topmost visible item, even if it's only partly visible.
+It's -1 while the list has no items.
+The list updates it when it lays out its items.
 </SlintProperty>
 
-### item-offset
-<SlintProperty propName="item-offset" typeName="length" propertyVisibility="out">
-The position of the current row's top, see [`current-row`](#current-row), relative to the list's top edge.
-A value less than [`visible-y`](/reference/std-widgets/views/scrollview/#visible-y) means the row is partly scrolled out at the top.
-It's `visible-y` while the list has no rows.
+### item-anchor-offset
+<SlintProperty propName="item-anchor-offset" typeName="length" propertyVisibility="out">
+The position of the top of the item at the anchor, see [`item-at-anchor`](#item-at-anchor), relative to the anchor line.
+A negative value means the item is partly scrolled out at the top.
+It's 0 while the list has no items.
+Add [`visible-y`](/reference/std-widgets/views/scrollview/#visible-y) to get the position relative to the list's top edge.
 </SlintProperty>
 
 
