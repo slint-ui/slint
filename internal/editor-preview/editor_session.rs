@@ -1330,7 +1330,7 @@ pub fn convert_diagnostics(
         lsp_diags
             .entry(uri)
             .or_default()
-            .push(i_slint_live_preview::protocol::to_lsp_diagnostic(&d, format));
+            .extend(i_slint_live_preview::protocol::to_lsp_diagnostics(&d, format));
     }
 
     lsp_diags

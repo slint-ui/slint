@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::builtin_functions::BuiltinFunction;
-use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned, Suggestion};
+use crate::diagnostics::{BuildDiagnostics, Help, SourceLocation, Spanned, Suggestion};
 use crate::element_type::{BuiltinElement, PropertyLookupMode};
 use crate::expression_types::{
     EasingCurve, ImageReference, MinMaxOp, MouseCursorInner, OperatorClass, RadialGradientShape,
@@ -1348,18 +1348,21 @@ impl Expression {
                 }
             }
         } else {
-            let mut message = format!("Cannot convert {ty} to {target_type}");
-            let mut suggestion = None;
+            let message = format!("Cannot convert {ty} to {target_type}");
+            let mut help = None;
             // Explicit error message for unit conversion
             if let Some(from_unit) = ty.default_unit() {
                 if matches!(&target_type, Type::Int32 | Type::Float32 | Type::String) {
-                    message =
-                        format!("{message}. Divide by 1{from_unit} to convert to a plain number");
+                    help = Some(Help::new(
+                        format!("Divide by 1{from_unit} to convert to a plain number"),
+                        [],
+                    ));
                 }
             } else if matches!(target_type, Type::StyledText) && ty.can_convert(&Type::String) {
-                message = format!(
-                    "{message}. Wrap the expression in `@markdown(\"\\{{...}}\")` to convert it explicitly"
-                );
+                help = Some(Help::new(
+                    "Wrap the expression in `@markdown(\"\\{...}\")` to convert it explicitly",
+                    [],
+                ));
             } else if let Some(to_unit) = target_type.default_unit()
                 && matches!(ty, Type::Int32 | Type::Float32)
             {
@@ -1369,21 +1372,20 @@ impl Expression {
                     // Allow conversion from literal 0 to any unit
                     return Expression::NumberLiteral(0., to_unit);
                 }
-                message = format!(
-                    "{message}. Use an unit, or multiply by 1{to_unit} to convert explicitly"
-                );
-                if let Some(literal) = single_token(node)
-                    && literal.kind() == SyntaxKind::NumberLiteral
-                {
-                    suggestion =
-                        Some(Suggestion::replace(&literal, format!("{}{to_unit}", literal.text())));
-                }
+                let suggestion = single_token(node)
+                    .filter(|literal| literal.kind() == SyntaxKind::NumberLiteral)
+                    .map(|literal| {
+                        Suggestion::replace(&literal, format!("{}{to_unit}", literal.text()))
+                    });
+                help = Some(Help::new(
+                    format!("Use a unit, or multiply by 1{to_unit} to convert explicitly"),
+                    suggestion,
+                ));
             }
             if let Some((identifier, qualified)) = shadowed_value(&target_type, node, diag) {
-                message = format!("{message}. Did you mean '{qualified}'?");
-                suggestion = Some(Suggestion::replace(&identifier, qualified.as_str()));
+                help = Some(crate::lookup::did_you_mean_help(&identifier, &qualified));
             }
-            diag.push_error_with_suggestions(message, &node, suggestion);
+            diag.push_error_with_help(message, &node, help);
             self
         }
     }

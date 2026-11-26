@@ -15,15 +15,18 @@ export component TestCase inherits Text {
         //typo
         self.horizontal_alignment =
             TextHorizontalAlignment.lefti;
-//                                  >   <error{'lefti' is not a member of the enum TextHorizontalAlignment. Did you mean 'left'?}
+//                                  >   <error{'lefti' is not a member of the enum TextHorizontalAlignment}
+//                                  help{Did you mean 'left'?}
 //                                  >   <suggestion{left}
 
         // wrong case
         self.horizontal_alignment = TextHorizontalAlignment.Left;
-//                                                          >  <error{'Left' is not a member of the enum TextHorizontalAlignment. Did you mean 'left'?}
+//                                                          >  <error{'Left' is not a member of the enum TextHorizontalAlignment}
+//                                                          help{Did you mean 'left'?}
 //                                                          >  <suggestion{left}
         self.wrap = TextWrap.WordWrap;
-//                           >      <error{'WordWrap' is not a member of the enum TextWrap. Did you mean 'word-wrap'?}
+//                           >      <error{'WordWrap' is not a member of the enum TextWrap}
+//                           help{Did you mean 'word-wrap'?}
 //                           >      <suggestion{word-wrap}
     }
 

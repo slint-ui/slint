@@ -24,9 +24,10 @@ export Xxx := Rectangle {
 
     callback loop1 <=> loop2;
     callback loop3 <=> loop1;
-//                     >   <error{Unknown unqualified identifier 'loop1'. Did you mean 'loop2'?}
+//                     >   <error{Unknown unqualified identifier 'loop1'}
+//                     help{Did you mean 'loop2'?}
 //                     >   <suggestion{loop2}
-//  >                       <^^error{Binding to callback 'loop3' must bind to another callback}
+//  >                       <^^^error{Binding to callback 'loop3' must bind to another callback}
     callback loop2 <=> loop3;
 
     Sub {

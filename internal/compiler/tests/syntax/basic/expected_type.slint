@@ -28,31 +28,37 @@ export component Test inherits Rectangle {
     // a bare color literal on the left of a comparison is not resolved
     property<color> fg: white;
     property<bool> cmp: red == fg;
-//                      >  <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                      >  <error{Unknown unqualified identifier 'red'}
+//                      help{Did you mean 'Colors.red'?}
 //                      > <suggestion{Colors.red}
 
     // the condition of a ternary is bool, so `red` is not resolved as a color there
     property<color> cond: red ? blue : green;
-//                        >  <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                        >  <error{Unknown unqualified identifier 'red'}
+//                        help{Did you mean 'Colors.red'?}
 //                        > <suggestion{Colors.red}
     property<int> cond2: red ? 12 : 45;
-//                       >  <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                       >  <error{Unknown unqualified identifier 'red'}
+//                       help{Did you mean 'Colors.red'?}
 //                       > <suggestion{Colors.red}
 
     // the operands of && and || are bool
     property<bool> ok;
     property<bool> logic: ok && red;
-//                              > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                              > <error{Unknown unqualified identifier 'red'}
+//                              help{Did you mean 'Colors.red'?}
 //                              > <suggestion{Colors.red}
 
     // the operand of ! is bool
     property<bool> negate: !red;
-//                          > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                          > <error{Unknown unqualified identifier 'red'}
+//                          help{Did you mean 'Colors.red'?}
 //                          > <suggestion{Colors.red}
 
     // an array index is an integer
     property<color> index: arr[red];
-//                             > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                             > <error{Unknown unqualified identifier 'red'}
+//                             help{Did you mean 'Colors.red'?}
 //                             > <suggestion{Colors.red}
 
     // `length` is a property, not a method
@@ -77,12 +83,14 @@ export component Test inherits Rectangle {
 
     // a `let` without a declared type takes the type of its value
     property<color> untyped_let: { let c = red; c };
-//                                         > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                                         > <error{Unknown unqualified identifier 'red'}
+//                                         help{Did you mean 'Colors.red'?}
 //                                         > <suggestion{Colors.red}
 
     // the base of an index expression isn't the value of the enclosing position
     property<[color]> indexed: [[red]][0];
-//                               > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                               > <error{Unknown unqualified identifier 'red'}
+//                               help{Did you mean 'Colors.red'?}
 //                               > <suggestion{Colors.red}
-//                             >         <^^error{Cannot convert [<error>] to [color]}
+//                             >         <^^^error{Cannot convert [<error>] to [color]}
 }

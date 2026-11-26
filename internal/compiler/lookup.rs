@@ -9,7 +9,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::builtin_functions::BuiltinFunction;
-use crate::diagnostics::{BuildDiagnostics, Spanned, Suggestion};
+use crate::diagnostics::{BuildDiagnostics, Help, Spanned, Suggestion};
 use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::{BuiltinMacroFunction, Callable, Expression};
 use crate::expression_types::{EasingCurve, MouseCursorInner, Unit};
@@ -819,7 +819,11 @@ pub(crate) fn enum_or_color_suggestions(ctx: &LookupCtx, name: &str) -> Vec<Smol
 }
 
 /// [`did_you_mean`] among the entries of `lookup` that aren't deprecated.
-pub fn did_you_mean_entry(ctx: &LookupCtx, lookup: &impl LookupObject, name: &str) -> DidYouMean {
+pub fn did_you_mean_entry(
+    ctx: &LookupCtx,
+    lookup: &impl LookupObject,
+    name: &str,
+) -> Option<SmolStr> {
     let mut candidates = Vec::new();
     lookup.for_each_entry(ctx, &mut |entry, result| {
         if result.deprecated().is_none() {
@@ -830,30 +834,14 @@ pub fn did_you_mean_entry(ctx: &LookupCtx, lookup: &impl LookupObject, name: &st
     did_you_mean(name, candidates)
 }
 
-/// The candidate close enough to a misspelled name to be what a typo meant, if any.
-/// It displays as a hint such as ". Did you mean 'width'?", or as nothing if there is no candidate.
-#[derive(Debug, Default)]
-pub struct DidYouMean(pub Option<SmolStr>);
-
-impl DidYouMean {
-    /// Replacing `source`, the misspelled name, with the candidate.
-    pub fn suggestion(&self, source: &dyn Spanned) -> Option<Suggestion> {
-        self.0.as_ref().map(|candidate| Suggestion::replace(source, candidate.as_str()))
-    }
-}
-
-impl std::fmt::Display for DidYouMean {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.0 {
-            Some(candidate) => write!(f, ". Did you mean '{candidate}'?"),
-            None => Ok(()),
-        }
-    }
+/// "Did you mean 'width'?", replacing `source` with `candidate`.
+pub fn did_you_mean_help(source: &dyn Spanned, candidate: &str) -> Help {
+    Help::new(format!("Did you mean '{candidate}'?"), [Suggestion::replace(source, candidate)])
 }
 
 /// The candidate close enough to `name` to be what a typo meant.
 /// Names are compared in kebab case, so `WordWrap` matches `word-wrap` exactly.
-pub fn did_you_mean(name: &str, candidates: impl IntoIterator<Item = SmolStr>) -> DidYouMean {
+pub fn did_you_mean(name: &str, candidates: impl IntoIterator<Item = SmolStr>) -> Option<SmolStr> {
     let kebab_case = |s: &str, out: &mut Vec<char>| {
         out.clear();
         for c in s.chars() {
@@ -884,7 +872,7 @@ pub fn did_you_mean(name: &str, candidates: impl IntoIterator<Item = SmolStr>) -
             best = Some((distance, candidate));
         }
     }
-    DidYouMean(best.map(|(_, candidate)| candidate))
+    best.map(|(_, candidate)| candidate)
 }
 
 /// The Levenshtein distance, where swapping two adjacent characters also counts as one edit,
@@ -937,13 +925,13 @@ fn test_edit_distance() {
 #[test]
 fn test_did_you_mean() {
     let candidates = || ["width", "height", "word-wrap", "x", "se-resize"].map(SmolStr::new_static);
-    let hint = |name| did_you_mean(name, candidates()).to_string();
-    assert_eq!(hint("widht"), ". Did you mean 'width'?");
-    assert_eq!(hint("WordWrap"), ". Did you mean 'word-wrap'?");
-    assert_eq!(hint("y"), "");
-    assert_eq!(hint("width"), "");
-    assert_eq!(hint("xyzzy"), "");
-    assert_eq!(hint("square-resize"), "");
+    let hint = |name| did_you_mean(name, candidates());
+    assert_eq!(hint("widht").as_deref(), Some("width"));
+    assert_eq!(hint("WordWrap").as_deref(), Some("word-wrap"));
+    assert_eq!(hint("y"), None);
+    assert_eq!(hint("width"), None);
+    assert_eq!(hint("xyzzy"), None);
+    assert_eq!(hint("square-resize"), None);
 }
 
 pub struct KeysLookup;

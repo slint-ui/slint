@@ -5,7 +5,7 @@
  This module contains the intermediate representation of the code in the form of an object tree
 */
 
-use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned, Suggestion};
+use crate::diagnostics::{BuildDiagnostics, Help, SourceLocation, Spanned, Suggestion};
 use crate::element_type::{BuiltinElement, ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::expression_tree::{self, BindingExpression, Callable, ConditionLocation, Expression};
 use crate::expression_types::{Orientation, Unit};
@@ -2452,7 +2452,7 @@ impl Element {
     }
 
     /// [`crate::lookup::did_you_mean`] among the properties that a binding can set.
-    fn did_you_mean_property(&self, name: &str) -> crate::lookup::DidYouMean {
+    fn did_you_mean_property(&self, name: &str) -> Option<SmolStr> {
         let declared = self.property_declarations.iter().map(|(k, d)| d.declared_name(k).clone());
         let inherited = self.base_type.property_list().into_iter().map(|(name, _)| name);
         let reserved =
@@ -2505,21 +2505,20 @@ impl Element {
                 match lookup_result.property_type {
                         Type::Invalid => {
                             if self.base_type != ElementType::Error {
-                                if let Some(replacement) = css_property_suggestion(&unresolved_name, &self.base_type) {
-                                    diag.push_error_with_suggestions(
+                                let help = match css_property_suggestion(&unresolved_name, &self.base_type) {
+                                    Some(replacement) => Some(Help::new(
                                         format!("Use {replacement} instead of {unresolved_name}"),
-                                        &name_token,
                                         [Suggestion::replace(&name_token, replacement)],
-                                    );
+                                    )),
+                                    None => self.did_you_mean_property(&unresolved_name)
+                                        .map(|c| crate::lookup::did_you_mean_help(&name_token, &c)),
+                                };
+                                let msg = if self.base_type.to_smolstr() == "Empty" {
+                                    format!("Unknown property {unresolved_name}")
                                 } else {
-                                    let hint = self.did_you_mean_property(&unresolved_name);
-                                    let msg = if self.base_type.to_smolstr() == "Empty" {
-                                        format!( "Unknown property {unresolved_name}{hint}")
-                                    } else {
-                                        format!( "Unknown property {unresolved_name} in {}{hint}", self.base_type)
-                                    };
-                                    diag.push_error_with_suggestions(msg, &name_token, hint.suggestion(&name_token));
-                                }
+                                    format!("Unknown property {unresolved_name} in {}", self.base_type)
+                                };
+                                diag.push_error_with_help(msg, &name_token, help);
                             }
                         }
                         Type::Callback { .. } => {

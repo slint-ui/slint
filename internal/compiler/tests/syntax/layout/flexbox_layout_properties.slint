@@ -11,18 +11,23 @@ export component X inherits Rectangle {
         flex-wrap: wrap;
 //                 >   <info{Property 'flex-wrap' is set to its default value, its binding can be removed}
         gap: 10px;
-//      > <error{Use spacing instead of gap}
+//      > <error{Unknown property gap in FlexboxLayout}
+//      help{Use spacing instead of gap}
 //      > <suggestion{spacing}
         row-gap: 5px;
-//      >     <error{Use spacing-vertical instead of row-gap}
+//      >     <error{Unknown property row-gap in FlexboxLayout}
+//      help{Use spacing-vertical instead of row-gap}
 //      >     <suggestion{spacing-vertical}
         column-gap: 8px;
-//      >        <error{Use spacing-horizontal instead of column-gap}
+//      >        <error{Unknown property column-gap in FlexboxLayout}
+//      help{Use spacing-horizontal instead of column-gap}
 //      >        <suggestion{spacing-horizontal}
         justify-content: center;
-//      >             <error{Use alignment instead of justify-content}
+//      >             <error{Unknown property justify-content in FlexboxLayout}
+//      help{Use alignment instead of justify-content}
 //      >             <suggestion{alignment}
-//                       >    <^^error{Unknown unqualified identifier 'center'. Did you mean 'CrossAxisAlignment.center', 'ImageHorizontalAlignment.center', 'ImageVerticalAlignment.center', 'LayoutAlignment.center', 'TextHorizontalAlignment.center', 'TextStrokeStyle.center' or 'TextVerticalAlignment.center'?}
+//                       >    <^^^error{Unknown unqualified identifier 'center'}
+//                       help{Did you mean 'CrossAxisAlignment.center', 'ImageHorizontalAlignment.center', 'ImageVerticalAlignment.center', 'LayoutAlignment.center', 'TextHorizontalAlignment.center', 'TextStrokeStyle.center' or 'TextVerticalAlignment.center'?}
 //                       >    <suggestion{CrossAxisAlignment.center}
 //                       >    <suggestion{ImageHorizontalAlignment.center}
 //                       >    <suggestion{ImageVerticalAlignment.center}

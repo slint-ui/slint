@@ -25,14 +25,16 @@
 //!
 //! Warnings, infos, and notes with `> <warning{expected_message}`, `info{…}`, and `note{…}` are also supported.
 //!
-//! Each of the diagnostic's suggestions is a `> <suggestion{replacement}` line after the diagnostic's line.
+//! The diagnostic's help is a `help{message}` line after the diagnostic's line, without markers.
+//! Each of its suggestions is a `> <suggestion{replacement}` line after that.
 //! Its markers span the code that the suggestion replaces, on the line where the diagnostic starts:
 //! ```ignore
 //!     with: 10px;
-//! //  >  <error{Unknown property with. Did you mean 'width'?}
+//! //  >  <error{Unknown property with}
+//! //  help{Did you mean 'width'?}
 //! //  >  <suggestion{width}
 //! ```
-//! It counts as a line for the `^` characters of the diagnostics after it.
+//! Each of these lines counts as a line for the `^` characters of the diagnostics after it.
 //!
 //! The newlines are replaced by `↵` in the error message and in the replacement. Also the manifest dir (CARGO_MANIFEST_DIR) is replaced by `📂`.
 //!
@@ -182,8 +184,8 @@ struct ExpectedDiagnostic {
     end: Option<usize>,
     level: DiagnosticLevel,
     message: String,
+    help: Option<String>,
     suggestions: Vec<ExpectedSuggestion>,
-    comment_range: Range<usize>,
 }
 
 /// `start` and `end` are inclusive offsets, as in [`ExpectedDiagnostic`].
@@ -203,8 +205,9 @@ fn escape(text: &str) -> String {
 }
 
 fn suggestions_of(diag: &Diagnostic) -> Vec<ExpectedSuggestion> {
-    diag.suggestions(i_slint_common::InternalToken)
-        .iter()
+    diagnostics::diagnostic_help(diag)
+        .into_iter()
+        .flat_map(|help| &help.suggestions)
         .map(|s| ExpectedSuggestion {
             start: s.span.offset,
             end: (s.span.offset + s.span.length).wrapping_sub(1),
@@ -213,15 +216,17 @@ fn suggestions_of(diag: &Diagnostic) -> Vec<ExpectedSuggestion> {
         .collect()
 }
 
-fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
+/// The expected diagnostics, and the ranges of all the comments that describe them.
+fn extract_expected_diags(source: &str) -> (Vec<ExpectedDiagnostic>, Vec<Range<usize>>) {
     let mut expected: Vec<ExpectedDiagnostic> = Vec::new();
+    let mut comment_ranges = Vec::new();
     // The first offset of the line where the last diagnostic starts, which its suggestions refer to.
     let mut diagnostic_line_start = None;
     // Find expected errors in the file. The first caret (^) points to the expected column. The number of
     // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
     // errors or warnings.
     let re = regex::Regex::new(
-        r"\n *//[^\n\^\|<>]*((\^)|(\|)|((>)?( *<)?))(\^*)(<*)(error|warning|note|info|suggestion)\{([^\n]*)\}",
+        r"\n *//[^\n\^\|<>]*((\^)|(\|)|((>)?( *<)?))(\^*)(<*)(error|warning|note|info|help|suggestion)\{([^\n]*)\}",
     )
     .unwrap();
 
@@ -235,7 +240,14 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
         let lines_to_source = m.get(7).map(|group| group.as_str().len()).unwrap_or_default() + 1;
         let warning_or_error = m.get(9).unwrap().as_str();
         let expected_message = unescape(m.get(10).unwrap().as_str());
-        let comment_range = m.get(0).unwrap().range();
+        comment_ranges.push(m.get(0).unwrap().range());
+        if warning_or_error == "help" {
+            let Some(diagnostic) = expected.last_mut() else {
+                panic!("help{{}} must follow a diagnostic");
+            };
+            diagnostic.help = Some(expected_message);
+            continue;
+        }
         let is_suggestion = warning_or_error == "suggestion";
 
         let mut line_counter = 0;
@@ -317,11 +329,11 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
             end,
             level: expected_diag_level,
             message: expected_message,
+            help: None,
             suggestions: Vec::new(),
-            comment_range,
         });
     }
-    expected
+    (expected, comment_ranges)
 }
 
 fn process_diagnostics(
@@ -355,9 +367,7 @@ fn process_diagnostics(
         .filter_map(|(i, c)| if c == b'\n' { Some(i) } else { None })
         .collect::<Vec<usize>>();
 
-    let mut expected = extract_expected_diags(source);
-    let captures: Vec<_> =
-        expected.iter().map(|expected| &expected.comment_range).cloned().collect();
+    let (mut expected, captures) = extract_expected_diags(source);
 
     // Find expected errors in the file. The first caret (^) points to the expected column. The number of
     // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
@@ -375,6 +385,7 @@ fn process_diagnostics(
             false
         }
 
+        let help = diagnostics::diagnostic_help(diag).map(|h| h.message.as_str());
         let suggestions = suggestions_of(diag);
 
         let (l, c) = diag.line_column();
@@ -386,17 +397,20 @@ fn process_diagnostics(
 
         let expected_start = expected.iter().position(|expected| {
             Some(diag_start) == expected.start
-                && compare_message(diag.message(), &expected.message)
+                && compare_message(diagnostics::diagnostic_message(diag), &expected.message)
+                && help == expected.help.as_deref()
                 && suggestions == expected.suggestions
                 && diag.level() == expected.level
                 && (expected.end.is_none() || Some(diag_end) == expected.end)
         });
         let expected_end = expected.iter().position(|expected| {
             Some(diag_end) == expected.end
-                && compare_message(diag.message(), &expected.message)
-                && (expected.start.is_none() || suggestions == expected.suggestions)
+                && compare_message(diagnostics::diagnostic_message(diag), &expected.message)
                 && diag.level() == expected.level
-                && (expected.start.is_none() || Some(diag_start) == expected.start)
+                && (expected.start.is_none()
+                    || (Some(diag_start) == expected.start
+                        && help == expected.help.as_deref()
+                        && suggestions == expected.suggestions))
         });
 
         let found_match = match (expected_start, expected_end) {
@@ -442,11 +456,12 @@ fn process_diagnostics(
     for expected in expected {
         success = false;
         println!(
-            "{path:?}: {level:?} not found at offset {start:?}-{end:?}: {message:?} {suggestions:?}",
+            "{path:?}: {level:?} not found at offset {start:?}-{end:?}: {message:?} {help:?} {suggestions:?}",
             level = expected.level,
             start = expected.start,
             end = expected.end,
             message = expected.message,
+            help = expected.help,
             suggestions = expected.suggestions,
         );
     }
@@ -486,26 +501,28 @@ fn update(
             DiagnosticLevel::Note => "note",
             _ => todo!(),
         };
-        let mut insert_range_at = |range: &str, l, c: usize, level: &str, message: &str| {
-            let column_adjust = if c < 3 { "<".repeat(3 - c) } else { "".to_string() };
-            let byte_offset = lines[l - 1] + 1;
-            // A suggestion refers to the line of its diagnostic, whatever the carets.
-            let adjust = if level == "suggestion" { 0 } else { last_line_adjust[l - 1] };
-            let to_insert = format!(
-                "//{indent}{range}{adjust}{column_adjust}{level}{{{message}}}\n",
-                indent = " ".repeat(c.max(3) - 3),
-                adjust = "^".repeat(adjust),
-                message = escape(message)
-            );
-            if byte_offset > source.len() {
-                source.push('\n');
-            }
-            source.insert_str(byte_offset, &to_insert);
-            for line_offset in lines.iter_mut().skip(l - 1) {
-                *line_offset += to_insert.len();
-            }
-            last_line_adjust[l - 1] += 1;
-        };
+        // `refers_back` is false for the lines that refer to the line of their diagnostic, whatever the carets.
+        let mut insert_range_at =
+            |range: &str, l, c: usize, level: &str, message: &str, refers_back| {
+                let byte_offset = lines[l - 1] + 1;
+                let adjust = if refers_back { last_line_adjust[l - 1] } else { 0 };
+                let column_adjust = if range.is_empty() { 0 } else { 3usize.saturating_sub(c) };
+                let to_insert = format!(
+                    "//{indent}{range}{adjust}{column_adjust}{level}{{{message}}}\n",
+                    indent = " ".repeat(c.max(3) - 3),
+                    adjust = "^".repeat(adjust),
+                    column_adjust = "<".repeat(column_adjust),
+                    message = escape(message)
+                );
+                if byte_offset > source.len() {
+                    source.push('\n');
+                }
+                source.insert_str(byte_offset, &to_insert);
+                for line_offset in lines.iter_mut().skip(l - 1) {
+                    *line_offset += to_insert.len();
+                }
+                last_line_adjust[l - 1] += 1;
+            };
 
         let (line_start, column_start) = d.line_column();
         // end_line_column is not (yet) available via the public API, so use the private API
@@ -513,39 +530,45 @@ fn update(
         let (line_end, column_end) =
             diagnostics::diagnostic_end_line_column_with_format(d, ByteFormat::Utf8);
 
-        // The end column is exclusive, therefore use - 1 here
         let range = if d.length() <= 1 {
-            // Single-character diagnostic, use "^" for the marker for 1-character diagnostics,
-            // use "|" for 0-character diagnostics
-            if d.length() == 0 { "|" } else { "^" }.to_owned()
+            range_marker(d.length())
+        } else if line_start == line_end {
+            range_marker(column_end - column_start)
         } else {
-            let end = if line_start == line_end {
-                // Same line, we can insert the closing "<"
-                " ".repeat(column_end - column_start - 2) + "<"
-            } else {
-                // End is on a different line, we'll emit it later
-                "".to_owned()
-            };
-            format!(">{end}")
+            // End is on a different line, we'll emit it later
+            ">".to_owned()
         };
 
-        insert_range_at(&range, line_start, column_start, level, d.message());
+        insert_range_at(
+            &range,
+            line_start,
+            column_start,
+            level,
+            diagnostics::diagnostic_message(d),
+            true,
+        );
 
+        let help = diagnostics::diagnostic_help(d);
+        if let Some(help) = help {
+            insert_range_at("", line_start, column_start, "help", &help.message, false);
+        }
         // A suggestion on another line can't be written; the test then keeps failing.
         let source_file = i_slint_compiler::diagnostics::Spanned::source_file(*d).unwrap();
-        for s in d.suggestions(i_slint_common::InternalToken) {
+        for s in help.into_iter().flat_map(|h| &h.suggestions) {
             let (line, column) = source_file.line_column(s.span.offset, ByteFormat::Utf8);
             let (end_line, end_column) =
                 source_file.line_column(s.span.offset + s.span.length, ByteFormat::Utf8);
             if line != line_start || end_line != line_start {
                 continue;
             }
-            let range = match end_column - column {
-                0 => "|".to_owned(),
-                1 => "^".to_owned(),
-                length => format!(">{}<", " ".repeat(length - 2)),
-            };
-            insert_range_at(&range, line, column, "suggestion", &s.replacement);
+            insert_range_at(
+                &range_marker(end_column - column),
+                line,
+                column,
+                "suggestion",
+                &s.replacement,
+                false,
+            );
         }
 
         // Insert the closing `<` at another line if necessary
@@ -553,8 +576,24 @@ fn update(
         // end_line_column is technically on a new line, but the single ^ marker is enough, so no
         // closing character is needed.
         if line_start != line_end && d.length() > 1 {
-            insert_range_at("<", line_end, column_end - 1, level, d.message());
+            insert_range_at(
+                "<",
+                line_end,
+                column_end - 1,
+                level,
+                diagnostics::diagnostic_message(d),
+                true,
+            );
         }
+    }
+}
+
+/// The marker for a range of `length` characters on one line.
+fn range_marker(length: usize) -> String {
+    match length {
+        0 => "|".to_owned(),
+        1 => "^".to_owned(),
+        length => format!(">{}<", " ".repeat(length - 2)),
     }
 }
 

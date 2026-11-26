@@ -34,7 +34,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 mod diagnostics_adapter;
 #[cfg(any(feature = "file-watcher", feature = "preview-session"))]
 pub use diagnostics_adapter::{
-    diagnostic_url, diagnostics_by_url, lsp_diagnostic_suggestions, to_lsp_diagnostic,
+    LspSuggestion, diagnostic_url, diagnostics_by_url, to_lsp_diagnostic, to_lsp_diagnostics,
 };
 
 pub type SourceFileVersion = Option<i32>;

@@ -10,7 +10,7 @@
 //! Most of the code for the resolving actually lies in the expression_tree module
 
 use crate::builtin_functions::BuiltinFunction;
-use crate::diagnostics::{BuildDiagnostics, Spanned, Suggestion};
+use crate::diagnostics::{BuildDiagnostics, Help, Spanned, Suggestion};
 use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
 use crate::expression_types::{
@@ -2761,7 +2761,11 @@ fn lookup_qualified_name_node(
                     .lookup(ctx, &crate::parser::normalize_identifier(first_str))
                     .is_some()
                 {
-                    ctx.diag.push_error_with_suggestions(format!("Unknown unqualified identifier '{}'. Use space before the '-' if you meant a subtraction", first.text()), &node, [subtraction_suggestion(&first)]);
+                    ctx.diag.push_error_with_help(
+                        format!("Unknown unqualified identifier '{}'", first.text()),
+                        &node,
+                        subtraction_help(&first),
+                    );
                     return None;
                 }
             }
@@ -2772,13 +2776,10 @@ fn lookup_qualified_name_node(
                     && e.lookup(ctx, &first_str).is_some()
                 {
                     let qualified = format!("{prefix}.{}", first.text());
-                    ctx.diag.push_error_with_suggestions(
-                        format!(
-                            "Unknown unqualified identifier '{}'. Did you mean '{qualified}'?",
-                            first.text()
-                        ),
+                    ctx.diag.push_error_with_help(
+                        format!("Unknown unqualified identifier '{}'", first.text()),
                         &node,
-                        [Suggestion::replace(&first, qualified)],
+                        crate::lookup::did_you_mean_help(&first, &qualified),
                     );
                     return None;
                 }
@@ -2789,28 +2790,22 @@ fn lookup_qualified_name_node(
             } else {
                 let qualified = crate::lookup::enum_or_color_suggestions(ctx, &first_str);
                 let parts = qualified.iter().map(|s| format!("'{s}'")).collect::<Vec<_>>();
-                let hint = match parts.split_last() {
-                    None => None,
-                    Some((last, [])) => Some(format!(". Did you mean {last}?")),
-                    Some((last, rest)) => {
-                        Some(format!(". Did you mean {} or {last}?", rest.join(", ")))
-                    }
+                let help = match parts.split_last() {
+                    None => crate::lookup::did_you_mean_entry(ctx, &global_lookup, &first_str)
+                        .map(|c| crate::lookup::did_you_mean_help(&first, &c)),
+                    Some((last, rest)) => Some(Help::new(
+                        if rest.is_empty() {
+                            format!("Did you mean {last}?")
+                        } else {
+                            format!("Did you mean {} or {last}?", rest.join(", "))
+                        },
+                        qualified.iter().map(|q| Suggestion::replace(&first, q.as_str())),
+                    )),
                 };
-                let (hint, suggestions) = match hint {
-                    Some(hint) => (
-                        hint,
-                        qualified.iter().map(|q| Suggestion::replace(&first, q.as_str())).collect(),
-                    ),
-                    None => {
-                        let hint =
-                            crate::lookup::did_you_mean_entry(ctx, &global_lookup, &first_str);
-                        (hint.to_string(), Vec::from_iter(hint.suggestion(&first)))
-                    }
-                };
-                ctx.diag.push_error_with_suggestions(
-                    format!("Unknown unqualified identifier '{}'{hint}", first.text()),
+                ctx.diag.push_error_with_help(
+                    format!("Unknown unqualified identifier '{}'", first.text()),
                     &node,
-                    suggestions,
+                    help,
                 );
             }
             return None;
@@ -2914,8 +2909,7 @@ fn continue_lookup_within_element(
         return Some(Expression::ElementReference(Rc::downgrade(elem)).into());
     } else {
         // Try to recover in case we wanted to access a property
-        let mut rest = String::new();
-        let mut suggestion = None;
+        let mut help = None;
         if let Some(LookupResult::Expression {
             expression: Expression::PropertyReference(nr),
             ..
@@ -2936,20 +2930,17 @@ fn continue_lookup_within_element(
             };
             if !id.is_empty() {
                 let replacement = format!("{id}.{}", nr.name());
-                rest = format!(". Use '{replacement}' to access the property with the same name");
-                suggestion = Some(Suggestion::replace(&node, replacement));
+                help = Some(Help::new(
+                    format!("Use '{replacement}' to access the property with the same name"),
+                    [Suggestion::replace(&node, replacement)],
+                ));
             }
         } else if let Some(qualified) =
             crate::lookup::TypeSpecificLookup::qualified_name(ctx, &elem.borrow().id)
         {
-            rest = format!(". Did you mean '{qualified}'?");
-            suggestion = Some(Suggestion::replace(&node, qualified.as_str()));
+            help = Some(crate::lookup::did_you_mean_help(&node, &qualified));
         }
-        ctx.diag.push_error_with_suggestions(
-            format!("Cannot take reference of an element{rest}"),
-            &node,
-            suggestion,
-        );
+        ctx.diag.push_error_with_help("Cannot take reference of an element".into(), &node, help);
         return None;
     };
     let prop_name = crate::parser::normalize_identifier(second.text());
@@ -3051,7 +3042,7 @@ fn continue_lookup_within_element(
         }
     } else {
         let hint = crate::lookup::did_you_mean_entry(ctx, elem, &prop_name);
-        let mut err = |extra: &str, suggestion: Option<Suggestion>| {
+        let mut err = |help: Option<Help>| {
             let what = match &elem.borrow().base_type {
                 ElementType::Global | ElementType::Interface(_) => {
                     let enclosing_type = elem.borrow().enclosing_component.upgrade().unwrap();
@@ -3065,10 +3056,10 @@ fn continue_lookup_within_element(
                     return;
                 }
             };
-            ctx.diag.push_error_with_suggestions(
-                format!("{} does not have a property '{}'{}", what, second.text(), extra),
+            ctx.diag.push_error_with_help(
+                format!("{} does not have a property '{}'", what, second.text()),
                 &second,
-                suggestion,
+                help,
             );
         };
         if let Some(minus_pos) = second.text().find('-') {
@@ -3082,21 +3073,21 @@ fn continue_lookup_within_element(
                 .property_type
                 != Type::Invalid
             {
-                err(
-                    ". Use space before the '-' if you meant a subtraction",
-                    Some(subtraction_suggestion(&second)),
-                );
+                err(Some(subtraction_help(&second)));
                 return None;
             }
         }
-        err(&hint.to_string(), hint.suggestion(&second));
+        err(hint.map(|c| crate::lookup::did_you_mean_help(&second, &c)));
         None
     }
 }
 
 /// Splitting `token`, such as `a-b`, at its first '-' into a subtraction.
-fn subtraction_suggestion(token: &crate::parser::SyntaxToken) -> Suggestion {
-    Suggestion::replace(token, token.text().replacen('-', " - ", 1))
+fn subtraction_help(token: &crate::parser::SyntaxToken) -> Help {
+    Help::new(
+        "Use space before the '-' if you meant a subtraction",
+        [Suggestion::replace(token, token.text().replacen('-', " - ", 1))],
+    )
 }
 
 fn maybe_lookup_object(
@@ -3115,12 +3106,16 @@ fn maybe_lookup_object(
                 if let Some(minus_pos) = next.text().find('-')
                     && base.lookup(ctx, &SmolStr::new(&next.text()[0..minus_pos])).is_some()
                 {
-                    ctx.diag.push_error_with_suggestions(format!("Cannot access the field '{}'. Use space before the '-' if you meant a subtraction", next.text()), &next, [subtraction_suggestion(&next)]);
+                    ctx.diag.push_error_with_help(
+                        format!("Cannot access the field '{}'", next.text()),
+                        &next,
+                        subtraction_help(&next),
+                    );
                     return None;
                 }
 
-                let hint = crate::lookup::did_you_mean_entry(ctx, &base, &next_str);
-                let suggestion = hint.suggestion(&next);
+                let help = crate::lookup::did_you_mean_entry(ctx, &base, &next_str)
+                    .map(|c| crate::lookup::did_you_mean_help(&next, &c));
                 match base {
                     LookupResult::Callable(LookupResultCallable::Callable(Callable::Callback(
                         ..,
@@ -3128,30 +3123,26 @@ fn maybe_lookup_object(
                     LookupResult::Callable(..) => {
                         ctx.diag.push_error("Cannot access fields of a function".into(), &next)
                     }
-                    LookupResult::Enumeration(enumeration) => ctx.diag.push_error_with_suggestions(
+                    LookupResult::Enumeration(enumeration) => ctx.diag.push_error_with_help(
                         format!(
-                            "'{}' is not a member of the enum {}{hint}",
+                            "'{}' is not a member of the enum {}",
                             next.text(),
                             enumeration.name
                         ),
                         &next,
-                        suggestion,
+                        help,
                     ),
 
                     LookupResult::Namespace(ns) => {
-                        ctx.diag.push_error_with_suggestions(
-                            format!(
-                                "'{}' is not a member of the namespace {}{hint}",
-                                next.text(),
-                                ns
-                            ),
+                        ctx.diag.push_error_with_help(
+                            format!("'{}' is not a member of the namespace {}", next.text(), ns),
                             &next,
-                            suggestion,
+                            help,
                         );
                     }
                     LookupResult::Expression { expression, .. } => {
                         let ty_descr = match expression.ty() {
-                            Type::Struct { .. } => hint.to_string(),
+                            Type::Struct { .. } => String::new(),
                             Type::Float32
                                 if ctx.property_type == Type::Model
                                     && matches!(
@@ -3166,12 +3157,12 @@ fn maybe_lookup_object(
                                 )
                             }
 
-                            ty => format!(" of {ty}{hint}"),
+                            ty => format!(" of {ty}"),
                         };
-                        ctx.diag.push_error_with_suggestions(
+                        ctx.diag.push_error_with_help(
                             format!("Cannot access the field '{}'{}", next.text(), ty_descr),
                             &next,
-                            suggestion,
+                            help,
                         );
                     }
                 }

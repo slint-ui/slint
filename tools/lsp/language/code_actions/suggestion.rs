@@ -2,18 +2,29 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::Context;
+use i_slint_live_preview::protocol::LspSuggestion;
 use lsp_types::{CodeActionKind, CodeActionOrCommand};
 
-/// The compiler's suggestions for the `diagnostics` the client sent with the request.
+/// The compiler's suggestions for the `diagnostics` the client sent with the request,
+/// unless the document changed where they apply.
 pub(super) fn add(
     ctx: &Context,
     diagnostics: &[lsp_types::Diagnostic],
     result: &mut Vec<CodeActionOrCommand>,
 ) {
+    let source_file = &ctx.token.source_file;
+    let current_text = |range| {
+        let range =
+            crate::util::lsp_range_to_text_range(source_file, range, ctx.document_cache.format);
+        source_file.source()?.get(usize::from(range.start())..usize::from(range.end()))
+    };
     for diagnostic in diagnostics {
-        let suggestions = i_slint_live_preview::protocol::lsp_diagnostic_suggestions(diagnostic);
+        let suggestions = suggestions(diagnostic)
+            .into_iter()
+            .filter(|s| current_text(s.edit.range) == Some(s.replaced.as_str()))
+            .collect::<Vec<_>>();
         let is_preferred = suggestions.len() == 1;
-        for edit in suggestions {
+        for LspSuggestion { edit, .. } in suggestions {
             let title = format!("Replace with '{}'", edit.new_text);
             result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                 diagnostics: Some(vec![diagnostic.clone()]),
@@ -22,6 +33,15 @@ pub(super) fn add(
             }));
         }
     }
+}
+
+/// The suggestions that [`i_slint_live_preview::protocol::to_lsp_diagnostic()`] stored in `diagnostic`.
+fn suggestions(diagnostic: &lsp_types::Diagnostic) -> Vec<LspSuggestion> {
+    diagnostic
+        .data
+        .as_ref()
+        .and_then(|data| serde::Deserialize::deserialize(data).ok())
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -39,6 +59,14 @@ mod tests {
                 "export component TestCase {\n    init => { debug(Colors.red); }\n}\n",
             )
             .compiles();
+    }
+
+    #[test]
+    fn test_no_suggestion_after_the_text_changed() {
+        CodeActionRequest::at("export component TestCase {\n    init => { debug(🔺red); }\n}\n")
+            .edited("export component TestCase {\n    init => { debug(bred); }\n}\n")
+            .load()
+            .assert_empty();
     }
 
     #[test]

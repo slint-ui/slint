@@ -20,13 +20,15 @@ export TestCase := Rectangle {
 //          >          <error{'text.foo.bar' is not a valid property}
             colour: yellow;
 //          >    <error{'colour' is not a valid property}
-//                  >    <^error{Unknown unqualified identifier 'yellow'. Did you mean 'Colors.yellow'?}
+//                  >    <^error{Unknown unqualified identifier 'yellow'}
+//                  help{Did you mean 'Colors.yellow'?}
 //                  >    <suggestion{Colors.yellow}
             fox.color: yellow;
 //          >       <error{'fox' is not a valid element id}
             text.fox: yellow;
 //          >      <error{'fox' not found in 'text'}
-//                    >    <^error{Unknown unqualified identifier 'yellow'. Did you mean 'Colors.yellow'?}
+//                    >    <^error{Unknown unqualified identifier 'yellow'}
+//                    help{Did you mean 'Colors.yellow'?}
 //                    >    <suggestion{Colors.yellow}
         }
     ]

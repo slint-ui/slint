@@ -26,11 +26,13 @@ foo bar
 
 Meaning that there must be an error on the line above spanning `bar`, as indicated by the `>` and `<` arrows.
 
-Each suggestion of the diagnostic is a `suggestion{…}` line after it, spanning the code that the suggestion replaces:
+The diagnostic's help is a `help{…}` line after it.
+Each suggestion of the help is a `suggestion{…}` line after that, spanning the code that the suggestion replaces:
 
 ```ignore
     with: 10px;
-//  >  <error{Unknown property with. Did you mean 'width'?}
+//  >  <error{Unknown property with in Rectangle}
+//  help{Did you mean 'width'?}
 //  >  <suggestion{width}
 ```
 

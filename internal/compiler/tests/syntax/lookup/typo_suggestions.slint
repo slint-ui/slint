@@ -9,40 +9,50 @@ export component TestCase inherits Rectangle {
     function do-something() {}
 
     backgrund: #f00;
-//  >       <error{Unknown property backgrund in Rectangle. Did you mean 'background'?}
+//  >       <error{Unknown property backgrund in Rectangle}
+//  help{Did you mean 'background'?}
 //  >       <suggestion{background}
     with: 10px;
-//  >  <error{Unknown property with in Rectangle. Did you mean 'width'?}
+//  >  <error{Unknown property with in Rectangle}
+//  help{Did you mean 'width'?}
 //  >  <suggestion{width}
     Text {
         text: countr;
-//            >    <error{Unknown unqualified identifier 'countr'. Did you mean 'counter'?}
+//            >    <error{Unknown unqualified identifier 'countr'}
+//            help{Did you mean 'counter'?}
 //            >    <suggestion{counter}
         wrap: TextWrap.wrod-wrap;
-//                     >       <error{'wrod-wrap' is not a member of the enum TextWrap. Did you mean 'word-wrap'?}
+//                     >       <error{'wrod-wrap' is not a member of the enum TextWrap}
+//                     help{Did you mean 'word-wrap'?}
 //                     >       <suggestion{word-wrap}
         color: Colors.blu;
-//                    > <error{'blu' is not a member of the namespace Colors. Did you mean 'blue'?}
+//                    > <error{'blu' is not a member of the namespace Colors}
+//                    help{Did you mean 'blue'?}
 //                    > <suggestion{blue}
     }
     Text {
         text: person.nmae;
-//                   >  <error{Cannot access the field 'nmae'. Did you mean 'name'?}
+//                   >  <error{Cannot access the field 'nmae'}
+//                   help{Did you mean 'name'?}
 //                   >  <suggestion{name}
         width: self.widht;
-//                  >   <error{Element 'Text' does not have a property 'widht'. Did you mean 'width'?}
+//                  >   <error{Element 'Text' does not have a property 'widht'}
+//                  help{Did you mean 'width'?}
 //                  >   <suggestion{width}
         height: self.Height;
-//                   >    <error{Element 'Text' does not have a property 'Height'. Did you mean 'height'?}
+//                   >    <error{Element 'Text' does not have a property 'Height'}
+//                   help{Did you mean 'height'?}
 //                   >    <suggestion{height}
         visible: "".is-emtpy;
-//                  >      <error{Cannot access the field 'is-emtpy' of string. Did you mean 'is-empty'?}
+//                  >      <error{Cannot access the field 'is-emtpy' of string}
+//                  help{Did you mean 'is-empty'?}
 //                  >      <suggestion{is-empty}
     }
     TouchArea {
         clicked => {
             root.do-sometihng();
-//               >          <error{Element 'Rectangle' does not have a property 'do-sometihng'. Did you mean 'do-something'?}
+//               >          <error{Element 'Rectangle' does not have a property 'do-sometihng'}
+//               help{Did you mean 'do-something'?}
 //               >          <suggestion{do-something}
         }
     }

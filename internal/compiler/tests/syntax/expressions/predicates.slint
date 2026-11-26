@@ -31,7 +31,8 @@ export component Test inherits Window {
         ints.find-index((x) => x);
 //                             ^error{Closure body must be of type bool, but is int}
         debug(x);
-//            ^error{Unknown unqualified identifier 'x'. Did you mean 'self.x'?}
+//            ^error{Unknown unqualified identifier 'x'}
+//            help{Did you mean 'self.x'?}
 //            ^suggestion{self.x}
 
         takes-int((x) => true);

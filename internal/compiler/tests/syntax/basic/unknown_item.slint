@@ -21,7 +21,8 @@ export component SuperSimple inherits Rectangle {
             background: blue;
             foo_bar: blue;
 //          >     <error{Unknown property foo-bar in Rectangle}
-//                   >  <^error{Unknown unqualified identifier 'blue'. Did you mean 'Colors.blue'?}
+//                   >  <^error{Unknown unqualified identifier 'blue'}
+//                   help{Did you mean 'Colors.blue'?}
 //                   >  <suggestion{Colors.blue}
         }
     }
@@ -46,7 +47,8 @@ export component SuperSimple inherits Rectangle {
     Rectangle {
         foo_bar: blue;
 //      >     <error{Unknown property foo-bar in Rectangle}
-//               >  <^error{Unknown unqualified identifier 'blue'. Did you mean 'Colors.blue'?}
+//               >  <^error{Unknown unqualified identifier 'blue'}
+//               help{Did you mean 'Colors.blue'?}
 //               >  <suggestion{Colors.blue}
     }
 

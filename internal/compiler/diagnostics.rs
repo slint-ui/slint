@@ -200,7 +200,7 @@ pub fn load_from_path(path: &Path) -> Result<String, Diagnostic> {
             span: Default::default(),
         },
         level: DiagnosticLevel::Error,
-        suggestions: Vec::new(),
+        help: None,
     })?;
 
     if path.extension().is_some_and(|e| e == "rs") {
@@ -211,7 +211,7 @@ pub fn load_from_path(path: &Path) -> Result<String, Diagnostic> {
                 span: Default::default(),
             },
             level: DiagnosticLevel::Error,
-            suggestions: Vec::new(),
+            help: None,
         });
     }
 
@@ -268,8 +268,26 @@ pub struct Suggestion {
 }
 
 impl Suggestion {
+    /// Replace the code of `source` with `replacement`.
     pub fn replace(source: &dyn Spanned, replacement: impl Into<String>) -> Self {
         Self { span: source.span(), replacement: replacement.into() }
+    }
+}
+
+/// How to resolve a diagnostic, such as "Did you mean 'width'?",
+/// with the suggestions that apply it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Help {
+    pub message: String,
+    pub suggestions: Vec<Suggestion>,
+}
+
+impl Help {
+    pub fn new(
+        message: impl Into<String>,
+        suggestions: impl IntoIterator<Item = Suggestion>,
+    ) -> Self {
+        Self { message: message.into(), suggestions: suggestions.into_iter().collect() }
     }
 }
 
@@ -282,13 +300,13 @@ pub struct Diagnostic {
     message: String,
     span: SourceLocation,
     level: DiagnosticLevel,
-    suggestions: Vec<Suggestion>,
+    help: Option<Help>,
 }
 
 //NOTE! Diagnostic is re-exported in the public API of the interpreter
 impl Diagnostic {
     pub(crate) fn error(message: String, span: SourceLocation) -> Self {
-        Self { message, span, level: DiagnosticLevel::Error, suggestions: Vec::new() }
+        Self { message, span, level: DiagnosticLevel::Error, help: None }
     }
 
     /// Return the level for this diagnostic
@@ -314,11 +332,6 @@ impl Diagnostic {
             None => (0, 0),
             Some(sl) => sl.line_column(offset, ByteFormat::Utf8),
         }
-    }
-
-    #[doc(hidden)]
-    pub fn suggestions(&self, _: i_slint_common::InternalToken) -> &[Suggestion] {
-        &self.suggestions
     }
 
     /// Return the length of this diagnostic in UTF-8 encoded bytes.
@@ -388,6 +401,20 @@ pub fn diagnostic_line_column_with_format(
     sf.line_column(diagnostic.span.span.offset, format)
 }
 
+pub fn diagnostic_help(diagnostic: &Diagnostic) -> Option<&Help> {
+    diagnostic.help.as_ref()
+}
+
+/// The message of `diagnostic` without its help, which [`Diagnostic::message()`] ends with.
+pub fn diagnostic_message(diagnostic: &Diagnostic) -> &str {
+    diagnostic
+        .help
+        .as_ref()
+        .and_then(|help| diagnostic.message.strip_suffix(help.message.as_str()))
+        .and_then(|message| message.strip_suffix(". "))
+        .unwrap_or(&diagnostic.message)
+}
+
 pub fn diagnostic_end_line_column_with_format(
     diagnostic: &Diagnostic,
     format: ByteFormat,
@@ -446,20 +473,25 @@ impl BuildDiagnostics {
         span: SourceLocation,
         level: DiagnosticLevel,
     ) {
-        self.push_diagnostic_with_suggestions(message, span, level, Vec::new());
+        self.push_diagnostic_with_help(message, span, level, None);
     }
-    fn push_diagnostic_with_suggestions(
+
+    fn push_diagnostic_with_help(
         &mut self,
         message: String,
         span: SourceLocation,
         level: DiagnosticLevel,
-        suggestions: Vec<Suggestion>,
+        help: Option<Help>,
     ) {
         debug_assert!(
             !message.as_str().ends_with('.'),
             "Error message should not end with a period: ({message:?})"
         );
-        self.inner.push(Diagnostic { message, span, level, suggestions });
+        let message = match &help {
+            Some(help) => format!("{message}. {}", help.message),
+            None => message,
+        };
+        self.inner.push(Diagnostic { message, span, level, help });
     }
     pub fn push_error_with_span(&mut self, message: String, span: SourceLocation) {
         self.push_diagnostic_with_span(message, span, DiagnosticLevel::Error)
@@ -485,17 +517,17 @@ impl BuildDiagnostics {
     pub fn push_note(&mut self, message: String, source: &dyn Spanned) {
         self.push_note_with_span(message, source.to_source_location());
     }
-    pub fn push_error_with_suggestions(
+    pub fn push_error_with_help(
         &mut self,
         message: String,
         source: &dyn Spanned,
-        suggestions: impl IntoIterator<Item = Suggestion>,
+        help: impl Into<Option<Help>>,
     ) {
-        self.push_diagnostic_with_suggestions(
+        self.push_diagnostic_with_help(
             message,
             source.to_source_location(),
             DiagnosticLevel::Error,
-            suggestions.into_iter().collect(),
+            help.into(),
         );
     }
     pub fn push_compiler_error(&mut self, error: Diagnostic) {
@@ -592,7 +624,7 @@ impl BuildDiagnostics {
                     DiagnosticLevel::Info => annotate_snippets::Level::INFO,
                     DiagnosticLevel::Note => annotate_snippets::Level::NOTE,
                 };
-                let message = annotate_snippets_level.primary_title(d.message());
+                let message = annotate_snippets_level.primary_title(diagnostic_message(d));
 
                 let group = if !d.span.span.is_valid() {
                     annotate_snippets::Group::with_title(message)
@@ -619,7 +651,7 @@ impl BuildDiagnostics {
                 } else {
                     annotate_snippets::Group::with_title(message)
                 };
-                Some(std::iter::once(group).chain(Self::suggestions_group(d)))
+                Some(std::iter::once(group).chain(Self::help_group(d)))
             })
             .flatten()
             .collect();
@@ -633,23 +665,25 @@ impl BuildDiagnostics {
     }
 
     #[cfg(feature = "display-diagnostics")]
-    fn suggestions_group(d: &Diagnostic) -> Option<annotate_snippets::Group<'_>> {
-        let sf = d.span.source_file.as_ref()?;
-        let source = sf.source.as_deref()?;
-        if d.suggestions.is_empty() {
-            return None;
+    fn help_group(d: &Diagnostic) -> Option<annotate_snippets::Group<'_>> {
+        let help = d.help.as_ref()?;
+        let group = annotate_snippets::Group::with_title(
+            annotate_snippets::Level::HELP.secondary_title(help.message.as_str()),
+        );
+        if let Some(sf) = &d.span.source_file
+            && let Some(source) = sf.source.as_deref()
+        {
+            let path = sf.path.to_string();
+            return Some(group.elements(help.suggestions.iter().map(|s| {
+                annotate_snippets::Snippet::source(source).path(path.clone()).patch(
+                    annotate_snippets::Patch::new(
+                        s.span.offset..s.span.offset + s.span.length,
+                        s.replacement.as_str(),
+                    ),
+                )
+            })));
         }
-        let snippets = d.suggestions.iter().map(|s| {
-            annotate_snippets::Snippet::source(source).path(sf.path.to_string()).patch(
-                annotate_snippets::Patch::new(
-                    s.span.offset..s.span.offset + s.span.length,
-                    s.replacement.as_str(),
-                ),
-            )
-        });
-        Some(
-            annotate_snippets::Group::with_level(annotate_snippets::Level::HELP).elements(snippets),
-        )
+        Some(group)
     }
 
     /// Follows https://no-color.org
@@ -885,5 +919,29 @@ component MainWindow inherits Window {
         let output = diag.diagnostics_as_string();
         assert!(output.starts_with("warning: unused"), "{output:?}");
         assert!(!output.contains('\x1b'), "{output:?}");
+    }
+    /// The public API, such as the interpreter, gets the help only through `message()`.
+    #[test]
+    fn message_ends_with_the_help() {
+        let location = SourceLocation {
+            source_file: Some(Arc::new(SourceFileInner::new(
+                SourcePath::new("foo.slint"),
+                "with: 10px;".into(),
+            ))),
+            span: Span::new(0, 4),
+        };
+        let mut diag = BuildDiagnostics::default();
+        diag.push_error_with_help(
+            "Unknown property with".into(),
+            &location,
+            Help::new("Did you mean 'width'?", [Suggestion::replace(&location, "width")]),
+        );
+        let diagnostic = diag.iter().next().unwrap();
+        assert_eq!(diagnostic.message(), "Unknown property with. Did you mean 'width'?");
+        assert_eq!(diagnostic_message(diagnostic), "Unknown property with");
+        assert_eq!(
+            diagnostic.to_string(),
+            "foo.slint:1: Unknown property with. Did you mean 'width'?"
+        );
     }
 }
