@@ -17,8 +17,8 @@ export component TestCase inherits Window {
     out property <int> changes;
 
     list := ListView {
-        current-row-changed(row) => {
-            root.changed-row = row;
+        changed current-row => {
+            root.changed-row = self.current-row;
             root.changes += 1;
         }
 

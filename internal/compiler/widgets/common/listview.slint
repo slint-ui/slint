@@ -8,8 +8,6 @@ import { ListViewInterface, StandardListViewInterface } from "std-widget-interfa
 export component ListView inherits ScrollView {
     implement ListViewInterface <=> self;
 
-    callback current-row-changed(row: int);
-
     // The ListView's layout sets these.
     out property <int> current-row: -1;
     out property <length> item-offset;
@@ -20,10 +18,6 @@ export component ListView inherits ScrollView {
 
     // The body will be overwritten
     @shadowable public function ensure-row-visible(row: int, behavior: ScrollBehavior) {}
-
-    changed current-row => {
-        root.current-row-changed(root.current-row);
-    }
 }
 
 component StandardListViewBase inherits ListView {

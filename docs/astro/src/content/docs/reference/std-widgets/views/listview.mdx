@@ -68,21 +68,7 @@ It's 0 while the list has no rows.
 
 ## Callbacks
 
-Same as <Link type="ScrollView"/>, and:
-
-### current-row-changed(row: int)
-
-Invoked after the current row changes, see [`current-row`](#current-row).
-The first layout of the list reports its first current row.
-
-```slint {3-5}
-ListView {
-    for i in 100 : Text { text: "Row \{i}"; }
-    current-row-changed(row) => {
-        debug("Current row: ", row);
-    }
-}
-```
+Same as <Link type="ScrollView"/>.
 
 ## Functions
 

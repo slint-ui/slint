@@ -4,7 +4,6 @@
 import { ScrollView } from "./scrollview.slint";
 
 export interface ListView inherits ScrollView {
-    callback current-row-changed(row: int);
     out property <int> current-row;
     out property <length> item-offset;
 
