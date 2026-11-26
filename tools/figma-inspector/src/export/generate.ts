@@ -103,27 +103,27 @@ export function generateExport(
             path: `fonts/${allocate(identifier(`${font.family}-${font.style}`))}.ttf`,
         }));
     const external = externalizeImages(converted.source);
-    const imports = requiredFonts.map((font) => `// import "${font.path}";`);
     const edition = version.split(".").slice(0, 2).join(".");
+    const fontsSetting = requiredFonts.length
+        ? `    // Add the font files to fonts/, then remove the leading // of the next line.\n    // "fonts": ${JSON.stringify(requiredFonts.map((font) => font.path))},\n`
+        : "";
     const diagnostics = [...warnings, ...converted.warnings];
     return {
         warnings: diagnostics,
         exportPackage: {
-            source: imports.length
-                ? `${imports.join("\n")}\n\n${external.source}`
-                : external.source,
+            source: external.source,
             files: [
                 ...external.files,
                 {
                     path: "slint-project.json",
                     encoding: "utf8",
-                    data: `{\n    "edition": "${edition}",\n    "main": "main.slint"\n}\n`,
+                    data: `{\n    "edition": "${edition}",\n${fontsSetting}    "main": "main.slint"\n}\n`,
                 },
                 {
                     path: "fonts/README.txt",
                     encoding: "utf8",
                     data: requiredFonts.length
-                        ? "Font imports at the top of main.slint are commented out so the export can run in Slint development tools without the font files. Font binaries are not included; fallback fonts may change the text appearance and layout.\nAdd the following real font files, then uncomment their import lines in main.slint by removing the leading // to enable them.\nNames below are expected filenames, not original Figma file paths. For OTF/TTC fonts, change the import extension to match.\n\n" +
+                        ? 'The "fonts" setting in slint-project.json is commented out so the export can run in Slint development tools without the font files. Font binaries are not included; fallback fonts may change the text appearance and layout.\nAdd the following real font files, then enable the setting by removing the leading // of its line.\nIf you copy main.slint into another project, add the font files to the "fonts" setting of that project\'s slint-project.json instead.\nNames below are expected filenames, not original Figma file paths. For OTF/TTC fonts, change the extension in "fonts" to match.\n\n' +
                           requiredFonts
                               .map(
                                   (font) =>
@@ -137,7 +137,7 @@ export function generateExport(
                     path: "README.txt",
                     encoding: "utf8",
                     data:
-                        "Open this directory or its slint-project.json in the Slint tools, or copy main.slint into your Slint project and keep assets/ and fonts/ beside it.\nFont imports are commented out so you can run the export without the font files. See fonts/README.txt for the font checklist and instructions to enable the imports after adding the real fonts.\nText remains native; images are stored in assets/.\n\n" +
+                        'Open this directory or its slint-project.json in the Slint tools, or copy main.slint into your Slint project and keep assets/ and fonts/ beside it.\nThe "fonts" setting in slint-project.json is commented out so you can run the export without the font files. See fonts/README.txt for the font checklist and how to enable the setting after adding the real fonts.\nText remains native; images are stored in assets/.\n\n' +
                         warningSummaries(diagnostics)
                             .map((d) => `${d.code}: ${d.message}`)
                             .join("\n") +
