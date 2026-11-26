@@ -1,0 +1,131 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A binding that ends up on a global or on a parent's property outlives the `if` or `for` instance that set it.
+// Once the instance is gone, the property has its default value.
+
+global Lives {
+    in-out property <int> source: 1;
+    in-out property <int> plain;
+    in-out property <int> in-row;
+    in-out property <string> label;
+}
+
+component Aliases {
+    in-out property <int> plain <=> Lives.plain;
+    in-out property <int> in-row <=> Lives.in-row;
+    in-out property <string> label <=> Lives.label;
+}
+
+component Link {
+    in-out property <int> a <=> b;
+    in-out property <int> b;
+}
+
+component StringLink {
+    in-out property <string> a <=> b;
+    in-out property <string> b;
+}
+
+export component TestCase {
+    in-out property <bool> alive: true;
+    in-out property <int> rows: 1;
+    in-out property <int> source <=> Lives.source;
+    in-out property <int> plain;
+    in-out property <int> linked;
+    in-out property <int> in-parent;
+    in-out property <int> animated;
+    in-out property <int> in-row;
+    in-out property <int> transition;
+    in-out property <string> label;
+
+    if alive: Aliases { plain: root.source + 1; }
+    for i in root.rows: Aliases { in-row: root.source + 2; }
+    if alive: Aliases { label: root.source > 0 ? "alive" : "negative"; }
+
+    if alive: Link { a <=> root.plain; b: root.source + 3; }
+    if alive: Rectangle {
+        property <int> local: root.source + 4;
+        Link { a <=> root.linked; b <=> local; }
+    }
+    if alive: Rectangle {
+        property <int> local: root.source + 5;
+        if true: Link { a <=> root.in-parent; b <=> local; }
+    }
+    if alive: Link {
+        a <=> root.animated;
+        b: root.source + 6;
+        animate b { duration: 0ms; }
+    }
+    for i in root.rows: Link { a <=> root.in-row; b: root.source + 7; }
+    if alive: Rectangle {
+        property <int> local;
+        states [
+            active when root.alive: {
+                local: root.source + 8;
+                in { animate local { duration: 0ms; } }
+            }
+        ]
+        Link { a <=> root.transition; b <=> local; }
+    }
+    if alive: StringLink { a <=> root.label; b: root.source > 0 ? "alive" : "negative"; }
+
+    public function sum() -> int {
+        return Lives.plain + Lives.in-row + (Lives.label == "alive" ? 1000 : 0)
+            + root.plain + root.linked + root.in-parent + root.animated + root.in-row + root.transition
+            + (root.label == "alive" ? 10000 : 0);
+    }
+    out property <string> as-text: Lives.plain + "/" + root.plain;
+    out property <bool> test: true;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.invoke_sum(), 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 11000);
+instance.set_alive(false);
+instance.set_rows(0);
+slint_testing::mock_elapsed_time(0);
+instance.set_source(10);
+assert_eq!(instance.invoke_sum(), 0);
+assert_eq!(instance.get_as_text(), "0/0");
+instance.set_alive(true);
+instance.set_rows(1);
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.invoke_sum(), 11 + 12 + 13 + 14 + 15 + 16 + 17 + 18 + 11000);
+instance.set_source(20);
+assert_eq!(instance.invoke_sum(), 21 + 22 + 23 + 24 + 25 + 26 + 27 + 28 + 11000);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::mock_elapsed_time(0);
+assert_eq(instance.invoke_sum(), 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 11000);
+instance.set_alive(false);
+instance.set_rows(0);
+slint_testing::mock_elapsed_time(0);
+instance.set_source(10);
+assert_eq(instance.invoke_sum(), 0);
+assert_eq(instance.get_as_text(), "0/0");
+instance.set_alive(true);
+instance.set_rows(1);
+slint_testing::mock_elapsed_time(0);
+assert_eq(instance.invoke_sum(), 11 + 12 + 13 + 14 + 15 + 16 + 17 + 18 + 11000);
+instance.set_source(20);
+assert_eq(instance.invoke_sum(), 21 + 22 + 23 + 24 + 25 + 26 + 27 + 28 + 11000);
+```
+
+```js
+var instance = new slint.TestCase({});
+slintlib.private_api.mock_elapsed_time(0);
+assert.equal(instance.sum(), 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 11000);
+instance.alive = false;
+instance.rows = 0;
+slintlib.private_api.mock_elapsed_time(0);
+instance.source = 10;
+assert.equal(instance.sum(), 0);
+assert.equal(instance.as_text, "0/0");
+```
+*/
