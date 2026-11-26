@@ -6,12 +6,15 @@ use crate::CompilerConfiguration;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::BuildDiagnostics;
+use crate::element_type::ElementType;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::embedded_resources::{BitmapFont, BitmapGlyph, BitmapGlyphs};
-use crate::expression_tree::Expression;
+use crate::expression_tree::{BindingExpression, Expression};
 use crate::expression_types::Unit;
 use crate::object_tree::*;
 use crate::source_path::SourcePath;
+use smol_str::SmolStr;
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 
@@ -441,7 +444,6 @@ fn embed_alpha_map_glyphs(
     normalized_coords: &[i16],
 ) -> Vec<BitmapGlyphs> {
     use rayon::prelude::*;
-    use std::cell::RefCell;
 
     thread_local! {
         static SCALE_CONTEXT: RefCell<swash::scale::ScaleContext> =
@@ -653,39 +655,112 @@ fn try_extract_literal_from_element(
     })
 }
 
-pub fn collect_font_sizes_used(
-    component: &Rc<Component>,
-    scale_factor: f64,
-    sizes_seen: &mut Vec<i16>,
-) {
+pub fn collect_font_sizes_used(doc: &Document, scale_factor: f64, sizes_seen: &mut Vec<i16>) {
+    let mut sources = BindingSources::default();
+    let mut font_size_bindings: Vec<(ElementRc, &str)> = Vec::new();
+
+    doc.visit_all_used_components(|component| {
+        recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
+            let e = elem.borrow();
+            if let ElementType::Component(base) = &e.base_type {
+                let root = Rc::as_ptr(&base.root_element);
+                sources.instances_by_root.entry(root).or_default().push(elem.clone());
+            }
+            for (name, declaration) in &e.property_declarations {
+                if let Some(target) = &declaration.is_alias {
+                    let key = (Rc::as_ptr(&target.element()), target.name().clone());
+                    sources
+                        .aliases_by_target
+                        .entry(key)
+                        .or_default()
+                        .push((elem.clone(), name.clone()));
+                }
+            }
+            let property = match e.base_type.to_string().as_str() {
+                "TextInput" | "Text" | "SimpleText" | "ComplexText" | "StyledTextItem" => {
+                    "font-size"
+                }
+                "Dialog" | "Window" | "WindowItem" => "default-font-size",
+                _ => return,
+            };
+            font_size_bindings.push((elem.clone(), property));
+        })
+    });
+
     let mut add_font_size = |logical_size: f64| {
         let pixel_size = (logical_size * scale_factor) as i16;
+        // A size of 0 means the default size at run time: nothing to embed for it.
+        if pixel_size <= 0 {
+            return;
+        }
         match sizes_seen.binary_search(&pixel_size) {
             Ok(_) => {}
             Err(pos) => sizes_seen.insert(pos, pixel_size),
         }
     };
+    for (elem, property) in font_size_bindings {
+        sources.collect_lengths(&elem, property, 0, &mut add_font_size);
+    }
+}
 
-    recurse_elem_including_sub_components(component, &(), &mut |elem, _| match elem
-        .borrow()
-        .base_type
-        .to_string()
-        .as_str()
-    {
-        "TextInput" | "Text" | "SimpleText" | "ComplexText" | "StyledTextItem" => {
-            if let Some(font_size) = try_extract_literal_from_element(elem, "font-size", Unit::Px) {
-                add_font_size(font_size)
-            }
+/// The places other than its own binding that can set a property.
+#[derive(Default)]
+struct BindingSources {
+    /// The elements that instantiate a sub-component, by the sub-component's root element.
+    instances_by_root: HashMap<*const RefCell<Element>, Vec<ElementRc>>,
+    /// The properties declared as an alias of a property, by the aliased element and name.
+    aliases_by_target: HashMap<(*const RefCell<Element>, SmolStr), Vec<(ElementRc, SmolStr)>>,
+}
+
+/// How many property references `BindingSources::collect_lengths` follows before giving up.
+const MAX_REFERENCE_DEPTH: usize = 16;
+
+impl BindingSources {
+    /// Calls `add` with every constant length that `property` of `elem` can be bound to.
+    /// Only lengths in `px` are found; other units such as `rem` are skipped.
+    fn collect_lengths(
+        &self,
+        elem: &ElementRc,
+        property: &str,
+        depth: usize,
+        add: &mut impl FnMut(f64),
+    ) {
+        if depth > MAX_REFERENCE_DEPTH {
+            return;
         }
-        "Dialog" | "Window" | "WindowItem" => {
-            if let Some(font_size) =
-                try_extract_literal_from_element(elem, "default-font-size", Unit::Px)
-            {
-                add_font_size(font_size)
-            }
+        if let Some(binding) = elem.borrow().binding(property) {
+            self.collect_lengths_of_binding(&binding, depth, add);
         }
-        _ => {}
-    });
+        // The instance's own binding and the aliases that target the instance. This is not a
+        // property reference, so it doesn't count towards the depth; component instantiation is
+        // acyclic, so this terminates.
+        for instance in self.instances_by_root.get(&Rc::as_ptr(elem)).into_iter().flatten() {
+            self.collect_lengths(instance, property, depth, add);
+        }
+        let key = (Rc::as_ptr(elem), SmolStr::new(property));
+        for (alias_elem, alias_name) in self.aliases_by_target.get(&key).into_iter().flatten() {
+            self.collect_lengths(alias_elem, alias_name, depth + 1, add);
+        }
+    }
+
+    fn collect_lengths_of_binding(
+        &self,
+        binding: &BindingExpression,
+        depth: usize,
+        add: &mut impl FnMut(f64),
+    ) {
+        let mut expr = binding.value_expression();
+        while let Expression::Cast { from, .. } = expr {
+            expr = from;
+        }
+        match expr {
+            Expression::NumberLiteral(value, Unit::Px) => add(*value),
+            Expression::PropertyReference(nr) => {
+                self.collect_lengths(&nr.element(), nr.name(), depth + 1, add)
+            }
+            _ => {}
+        }
+    }
 }
 
 pub fn collect_font_weights_used(component: &Rc<Component>, weights_seen: &mut Vec<u16>) {
@@ -727,4 +802,53 @@ pub fn scan_string_literals(component: &Rc<Component>, characters_seen: &mut BTr
             }
         })
     })
+}
+
+#[test]
+fn font_sizes_through_property_references() {
+    let mut compiler_config =
+        crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.inline_all_elements = false;
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
+        r#"
+component Label inherits Rectangle {
+    in property <length> font-size: 30px;
+    Text { text: "label"; font-size: root.font-size; }
+}
+component Alias inherits Rectangle {
+    in property <length> font-size <=> txt.font-size;
+    txt := Text { text: "alias"; }
+}
+component Card inherits Rectangle {
+    in property <length> title-size <=> l.font-size;
+    l := Label { }
+}
+component Panel inherits Rectangle {
+    in property <length> size;
+    Label { font-size: root.size; }
+}
+export component Test inherits Window {
+    in property <length> dynamic;
+    Label { font-size: 140px; }
+    Panel { size: 50px; }
+    Alias { font-size: 70px; }
+    Card { title-size: 37px; }
+    Label { font-size: 0px; }
+    Text { text: "dynamic"; font-size: root.dynamic; }
+    Text { text: "literal"; font-size: 20px; }
+}
+"#
+        .into(),
+        Some(SourcePath::new("HELLO")),
+        None,
+        &mut test_diags,
+    );
+    let (doc, diag, _) =
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+
+    let mut sizes = Vec::new();
+    collect_font_sizes_used(&doc, 1., &mut sizes);
+    assert_eq!(sizes, [20, 30, 37, 50, 70, 140]);
 }
