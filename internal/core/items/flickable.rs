@@ -154,7 +154,15 @@ impl Item for Flickable {
                     &geo,
                 );
 
-                (!inside_bounds_x, !inside_bounds_y, geo)
+                // An axis with a simulation is left to it, and it is only checked once the simulation is over,
+                // as the limit may have moved since it started. Getting the position above finishes a simulation
+                // that is over and removes its binding, so this has to be read after it.
+                let animating_x =
+                    Flickable::FIELD_OFFSETS.content_x().apply_pin(flick).has_binding();
+                let animating_y =
+                    Flickable::FIELD_OFFSETS.content_y().apply_pin(flick).has_binding();
+
+                (!inside_bounds_x && !animating_x, !inside_bounds_y && !animating_y, geo)
             },
             // Change event handler that puts the Flickable in bounds if it's not already
             |self_weak, (x_out_of_bounds, y_out_of_bounds, geo)| {
@@ -932,6 +940,7 @@ impl FlickableDataInner {
                 x.set(p.x_length());
             } else if let Some(inner) = self_.as_deref_mut()
                 && inner.capture_events.is_none()
+                && inner.pressed_mouse_state.is_none()
             {
                 inner.start_spring_back(flick, flick_rc, Dimension::X, geo);
             }
@@ -943,6 +952,7 @@ impl FlickableDataInner {
                 y.set(p.y_length());
             } else if let Some(inner) = self_
                 && inner.capture_events.is_none()
+                && inner.pressed_mouse_state.is_none()
             {
                 inner.start_spring_back(flick, flick_rc, Dimension::Y, geo);
             }
