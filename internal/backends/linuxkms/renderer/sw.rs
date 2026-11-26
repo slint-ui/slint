@@ -7,7 +7,9 @@ use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
 pub use i_slint_renderer_software::SoftwareRenderer;
-use i_slint_renderer_software::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
+use i_slint_renderer_software::{
+    Argb8888Pixel, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
+};
 use std::sync::Arc;
 
 use crate::display::RenderingRotation;
@@ -60,36 +62,7 @@ const SOFTWARE_RENDER_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = 
 
 #[repr(transparent)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct DumbBufferPixelXrgb888(pub u32);
-
-#[repr(transparent)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct DumbBufferPixelBgra8888(pub u32);
-
-impl From<DumbBufferPixelXrgb888> for PremultipliedRgbaColor {
-    #[inline]
-    fn from(pixel: DumbBufferPixelXrgb888) -> Self {
-        let v = pixel.0;
-        PremultipliedRgbaColor {
-            red: (v >> 16) as u8,
-            green: (v >> 8) as u8,
-            blue: v as u8,
-            alpha: (v >> 24) as u8,
-        }
-    }
-}
-
-impl From<PremultipliedRgbaColor> for DumbBufferPixelXrgb888 {
-    #[inline]
-    fn from(pixel: PremultipliedRgbaColor) -> Self {
-        Self(
-            (pixel.alpha as u32) << 24
-                | ((pixel.red as u32) << 16)
-                | ((pixel.green as u32) << 8)
-                | (pixel.blue as u32),
-        )
-    }
-}
 
 impl From<DumbBufferPixelBgra8888> for PremultipliedRgbaColor {
     #[inline]
@@ -113,22 +86,6 @@ impl From<PremultipliedRgbaColor> for DumbBufferPixelBgra8888 {
                 | ((pixel.green as u32) << 16)
                 | ((pixel.blue as u32) << 24),
         )
-    }
-}
-
-impl TargetPixel for DumbBufferPixelXrgb888 {
-    fn blend(&mut self, color: PremultipliedRgbaColor) {
-        let mut x = PremultipliedRgbaColor::from(*self);
-        x.blend(color);
-        *self = x.into();
-    }
-
-    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        Self(0xff000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32))
-    }
-
-    fn background() -> Self {
-        Self(0)
     }
 }
 
@@ -206,7 +163,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
 
             let render = match format {
                 drm::buffer::DrmFourcc::Xrgb8888 | drm::buffer::DrmFourcc::Argb8888 => {
-                    render_to_pixels::<DumbBufferPixelXrgb888>
+                    render_to_pixels::<Argb8888Pixel>
                 }
                 drm::buffer::DrmFourcc::Bgra8888 => render_to_pixels::<DumbBufferPixelBgra8888>,
                 drm::buffer::DrmFourcc::Rgb565 => {

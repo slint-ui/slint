@@ -430,6 +430,8 @@ fn default_config() -> cbindgen::Config {
     let defines: Vec<(String, String)> = vec![
         ("target_pointer_width = 64".into(), "SLINT_TARGET_64".into()),
         ("target_pointer_width = 32".into(), "SLINT_TARGET_32".into()),
+        // The recorded raster commands need atomic pointers, which thumbv6m lacks.
+        ("target_has_atomic = ptr".into(), "SLINT_TARGET_HAS_ATOMIC_PTR".into()),
         // Disable any wasm guarded code in C++, too - so that there are no gaps in enums.
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
@@ -464,7 +466,7 @@ extern "C" {{
 "#,
         items
             .iter()
-            .map(|item_name| format!("SLINT_DECL_ITEM({item_name});"))
+            .map(|item_name| format!("SLINT_DECL_ITEM({item_name})"))
             .collect::<Vec<_>>()
             .join("\n")
     )
@@ -1381,6 +1383,11 @@ macro_rules! declare_features {
                         $f: std::env::var(format!("CARGO_FEATURE_{}", stringify!($f).to_ascii_uppercase())).is_ok(),
                     )*
                 }
+            }
+
+            #[allow(unused)]
+            pub fn all() -> Self {
+                Self { $($f: true,)* }
             }
         }
     };

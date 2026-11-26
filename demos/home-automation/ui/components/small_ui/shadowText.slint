@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { AppState } from "../../appState.slint";
+import { LightsTheme } from "lightsTheme.slint";
+
+export component ShadowText inherits Rectangle {
+    in property <string> label;
+    in property <length> size: 28px;
+    in property <int> weight: FontWeight.normal;
+    in property <brush> text-color: LightsTheme.white;
+
+    Text {
+        x: 1px;
+        y: 2px;
+        width: 100%;
+        height: 100%;
+        text: root.label;
+        font-family: AppState.default-font-family;
+        font-size: root.size;
+        font-weight: root.weight;
+        color: #0000008c;
+        vertical-alignment: center;
+    }
+
+    Text {
+        width: 100%;
+        height: 100%;
+        text: root.label;
+        font-family: AppState.default-font-family;
+        font-size: root.size;
+        font-weight: root.weight;
+        color: root.text-color;
+        vertical-alignment: center;
+    }
+}

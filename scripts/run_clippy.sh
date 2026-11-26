@@ -21,18 +21,13 @@ cargo clippy --locked --all-features --workspace \
     --exclude slint-python \
     -- -D warnings || status=1
 
-# Examples workspace. The mcu/uefi members need dedicated targets, and
-# bevy/servo have heavy dependencies and dedicated CI workflows.
+# Examples workspace. bevy has heavy dependencies and a dedicated CI workflow.
 cargo clippy --locked --all-features --workspace --manifest-path examples/Cargo.toml \
-    --exclude mcu-board-support \
-    --exclude mcu-embassy \
-    --exclude uefi-demo \
     --exclude plotter \
     --exclude gstreamer-player \
     --exclude bevy-example \
     --exclude bevy-hosts-slint \
     --exclude bevy-hosts-slint-gpu \
-    --exclude servo-example \
     -- -D warnings || status=1
 
 # Demos workspace.

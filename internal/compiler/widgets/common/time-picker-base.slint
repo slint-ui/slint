@@ -58,6 +58,7 @@ export component Clock {
     in property <int> current-value;
 
     callback current-item-changed(index: int);
+    callback current-value-changed(value: int);
 
     property <length> radius: max(root.width, root.height) / 2;
     property <length> picker-diameter: 48px;
@@ -140,6 +141,18 @@ export component Clock {
         }
     }
 
+    if root.model.length < root.total: TouchArea {
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.select-value-at(self.mouse-x, self.mouse-y);
+            }
+        }
+
+        moved => {
+            root.select-value-at(self.mouse-x, self.mouse-y);
+        }
+    }
+
     pure function value-to-angle(value: int) -> angle {
         if root.two-columns {
             if value >= root.half-total {
@@ -173,6 +186,11 @@ export component Clock {
 
     function set-current-item(index: int) {
         root.current-item-changed(index);
+    }
+
+    function select-value-at(x: length, y: length) {
+        let angle = atan2((y - root.height / 2) / 1px, (x - root.width / 2) / 1px) + root.rotation + 1turn;
+        root.current-value-changed(mod(round(angle / 1turn * root.total), root.total));
     }
 }
 
@@ -475,6 +493,10 @@ export component TimePickerBase {
                     if !root.minutes-selected {
                         root.minutes-selected = true;
                     }
+                }
+
+                current-value-changed(value) => {
+                    root.update-time-by-value(value);
                 }
             }
         }

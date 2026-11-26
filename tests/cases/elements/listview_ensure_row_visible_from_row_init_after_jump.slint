@@ -1,0 +1,76 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Scrolling far away replaces all instances, starting with row 50.
+// Row 50's init runs during that layout pass and asks for row 52, which is already in view.
+// The request used to see the new instances with the scroll position of the old ones,
+// and so scrolled back towards row 2.
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in-out property <length> viewport-y <=> listview.viewport-y;
+    out property <bool> requested;
+    out property <int> clicked-row: -1;
+
+    listview := ListView {
+        width: 300px;
+        height: 300px;
+        for i in 100: Rectangle {
+            height: 100px;
+            init => {
+                if i == 50 && !root.requested {
+                    root.requested = true;
+                    listview.ensure-row-visible(52, ScrollBehavior.instant);
+                }
+            }
+            TouchArea {
+                clicked => {
+                    root.clicked-row = i;
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq!(instance.get_clicked_row(), 0);
+
+instance.set_viewport_y(-5000.);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert!(instance.get_requested());
+assert_eq!(instance.get_viewport_y(), -5000.);
+assert_eq!(instance.get_clicked_row(), 50);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq(instance.get_clicked_row(), 0);
+
+instance.set_viewport_y(-5000.);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert(instance.get_requested());
+assert_eq(instance.get_viewport_y(), -5000.);
+assert_eq(instance.get_clicked_row(), 50);
+```
+
+```js
+var instance = new slint.TestCase({});
+slintlib.private_api.send_mouse_click(instance, 150., 50.);
+assert.equal(instance.clicked_row, 0);
+
+instance.viewport_y = -5000;
+slintlib.private_api.send_mouse_click(instance, 150., 50.);
+assert(instance.requested);
+assert.equal(instance.viewport_y, -5000);
+assert.equal(instance.clicked_row, 50);
+```
+*/

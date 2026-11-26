@@ -95,7 +95,6 @@ i-slint-common = { workspace = true, features = ["default"] }
 
 lyon_path = { workspace = true }
 pin-weak = "1"
-scoped-tls-hkt = "0.1"
 strum = { workspace = true }
 winit = { version = "0.30.2", default-features = false, features = ["rwh_06"] }
 raw-window-handle = { version = "0.6", features = ["alloc"] }
@@ -124,6 +123,7 @@ muda = { version = "0.21.1", optional = true, default-features = false }
 vtable = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+scoped-tls-hkt = "0.1"
 web-sys = { workspace = true, features = ["HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "Event", "EventTarget", "FocusEvent", "KeyboardEvent", "InputEvent", "CompositionEvent", "DomStringMap", "ClipboardEvent", "DataTransfer", "Node", "WebGlContextEvent"] }
 wasm-bindgen = { version = "0.2" }
 
@@ -178,7 +178,7 @@ cfg_aliases = { workspace = true }
 slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "raw-window-handle-06", "unstable-winit-030"] }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
-x11rb = { version = "0.13.2", default-features = false }
+x11rb = { version = "0.14.0", default-features = false }
 
 [package.metadata.docs.rs]
 features = ["wayland", "renderer-software", "raw-window-handle-06"]

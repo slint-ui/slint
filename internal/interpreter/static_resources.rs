@@ -9,19 +9,20 @@ use i_slint_common::bitmapfont::{BitmapFont, OwnedStorage};
 use i_slint_common::pre_rendered::{PreRenderedResource, StaticTextures};
 use i_slint_compiler::embedded_resources::EmbeddedResourcesIdx;
 use i_slint_core::graphics::{Image, ImageInner};
+use i_slint_core::shared_pointer::SharedPtr;
 use typed_index_collections::TiVec;
 
 #[derive(Clone)]
 enum Resource {
-    Texture(Rc<StaticTextures<OwnedStorage>>),
-    BitmapFont(Rc<BitmapFont<OwnedStorage>>),
+    Texture(alloc::sync::Arc<StaticTextures<OwnedStorage>>),
+    BitmapFont(SharedPtr<BitmapFont<OwnedStorage>>),
 }
 
 impl From<PreRenderedResource> for Resource {
     fn from(resource: PreRenderedResource) -> Self {
         match resource {
-            PreRenderedResource::Texture(texture) => Self::Texture(Rc::new(texture)),
-            PreRenderedResource::BitmapFont(font) => Self::BitmapFont(Rc::new(font)),
+            PreRenderedResource::Texture(texture) => Self::Texture(alloc::sync::Arc::new(texture)),
+            PreRenderedResource::BitmapFont(font) => Self::BitmapFont(SharedPtr::new(font)),
         }
     }
 }
@@ -65,10 +66,10 @@ impl PreRendered {
             .into_iter()
             .map(|resource| match resource? {
                 Resource::Texture(texture) => {
-                    Some(PreRenderedResource::Texture(Rc::unwrap_or_clone(texture)))
+                    Some(PreRenderedResource::Texture(alloc::sync::Arc::unwrap_or_clone(texture)))
                 }
                 Resource::BitmapFont(font) => {
-                    Some(PreRenderedResource::BitmapFont(Rc::unwrap_or_clone(font)))
+                    Some(PreRenderedResource::BitmapFont(SharedPtr::unwrap_or_clone(font)))
                 }
             })
             .collect()
@@ -79,7 +80,10 @@ impl PreRendered {
         Some(Image::from(ImageInner::OwnedTextures(texture.clone())))
     }
 
-    pub fn bitmap_font(&self, id: EmbeddedResourcesIdx) -> Option<Rc<BitmapFont<OwnedStorage>>> {
+    pub fn bitmap_font(
+        &self,
+        id: EmbeddedResourcesIdx,
+    ) -> Option<SharedPtr<BitmapFont<OwnedStorage>>> {
         let Some(Resource::BitmapFont(font)) = self.0.get(id)? else { return None };
         Some(font.clone())
     }
@@ -98,8 +102,9 @@ mod tests {
         let source = r#"export component Live inherits Window {
             Text { text: "Version 1"; font-size: 32px; }
         }"#;
-        let result =
-            spin_on::spin_on(compiler.build_from_source(source.into(), Default::default()));
+        let result = i_slint_compiler::poll_ready(
+            compiler.build_from_source(source.into(), Default::default()),
+        );
         assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
         let loaded = {
             let sent = result.clone().into_send();
@@ -119,7 +124,7 @@ mod tests {
                 .find_map(|id| pre_rendered.bitmap_font(EmbeddedResourcesIdx(id)))
                 .unwrap();
 
-            let weak = Rc::downgrade(&font);
+            let weak = SharedPtr::downgrade(&font);
             drop(font);
             assert!(weak.upgrade().is_some());
             drop((definition, result));

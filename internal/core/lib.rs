@@ -17,6 +17,8 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+pub const IMAGE_DECODERS_ENABLED: bool = cfg!(feature = "image-decoders");
+
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 pub mod unsafe_single_threaded;
 #[cfg(all(not(feature = "std"), not(feature = "unsafe-single-threaded")))]
@@ -61,6 +63,8 @@ pub mod properties;
 pub mod renderer;
 #[cfg(feature = "rtti")]
 pub mod rtti;
+#[doc(hidden)]
+pub mod shared_pointer;
 pub mod sharedvector;
 pub mod slice;
 pub mod string;

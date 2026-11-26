@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore CBDT frameless glyf qbrush qdrag qimage qpointf qreal qvariant qwidgetsize sbix svgz Nesw qsize qstring
+// cSpell: ignore CBDT frameless glyf qbrush qdrag qimage qpointf qvariant qwidgetsize sbix svgz Nesw qsize qstring
 
 use cpp::*;
 use i_slint_common::sharedfontique::HashedBlob;
@@ -1400,6 +1400,7 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
+        _baseline: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
         let stroke = matches!(brush, GlyphBrush::Stroke(_));

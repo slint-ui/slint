@@ -310,6 +310,25 @@ SCENARIO("Component Compiler")
         compiler.set_translation_domain("cpptests");
     }
 
+    SECTION("configure edition")
+    {
+        // Edition 1.19 reports the inner binding loop as an error, 1.18 only warns.
+        auto source = R"(
+            export component Main inherits Window {
+                HorizontalLayout { Rectangle { VerticalLayout { Rectangle { width: parent.width; } } } }
+            }
+        )";
+        REQUIRE(compiler.build_from_source(source, "edition.slint").has_value());
+        compiler.set_edition(1, 19);
+        REQUIRE(!compiler.build_from_source(source, "edition.slint").has_value());
+        compiler.set_edition(999, 0);
+        REQUIRE(!compiler.build_from_source(source, "edition.slint").has_value());
+        auto diags = compiler.diagnostics();
+        REQUIRE(std::any_of(diags.begin(), diags.end(), [](const auto &d) {
+            return std::string_view(d.message).find("newer than Slint") != std::string_view::npos;
+        }));
+    }
+
     SECTION("configure file loader")
     {
         compiler.set_file_loader(

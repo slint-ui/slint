@@ -4,10 +4,12 @@
 //! The public API of the software renderer, which `slint::platform::software_renderer`
 //! re-exports. The other public items of this crate are for the crates of this repository.
 
-pub use crate::draw_functions::{
-    PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
-};
+#[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
+pub use crate::RecordedRasterCommands;
 pub use crate::minimal_software_window::MinimalSoftwareWindow;
+pub use crate::target_pixel::{
+    Argb8888Pixel, PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
+};
 #[cfg(feature = "experimental")]
 pub use crate::target_pixel_buffer::{
     DrawRectangleArgs, DrawTextureArgs, TargetPixelBuffer, TexturePixelFormat,
@@ -323,6 +325,25 @@ impl SoftwareRenderer {
     #[cfg(feature = "experimental")]
     pub fn render_into_buffer(&self, buffer: &mut impl TargetPixelBuffer) -> PhysicalRegion {
         self.render_buffer_impl(buffer)
+    }
+
+    /// Records the window's next frame, like [`Self::render`] renders it,
+    /// to rasterize later with [`RecordedRasterCommands::rasterize`],
+    /// into a buffer of `num_lines` lines of `pixels_per_line` pixels.
+    ///
+    /// Rasterize every recording: recording marks the changed areas as clean,
+    /// so a recording dropped without rasterizing loses that frame's changes.
+    ///
+    /// Only available on targets with atomic pointers.
+    #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
+    pub fn record_frame(&self, pixels_per_line: usize, num_lines: usize) -> RecordedRasterCommands {
+        let recorder = |scale_factor| RecordedRasterCommands {
+            scale_factor,
+            pixels_per_line,
+            num_lines,
+            ..Default::default()
+        };
+        self.render_frame(pixels_per_line, num_lines, recorder).map(|(_, r)| r).unwrap_or_default()
     }
 
     /// Render the window, line by line, into the line buffer provided by the [`LineBufferProvider`].

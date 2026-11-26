@@ -231,7 +231,7 @@ pub struct TouchHistory {
 
 /// The mouse events a backend can deliver to the runtime.
 #[allow(missing_docs)]
-#[repr(C)]
+#[repr(C, u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BackendMouseEvent {
     /// The mouse or finger was pressed
@@ -350,7 +350,7 @@ pub enum InputEventResult {
 /// This value is returned by the `input_event_filter_before_children` function, which
 /// can specify how to further process the event.
 /// See [`crate::items::ItemVTable::input_event_filter_before_children`].
-#[repr(C)]
+#[repr(C, u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub enum InputEventFilterResult {
     /// The event is going to be forwarded to children, then the [`crate::items::ItemVTable::input_event`]
@@ -2604,7 +2604,8 @@ impl TouchState {
 
                     let current_scale =
                         if initial_distance > 0.0 { dist / initial_distance } else { 1.0 };
-                    let scale_delta = current_scale - last_scale;
+                    // ScaleRotateGestureHandler multiplies its scale by `1 + delta`, as for a trackpad's magnification.
+                    let scale_delta = current_scale / last_scale - 1.0;
 
                     // `.signed()` wraps to [-pi, pi] so crossing the ±180°
                     // atan2 boundary doesn't produce a full-revolution jump.
@@ -3011,6 +3012,14 @@ mod touch_tests {
             assert!((delta - 0.5).abs() < 0.01, "expected ~0.5, got {}", delta);
         } else {
             panic!("expected PinchMoved, got {:?}", classified[0]);
+        }
+
+        // Scale = 240/120 = 2.0, which is 1.5 * (1 + delta), so delta = 1/3.
+        let evs = state.process(2, pt(240.0, 0.0), TouchPhase::Moved, None, Default::default());
+        if let Ev::PinchMoved(delta) = classify(&evs)[0] {
+            assert!((delta - 1.0 / 3.0).abs() < 0.01, "expected ~0.333, got {}", delta);
+        } else {
+            panic!("expected PinchMoved");
         }
     }
 
