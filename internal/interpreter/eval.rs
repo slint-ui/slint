@@ -1907,7 +1907,7 @@ fn load_image_reference(
             #[cfg(not(target_arch = "wasm32"))]
             {
                 let _ = url;
-                Err(Default::default())
+                Ok(Default::default())
             }
         }
         #[cfg(feature = "internal-mcu-interpreter")]
