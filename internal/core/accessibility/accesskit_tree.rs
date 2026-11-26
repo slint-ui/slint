@@ -33,12 +33,12 @@ use accesskit::{
 use crate::SharedString;
 use crate::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
-    find_exposed_text_input, nearest_accessible_item,
+    find_exposed_flickable, find_exposed_text_input, nearest_accessible_item,
 };
-use crate::api::Window;
+use crate::api::{LogicalPosition, Window};
 use crate::input::FocusReason;
 use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak};
-use crate::items::{ItemRc, WindowItem};
+use crate::items::{Flickable, ItemRc, ScrollBehavior, WindowItem};
 use crate::lengths::{LogicalPoint, ScaleFactor};
 use crate::properties::PropertyTracker;
 use crate::window::{PopupWindowLocation, WindowAdapter, WindowInner};
@@ -273,6 +273,11 @@ impl AccessKitTree {
                 }
                 _ => return None,
             },
+            Action::ScrollUp
+            | Action::ScrollDown
+            | Action::ScrollLeft
+            | Action::ScrollRight
+            | Action::SetScrollOffset => return self.scroll_request(&request),
             Action::Expand => AccessibilityAction::Expand,
             Action::SetTextSelection => {
                 let Some(accesskit::ActionData::SetTextSelection(sel)) = request.data.as_ref()
@@ -690,6 +695,78 @@ impl AccessKitTree {
         }
     }
 
+    /// Reports the scroll position and the scroll actions of the `Flickable` that `item` exposes.
+    ///
+    /// An action is only offered while the content can move in that direction, which is what
+    /// assistive technologies use to tell whether there is more to scroll to.
+    fn add_scroll_properties(&self, item: &ItemRc, node: &mut Node, scale_factor: ScaleFactor) {
+        let Some((flickable_item, flickable)) = find_exposed_flickable(item) else { return };
+        let metrics = flickable.as_pin_ref().scroll_metrics(&flickable_item);
+        let offset = (metrics.offset * scale_factor).cast::<f64>();
+        let max_offset = (metrics.max_offset * scale_factor).cast::<f64>();
+        // Below a tenth of a pixel is a rounding error of the layout, not content
+        const EPSILON: f64 = 0.1;
+
+        if max_offset.x > EPSILON {
+            node.set_scroll_x(offset.x);
+            node.set_scroll_x_min(0.);
+            node.set_scroll_x_max(max_offset.x);
+            if offset.x > EPSILON {
+                node.add_action(Action::ScrollLeft);
+            }
+            if offset.x < max_offset.x - EPSILON {
+                node.add_action(Action::ScrollRight);
+            }
+        }
+        if max_offset.y > EPSILON {
+            node.set_scroll_y(offset.y);
+            node.set_scroll_y_min(0.);
+            node.set_scroll_y_max(max_offset.y);
+            if offset.y > EPSILON {
+                node.add_action(Action::ScrollUp);
+            }
+            if offset.y < max_offset.y - EPSILON {
+                node.add_action(Action::ScrollDown);
+            }
+        }
+        if max_offset.x > EPSILON || max_offset.y > EPSILON {
+            node.add_action(Action::SetScrollOffset);
+        }
+    }
+
+    /// The scroll that a `Scroll*` or `SetScrollOffset` request asks for.
+    fn scroll_request(&self, request: &ActionRequest) -> Option<DeferredAccessKitAction> {
+        let item = self.item_rc_for_node_id(request.target_node)?;
+        let (flickable_item, flickable) = find_exposed_flickable(&item)?;
+        let metrics = flickable.as_pin_ref().scroll_metrics(&flickable_item);
+
+        // A page moves 90% of the visible size, so the next page repeats the last 10%.
+        const PAGE: f32 = 0.9;
+        // The items are not known here, so one item is approximated by 10% of the visible size.
+        const ITEM: f32 = 0.1;
+        let fraction = match request.data {
+            Some(accesskit::ActionData::ScrollUnit(accesskit::ScrollUnit::Item)) => ITEM,
+            _ => PAGE,
+        };
+        let amount = |visible: crate::Coord| visible as f32 * fraction;
+        let (current_x, current_y) = (metrics.offset.x as f32, metrics.offset.y as f32);
+        let (x, y) = match request.action {
+            Action::ScrollLeft => (current_x - amount(metrics.visible_size.width), current_y),
+            Action::ScrollRight => (current_x + amount(metrics.visible_size.width), current_y),
+            Action::ScrollUp => (current_x, current_y - amount(metrics.visible_size.height)),
+            Action::ScrollDown => (current_x, current_y + amount(metrics.visible_size.height)),
+            Action::SetScrollOffset => {
+                let Some(accesskit::ActionData::SetScrollOffset(point)) = request.data else {
+                    return None;
+                };
+                let scale_factor = self.window_adapter_weak.upgrade()?.window().scale_factor();
+                (point.x as f32 / scale_factor, point.y as f32 / scale_factor)
+            }
+            _ => return None,
+        };
+        Some(DeferredAccessKitAction::ScrollTo(flickable_item, LogicalPosition::new(x, y)))
+    }
+
     fn build_node_without_children(
         &self,
         item: &ItemRc,
@@ -783,6 +860,8 @@ impl AccessKitTree {
         if item.borrow().as_ref().clips_children() {
             node.set_clips_children();
         }
+
+        self.add_scroll_properties(item, &mut node, scale_factor);
 
         let geometry = item.geometry();
         let absolute_origin = item.map_to_window(geometry.origin) + window_position.to_vector();
@@ -987,6 +1066,9 @@ struct CachedNode {
 pub enum DeferredAccessKitAction {
     SetFocus(ItemRc),
     InvokeAccessibleAction(ItemRc, AccessibilityAction),
+    /// Scrolls the `Flickable` item so that the given position of the content, in logical
+    /// pixels, is at the top left of the visible part.
+    ScrollTo(ItemRc, LogicalPosition),
 }
 
 impl DeferredAccessKitAction {
@@ -998,6 +1080,11 @@ impl DeferredAccessKitAction {
             }
             DeferredAccessKitAction::InvokeAccessibleAction(item, accessibility_action) => {
                 item.accessible_action(accessibility_action);
+            }
+            DeferredAccessKitAction::ScrollTo(item, position) => {
+                if let Some(flickable) = item.downcast::<Flickable>() {
+                    flickable.as_pin_ref().scroll_to(item, *position, ScrollBehavior::Instant);
+                }
             }
         }
     }

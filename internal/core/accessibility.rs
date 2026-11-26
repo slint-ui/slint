@@ -6,7 +6,7 @@
 use crate::{
     SharedString,
     item_tree::{ItemTreeVTable, ParentItemTraversalMode},
-    items::{ItemRc, TextInput},
+    items::{Flickable, ItemRc, TextInput},
 };
 use alloc::vec::Vec;
 use bitflags::bitflags;
@@ -181,6 +181,38 @@ pub fn find_exposed_text_input(
 ) -> Option<(ItemRc, VRcMapped<ItemTreeVTable, TextInput>)> {
     let found = find_text_input_with_rc(item)?;
     (nearest_accessible_item(found.0.clone()) == *item).then_some(found)
+}
+
+/// The `Flickable` that `item` scrolls for assistive technologies.
+///
+/// A `Flickable` that is not `interactive` can't be scrolled this way.
+///
+/// This is the first `Flickable` below `item`, and only when `item` is the accessible item
+/// nearest to it: that is how a `ListView`, which has a role of its own, becomes scrollable,
+/// without the items inside it, or an accessible item further up, claiming the same content.
+pub fn find_exposed_flickable(
+    item: &ItemRc,
+) -> Option<(ItemRc, VRcMapped<ItemTreeVTable, Flickable>)> {
+    fn find(item: &ItemRc) -> Option<(ItemRc, VRcMapped<ItemTreeVTable, Flickable>)> {
+        if let Some(flickable) = item.clone().downcast::<Flickable>() {
+            return Some((item.clone(), flickable));
+        }
+        let mut child = item.first_child();
+        while let Some(candidate) = child {
+            child = candidate.next_sibling();
+            // An accessible child exposes what is inside of it itself
+            if candidate.is_accessible() {
+                continue;
+            }
+            if let Some(found) = find(&candidate) {
+                return Some(found);
+            }
+        }
+        None
+    }
+    let found = find(item)?;
+    (found.1.as_pin_ref().interactive() && nearest_accessible_item(found.0.clone()) == *item)
+        .then_some(found)
 }
 
 /// Same as [`find_text_input`], but also returns the `TextInput`'s `ItemRc`.

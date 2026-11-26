@@ -6,7 +6,7 @@
 //! platform adapters on desktop and Android share this builder.
 
 use accesskit::{
-    Action, ActionData, ActionRequest, Node, NodeId, Role, Toggled, TreeId, TreeUpdate,
+    Action, ActionData, ActionRequest, Node, NodeId, Role, ScrollUnit, Toggled, TreeId, TreeUpdate,
 };
 use i_slint_core::accessibility::accesskit_tree::{
     AccessKitHost, AccessKitTree, DeferredAccessKitAction,
@@ -109,9 +109,13 @@ struct Fixture {
 
 impl Fixture {
     fn new() -> Self {
+        Self::with_source(SOURCE)
+    }
+
+    fn with_source(source: &str) -> Self {
         i_slint_backend_testing::init_no_event_loop();
         let result = i_slint_compiler::poll_ready(
-            Compiler::default().build_from_source(SOURCE.into(), Default::default()),
+            Compiler::default().build_from_source(source.into(), Default::default()),
         );
         assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
         let instance = result.component("TestCase").unwrap().create().unwrap();
@@ -375,4 +379,233 @@ fn clearing_the_text_state_keeps_the_tree_usable() {
     f.tree.clear_text_state();
     let update = f.tree.build_new_tree();
     assert!(update.tree.is_some());
+}
+
+const SCROLL_SOURCE: &str = r#"
+import { ListView } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+
+    out property <length> list-y: rows-view.content-y;
+    out property <length> strip-x: strip.content-x;
+
+    VerticalLayout {
+        rows-view := ListView {
+            accessible-label: "Rows";
+            for row in 100: Rectangle {
+                height: 30px;
+                accessible-role: list-item;
+                accessible-label: "Row " + row;
+            }
+        }
+        strip := Flickable {
+            height: 40px;
+            content-width: 1200px;
+            accessible-role: list;
+            accessible-label: "Strip";
+            accessible-orientation: horizontal;
+        }
+        Rectangle {
+            height: 30px;
+            accessible-role: button;
+            accessible-label: "Fixed";
+        }
+    }
+}
+"#;
+
+fn scroll(f: &mut Fixture, action: Action, node: NodeId, data: Option<ActionData>) -> TreeUpdate {
+    f.tree
+        .handle_request(request(action, node, data))
+        .expect("the scroll request is understood")
+        .invoke(f.instance.window());
+    f.tree.build_new_tree()
+}
+
+fn list_y(f: &Fixture) -> f64 {
+    f.instance.get_property("list-y").unwrap().try_into().unwrap()
+}
+
+#[test]
+fn list_view_reports_and_performs_scrolling() {
+    let mut f = Fixture::with_source(SCROLL_SOURCE);
+    let update = f.tree.build_new_tree();
+
+    let (list_id, list) = node_by_label(&update, "Rows");
+    assert_eq!(list.role(), Role::ListBox);
+    assert_eq!(list.scroll_y(), Some(0.));
+    assert_eq!(list.scroll_y_min(), Some(0.));
+    // 100 rows of 30 logical pixels in a visible part that is the window less the strip and the button
+    assert_eq!(list.scroll_y_max(), Some(3000. - 230.));
+    assert_eq!(list.scroll_x(), None);
+    assert!(list.supports_action(Action::ScrollDown));
+    assert!(!list.supports_action(Action::ScrollUp), "nothing above the first row");
+    assert!(!list.supports_action(Action::ScrollLeft));
+    assert!(!list.supports_action(Action::ScrollRight));
+    assert!(list.supports_action(Action::SetScrollOffset));
+    assert!(update.nodes.iter().any(|(_, n)| n.label() == Some("Row 0")));
+    assert!(update.nodes.iter().all(|(_, n)| n.label() != Some("Row 99")));
+
+    // The other nodes are not scrollable
+    let (_, fixed) = node_by_label(&update, "Fixed");
+    assert_eq!(fixed.scroll_y(), None);
+    assert!(!fixed.supports_action(Action::ScrollDown));
+
+    // A page moves by the visible height, less the part that stays in view
+    let update = scroll(&mut f, Action::ScrollDown, list_id, None);
+    assert_eq!(list_y(&f), -207.);
+    let (_, list) = node_by_label(&update, "Rows");
+    assert_eq!(list.scroll_y(), Some(207.));
+    assert!(list.supports_action(Action::ScrollUp));
+    assert!(list.supports_action(Action::ScrollDown));
+    // Rows that were not instantiated before are in the tree now, and the first one is gone
+    assert!(update.nodes.iter().any(|(_, n)| n.label() == Some("Row 8")));
+    assert!(update.nodes.iter().all(|(_, n)| n.label() != Some("Row 0")));
+
+    let update =
+        scroll(&mut f, Action::ScrollDown, list_id, Some(ActionData::ScrollUnit(ScrollUnit::Item)));
+    assert_eq!(list_y(&f), -230.);
+    assert_eq!(node_by_label(&update, "Rows").1.scroll_y(), Some(230.));
+
+    let update = scroll(&mut f, Action::ScrollUp, list_id, None);
+    assert_eq!(list_y(&f), -23.);
+    assert_eq!(node_by_label(&update, "Rows").1.scroll_y(), Some(23.));
+
+    // The offset is in physical pixels, and the content stops at its end
+    f.instance.window().dispatch_event(i_slint_core::platform::WindowEvent::ScaleFactorChanged {
+        scale_factor: 2.,
+    });
+    scroll(
+        &mut f,
+        Action::SetScrollOffset,
+        list_id,
+        Some(ActionData::SetScrollOffset(accesskit::Point::new(0., 100000.))),
+    );
+    assert_eq!(list_y(&f), -2770.);
+    let update = f.tree.build_new_tree();
+    let (_, list) = node_by_label(&update, "Rows");
+    assert_eq!(list.scroll_y(), Some(5540.));
+    assert!(!list.supports_action(Action::ScrollDown), "nothing below the last row");
+    assert!(list.supports_action(Action::ScrollUp));
+    assert!(update.nodes.iter().any(|(_, n)| n.label() == Some("Row 99")));
+}
+
+#[test]
+fn scrolling_changes_the_node_in_a_partial_update() {
+    let mut f = Fixture::with_source(SCROLL_SOURCE);
+    let update = f.tree.build_new_tree();
+    let (list_id, _) = node_by_label(&update, "Rows");
+    f.tree
+        .handle_request(request(Action::ScrollDown, list_id, None))
+        .unwrap()
+        .invoke(f.instance.window());
+
+    assert!(f.host.nodes_dirty.get() >= 1);
+    assert!(f.tree.has_dirty_nodes());
+    let partial = f.tree.rebuild_dirty_nodes();
+    let list = &partial.nodes.iter().find(|(id, _)| *id == list_id).expect("the list is updated").1;
+    assert_eq!(list.scroll_y(), Some(207.));
+}
+
+#[test]
+fn flickable_scrolls_horizontally() {
+    let mut f = Fixture::with_source(SCROLL_SOURCE);
+    let update = f.tree.build_new_tree();
+    let (strip_id, strip) = node_by_label(&update, "Strip");
+    assert_eq!(strip.scroll_x(), Some(0.));
+    assert_eq!(strip.scroll_x_max(), Some(800.));
+    assert_eq!(strip.scroll_y(), None, "it does not scroll vertically");
+    assert!(strip.supports_action(Action::ScrollRight));
+    assert!(!strip.supports_action(Action::ScrollLeft));
+    assert!(!strip.supports_action(Action::ScrollUp));
+    assert!(!strip.supports_action(Action::ScrollDown));
+
+    let update = scroll(&mut f, Action::ScrollRight, strip_id, None);
+    let x: f64 = f.instance.get_property("strip-x").unwrap().try_into().unwrap();
+    assert_eq!(x, -360.);
+    let (_, strip) = node_by_label(&update, "Strip");
+    assert_eq!(strip.scroll_x(), Some(360.));
+    assert!(strip.supports_action(Action::ScrollLeft));
+}
+
+#[test]
+fn only_scrollable_nodes_accept_scroll_requests() {
+    let mut f = Fixture::with_source(SCROLL_SOURCE);
+    let update = f.tree.build_new_tree();
+    let (fixed_id, _) = node_by_label(&update, "Fixed");
+    assert!(f.tree.handle_request(request(Action::ScrollDown, fixed_id, None)).is_none());
+    assert!(f.tree.handle_request(request(Action::SetScrollOffset, fixed_id, None)).is_none());
+}
+
+const NESTED_SCROLL_SOURCE: &str = r#"
+import { ListView } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+
+    Rectangle {
+        accessible-role: list;
+        accessible-label: "Outer";
+        VerticalLayout {
+            ListView {
+                accessible-label: "Inner";
+                for row in 100: Rectangle { height: 30px; }
+            }
+            Flickable {
+                content-height: 1000px;
+            }
+        }
+    }
+}
+"#;
+
+#[test]
+fn an_accessible_item_scrolls_its_own_flickable_not_the_one_of_an_accessible_child() {
+    let mut f = Fixture::with_source(NESTED_SCROLL_SOURCE);
+    let update = f.tree.build_new_tree();
+    let (outer_id, outer) = node_by_label(&update, "Outer");
+    assert!(outer.scroll_y().is_some(), "the outer item scrolls its own Flickable");
+    assert!(outer.supports_action(Action::ScrollDown));
+    assert!(f.tree.handle_request(request(Action::ScrollDown, outer_id, None)).is_some());
+    let (_, inner) = node_by_label(&update, "Inner");
+    assert!(inner.supports_action(Action::ScrollDown), "the list still scrolls its rows");
+}
+
+const LOCKED_SCROLL_SOURCE: &str = r#"
+export component TestCase inherits Window {
+    in property <bool> interactive: true;
+    width: 400px;
+    height: 300px;
+
+    Flickable {
+        interactive: root.interactive;
+        content-height: 1000px;
+        accessible-role: list;
+        accessible-label: "Content";
+    }
+}
+"#;
+
+#[test]
+fn a_flickable_that_is_not_interactive_cannot_be_scrolled() {
+    let mut f = Fixture::with_source(LOCKED_SCROLL_SOURCE);
+    let update = f.tree.build_new_tree();
+    let (id, node) = node_by_label(&update, "Content");
+    assert!(node.supports_action(Action::ScrollDown));
+    assert!(node.supports_action(Action::SetScrollOffset));
+    assert!(f.tree.handle_request(request(Action::ScrollDown, id, None)).is_some());
+
+    f.instance.set_property("interactive", false.into()).unwrap();
+    let update = f.tree.build_new_tree();
+    let (id, node) = node_by_label(&update, "Content");
+    assert_eq!(node.scroll_y(), None);
+    assert!(!node.supports_action(Action::ScrollDown));
+    assert!(!node.supports_action(Action::SetScrollOffset));
+    assert!(f.tree.handle_request(request(Action::ScrollDown, id, None)).is_none());
+    assert!(f.tree.handle_request(request(Action::SetScrollOffset, id, None)).is_none());
+
+    f.instance.set_property("interactive", true.into()).unwrap();
+    let update = f.tree.build_new_tree();
+    assert!(node_by_label(&update, "Content").1.supports_action(Action::ScrollDown));
 }

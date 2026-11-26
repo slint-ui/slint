@@ -460,6 +460,23 @@ impl Flickable {
         self.scroll_to_point(self_rc, LogicalPoint::new(new_cx, new_cy), scroll_behavior)
     }
 
+    /// How far the content is scrolled and how far it can be: the size of the visible part, the
+    /// distance between the top left corners of the content and of the visible part, and the
+    /// largest such distance.
+    pub fn scroll_metrics(self: Pin<&Self>, self_rc: &ItemRc) -> ScrollMetrics {
+        let visible_size = Self::geometry_without_virtual_keyboard(self_rc).size;
+        let max_x = (self.content_width().get() - visible_size.width).max(0 as Coord);
+        let max_y = (self.content_height().get() - visible_size.height).max(0 as Coord);
+        ScrollMetrics {
+            visible_size,
+            offset: LogicalPoint::new(
+                (-self.content_x().get()).max(0 as Coord).min(max_x),
+                (-self.content_y().get()).max(0 as Coord).min(max_y),
+            ),
+            max_offset: LogicalPoint::new(max_x, max_y),
+        }
+    }
+
     pub(crate) fn geometry_without_virtual_keyboard(self_rc: &ItemRc) -> LogicalRect {
         let mut geometry = self_rc.geometry();
 
@@ -477,6 +494,17 @@ impl Flickable {
         }
         geometry
     }
+}
+
+/// What [`Flickable::scroll_metrics`] returns, in logical pixels.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ScrollMetrics {
+    /// The size of the visible part of the content.
+    pub visible_size: LogicalSize,
+    /// The distance between the top left corners of the content and of the visible part.
+    pub offset: LogicalPoint,
+    /// The largest value of `offset`.
+    pub max_offset: LogicalPoint,
 }
 
 /// The distance required before it starts flicking if there is another item intercepting the mouse.
