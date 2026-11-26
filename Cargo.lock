@@ -3577,6 +3577,7 @@ dependencies = [
  "wgpu 29.0.4",
  "wgpu 30.0.2",
  "windows",
+ "zbus",
 ]
 
 [[package]]
