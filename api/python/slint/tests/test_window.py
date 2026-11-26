@@ -9,6 +9,7 @@ import os
 import subprocess
 import sys
 import threading
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -150,10 +151,101 @@ def test_window_property_in_slint() -> None:
     assert app.window == "changed"
 
 
-def test_window_without_component() -> None:
+def test_window_size() -> None:
+    app = slint.load_file(SOURCE).App()
+    window = app.window
+    window.logical_size = slint.LogicalSize(40, 30)
+    assert window.logical_size == slint.LogicalSize(40, 30)
+    assert window.physical_size == slint.PhysicalSize(40, 30)
+    window.physical_size = slint.PhysicalSize(50, 60)
+    assert window.physical_size == slint.PhysicalSize(50, 60)
+    assert window.logical_size == slint.LogicalSize(50, 60)
+
+
+def test_window_position() -> None:
+    app = slint.load_file(SOURCE).App()
+    window = app.window
+    window.logical_position = slint.LogicalPosition(10, 20)
+    window.physical_position = slint.PhysicalPosition(30, 40)
+    assert isinstance(window.logical_position, slint.LogicalPosition)
+    assert isinstance(window.physical_position, slint.PhysicalPosition)
+
+
+@pytest.mark.skipif(
+    "backend-testing" not in native.build_features(),
+    reason="needs the testing backend to set the scale factor",
+)
+def test_window_size_with_scale_factor() -> None:
+    app = slint.load_file(SOURCE).App()
+    window = app.window
+    native._set_window_scale_factor(window, 2.0)
+    assert window.scale_factor == 2.0
+    window.logical_size = slint.LogicalSize(40, 30)
+    assert window.physical_size == slint.PhysicalSize(80, 60)
+    window.physical_size = slint.PhysicalSize(50, 60)
+    assert window.logical_size == slint.LogicalSize(25, 30)
+
+
+def test_window_scale_factor() -> None:
+    app = slint.load_file(SOURCE).App()
+    assert app.window.scale_factor == 1.0
+
+
+def test_window_visible() -> None:
+    app = slint.load_file(SOURCE).App()
+    assert not app.window.visible
+    app.show()
+    assert app.window.visible
+    app.hide()
+    assert not app.window.visible
+    app.window.show()
+    assert app.window.visible
+    app.window.hide()
+    assert not app.window.visible
+
+
+@pytest.mark.parametrize("state", ["fullscreen", "maximized", "minimized"])
+def test_window_state(state: str) -> None:
+    app = slint.load_file(SOURCE).App()
+    window = app.window
+    assert getattr(window, state) is False
+    setattr(window, state, True)
+    assert getattr(window, state) is True
+    setattr(window, state, False)
+    assert getattr(window, state) is False
+
+
+def test_window_request_redraw() -> None:
+    app = slint.load_file(SOURCE).App()
+    app.window.request_redraw()
+
+
+@pytest.mark.parametrize(
+    "access",
+    [
+        lambda window: window.take_snapshot(),
+        lambda window: window.request_redraw(),
+        lambda window: window.show(),
+        lambda window: window.hide(),
+        lambda window: window.logical_size,
+        lambda window: setattr(window, "logical_size", slint.LogicalSize(1, 1)),
+        lambda window: window.physical_size,
+        lambda window: setattr(window, "physical_size", slint.PhysicalSize(1, 1)),
+        lambda window: window.logical_position,
+        lambda window: window.physical_position,
+        lambda window: setattr(
+            window, "physical_position", slint.PhysicalPosition(1, 1)
+        ),
+        lambda window: window.scale_factor,
+        lambda window: window.visible,
+        lambda window: window.fullscreen,
+        lambda window: setattr(window, "maximized", True),
+    ],
+)
+def test_window_without_component(access: Callable[[slint.Window], object]) -> None:
     app = slint.load_file(SOURCE).App()
     window = app.window
     del app
     gc.collect()
     with pytest.raises(RuntimeError, match="no longer exists"):
-        window.take_snapshot()
+        access(window)
