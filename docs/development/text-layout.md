@@ -151,6 +151,11 @@ A paragraph contains text, styles applied to byte ranges, and link destinations.
 The parser supports emphasis, strong text, strikethrough, inline code, links, lists, and line breaks.
 It also supports HTML underline and span colors.
 
+`RichTextStyle` is the value of a `StyledText` element's `default-style` property.
+Unlike a span's `Style`, it applies to the whole element.
+`StyledTextItem` reports its `line-height-factor` through `RenderString::line_height_factor()`, like `Text`.
+See `RichTextStyle` in `internal/common/builtin_structs.rs`.
+
 The common crate's `markdown` feature enables Markdown/HTML parsing; `i-slint-core/std` enables that feature.
 In the Parley path, `sharedparley/shaping.rs` maps spans to Parley styles, and `draw.rs` renders decorations and selections.
 

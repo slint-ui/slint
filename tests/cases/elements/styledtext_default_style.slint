@@ -1,0 +1,129 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+// cSpell:ignore ncccccccc
+
+import "../../../demos/printerdemo/ui/fonts/Inter-24pt-Regular.ttf";
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 500px;
+    default-font-family: "Inter 24pt";
+    default-font-size: 10px;
+
+    in-out property <RichTextStyle> style;
+    in-out property <float> animated-factor: 1;
+    animate animated-factor { duration: 200ms; }
+
+    reference := StyledText {
+        width: 60px;
+        text: @markdown("aaaaaaaa bbbbbbbb\ncccccccc");
+    }
+    styled := StyledText {
+        width: 60px;
+        text: reference.text;
+        default-style: root.style;
+    }
+    limited := StyledText {
+        width: 60px;
+        text: reference.text;
+        max-lines: 1;
+        default-style: root.style;
+    }
+    single := StyledText {
+        text: @markdown("aaaaaaaa");
+    }
+    limited-reference := Text {
+        width: 60px;
+        text: "aaaaaaaa bbbbbbbb\ncccccccc";
+        wrap: word-wrap;
+        max-lines: 1;
+        line-height-factor: root.style.line-height-factor;
+    }
+    zero := StyledText {
+        text: reference.text;
+        default-style: { line-height-factor: 0 };
+    }
+    negative := StyledText {
+        width: 60px;
+        text: reference.text;
+        default-style: { line-height-factor: -1 };
+    }
+    animated := StyledText {
+        width: 60px;
+        text: reference.text;
+        default-style: { line-height-factor: root.animated-factor };
+    }
+    fixed := StyledText {
+        default-font-family: "FixedTestFont";
+        text: @markdown("One\nTwo");
+        default-style: { line-height-factor: 2 };
+    }
+
+    out property <length> reference-height: reference.preferred-height;
+    out property <length> styled-height: styled.preferred-height;
+    out property <length> styled-width: styled.preferred-width;
+    out property <length> limited-height: limited.preferred-height;
+    out property <length> limited-reference-height: limited-reference.preferred-height;
+    out property <length> single-height: single.preferred-height;
+    out property <length> animated-height: animated.preferred-height;
+    out property <length> fixed-height: fixed.preferred-height;
+    out property <bool> test: reference-height > 2 * single-height
+        && styled-height == reference-height
+        && limited-height == single-height
+        && zero.preferred-height == 0px
+        && negative.preferred-height == reference-height
+        && animated-height == reference-height;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_fixed_height(), 40.0);
+let height = instance.get_reference_height();
+let width = instance.get_styled_width();
+let mut style = slint::language::RichTextStyle::default();
+for factor in [2.0, 0.5, 0.0, -1.0, f32::NAN, f32::INFINITY, 1.0] {
+    style.line_height_factor = factor;
+    instance.set_style(style.clone());
+    let expected_factor = if factor.is_finite() && factor >= 0.0 { factor } else { 1.0 };
+    assert!((instance.get_styled_height() - height * expected_factor).abs() < 2.0);
+    assert_eq!(instance.get_limited_height(), instance.get_limited_reference_height());
+    assert_eq!(instance.get_styled_width(), width);
+}
+instance.set_animated_factor(2.0);
+slint_testing::mock_elapsed_time(200);
+assert!((instance.get_animated_height() - height * 2.0).abs() < 2.0);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert(instance.get_fixed_height() == 40.f);
+slint::language::RichTextStyle style{};
+style.line_height_factor = 2.f;
+instance.set_style(style);
+assert(std::abs(instance.get_styled_height() - 2.f * instance.get_reference_height()) < 2.f);
+style.line_height_factor = 0.5f;
+instance.set_style(style);
+assert(std::abs(instance.get_styled_height() - 0.5f * instance.get_reference_height()) < 2.f);
+```
+
+```js
+let instance = new slint.TestCase();
+assert(instance.test);
+instance.style = { line_height_factor: 2 };
+assert(Math.abs(instance.styled_height - 2 * instance.reference_height) < 2);
+instance.style = {};
+assert.equal(instance.styled_height, instance.reference_height);
+```
+
+```python
+import slint
+instance = TestCase()
+assert instance.test
+instance.style = slint.language.RichTextStyle(line_height_factor=2)
+assert abs(instance.styled_height - 2 * instance.reference_height) < 2
+```
+*/
