@@ -1934,6 +1934,12 @@ impl WinitWindowAdapter {
 
             winit_window.set_visible(true);
 
+            // X11 window managers ignore a `_NET_WM_STATE` change for an unmapped window,
+            // which is where winit applies the level the window was created with.
+            if self.window_level.get() != winit::window::WindowLevel::Normal {
+                winit_window.set_window_level(self.window_level.get());
+            }
+
             // X11 and Windows discard what is drawn into a window that isn't mapped,
             // which the buffer age a software surface reports doesn't account for.
             self.renderer().as_core_renderer().mark_dirty_region(
