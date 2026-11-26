@@ -33,7 +33,7 @@ fn do_test(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> 
     let code = if must_wrap(snippet) {
         format!(
             "import {{
-                Button, CheckBox, ComboBox, DatePickerPopup, LineEdit, Palette, ProgressIndicator,
+                Button, CheckBox, ComboBox, DatePickerPopup, LineEdit, ListView, Palette, ProgressIndicator,
                 ScrollView, Slider, SpinBox, Spinner, StandardButton, StandardListView,
                 StandardTableView, RadioGroup,
                 Switch, TabWidget, TextEdit, TimePickerPopup}} from\"std-widgets.slint\";

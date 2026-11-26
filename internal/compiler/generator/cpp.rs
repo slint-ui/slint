@@ -2718,6 +2718,20 @@ fn generate_sub_component_body(
                     format!("&{h}")
                 },
             );
+            let item_at_anchor = listview.item_at_anchor.as_ref().map_or_else(
+                || "nullptr".to_string(),
+                |row| {
+                    let row = access_member(row, &ctx).unwrap();
+                    format!("&{row}")
+                },
+            );
+            let item_anchor_offset = listview.item_anchor_offset.as_ref().map_or_else(
+                || "nullptr".to_string(),
+                |offset| {
+                    let offset = access_member(offset, &ctx).unwrap();
+                    format!("&{offset}")
+                },
+            );
 
             children_visitor_cases.push(format!(
                 "\n        case {idx}: {{
@@ -2726,7 +2740,7 @@ fn generate_sub_component_body(
             }}",
             ));
             ensure_instantiated_stmts.push(format!(
-                "_changed |= self->{repeater_id}.ensure_updated_listview(self, {content_w}, {content_h}, &{content_y}, {lv_w}.get(), {lv_h}.get());"
+                "_changed |= self->{repeater_id}.ensure_updated_listview(self, {content_w}, {content_h}, {item_at_anchor}, {item_anchor_offset}, &{content_y}, {lv_w}.get(), {lv_h}.get());"
             ));
         } else {
             children_visitor_cases.push(format!(

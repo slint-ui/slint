@@ -50,6 +50,12 @@ pub fn count_property_use(root: &CompilationUnit) {
                 }
                 visit_property(&lv.listview_width, ctx);
                 visit_property(&lv.listview_height, ctx);
+                if let Some(item_at_anchor) = &lv.item_at_anchor {
+                    visit_property(item_at_anchor, ctx);
+                }
+                if let Some(item_anchor_offset) = &lv.item_anchor_offset {
+                    visit_property(item_anchor_offset, ctx);
+                }
 
                 let parent_ctx = ParentScope::new(ctx, Some(idx));
                 let rep_ctx = EvaluationContext::new_sub_component(

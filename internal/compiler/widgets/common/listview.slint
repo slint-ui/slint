@@ -8,6 +8,10 @@ import { ListViewInterface, StandardListViewInterface } from "std-widget-interfa
 export component ListView inherits ScrollView {
     implement ListViewInterface <=> self;
 
+    // The ListView's layout sets these.
+    out property <int> item-at-anchor: -1;
+    out property <length> item-anchor-offset;
+
     @children
     accessible-role: list;
     accessible-orientation: Orientation.vertical;

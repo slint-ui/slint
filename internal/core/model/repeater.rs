@@ -480,6 +480,10 @@ pub trait ListViewProperties {
     /// Register the content properties as dependencies of the current
     /// binding evaluation without reading them.
     fn register_as_dependencies(&self);
+    /// Set the ListView's item at the anchor. A no-op when the ListView doesn't declare one.
+    fn item_at_anchor_set(&self, row: i32);
+    /// Set the anchor item's offset from the anchor line. A no-op when the ListView doesn't declare one.
+    fn item_anchor_offset_set(&self, offset: LogicalLength);
 }
 
 struct TypedListViewProps<'a> {
@@ -490,6 +494,8 @@ struct TypedListViewProps<'a> {
     /// from the layout heights
     content_height: Option<Pin<&'a Property<LogicalLength>>>,
     content_y: Pin<&'a Property<LogicalLength>>,
+    item_at_anchor: Option<Pin<&'a Property<i32>>>,
+    item_anchor_offset: Option<Pin<&'a Property<LogicalLength>>>,
 }
 
 impl ListViewProperties for TypedListViewProps<'_> {
@@ -527,6 +533,16 @@ impl ListViewProperties for TypedListViewProps<'_> {
         }
         self.content_y.register_as_dependency();
     }
+    fn item_at_anchor_set(&self, row: i32) {
+        if let Some(item_at_anchor) = self.item_at_anchor {
+            item_at_anchor.set(row);
+        }
+    }
+    fn item_anchor_offset_set(&self, offset: LogicalLength) {
+        if let Some(item_anchor_offset) = self.item_anchor_offset {
+            item_anchor_offset.set(offset);
+        }
+    }
 }
 
 /// Update only the instances visible in the ListView viewport.
@@ -556,6 +572,8 @@ fn update_visible_instances(
         props.content_height_set(zero);
         props.content_y_set(zero);
         props.content_width_set(listview_width);
+        props.item_at_anchor_set(-1);
+        props.item_anchor_offset_set(zero);
         return false;
     }
     // A height of zero or less, like before the window has a size, leaves no viewport to fill.
@@ -754,6 +772,7 @@ fn update_visible_instances(
     let Some((current_row, current_top)) = current else { return changed };
     let mut state = ops.layout_state();
     state.item_index = CurrentItem { row: current_row, instance_index: current_row - first_row };
+    props.item_at_anchor_set(current_row as i32);
     if ops.len() == 0 {
         ops.set_layout_state(state);
         return changed;
@@ -763,6 +782,9 @@ fn update_visible_instances(
     state.cached_item_height = (bottom - y) / ops.len() as Coord;
     state.anchor_y = state.cached_item_height * current_row as Coord;
     let current_height = ops.height(current_row - first_row).unwrap_or(state.cached_item_height);
+    props.item_anchor_offset_set(LogicalLength::new(
+        current_top + snap_fraction * current_height - snap_line,
+    ));
     state.snap_offset = snap_line - snap_fraction * current_height;
     let new_content_y = current_top - state.anchor_y - state.snap_offset;
     state.previous_content_y = new_content_y;
@@ -1250,7 +1272,13 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
     ) {
-        let props = TypedListViewProps { content_width, content_height, content_y };
+        let props = TypedListViewProps {
+            content_width,
+            content_height,
+            content_y,
+            item_at_anchor: None,
+            item_anchor_offset: None,
+        };
         self.track_changes_listview_callback(&props, listview_width);
         listview_height.register_as_dependency();
     }
@@ -1278,11 +1306,19 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         init: impl Fn() -> ItemTreeRc<C>,
         content_width: Option<Pin<&Property<LogicalLength>>>,
         content_height: Option<Pin<&Property<LogicalLength>>>,
+        item_at_anchor: Option<Pin<&Property<i32>>>,
+        item_anchor_offset: Option<Pin<&Property<LogicalLength>>>,
         content_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
     ) -> bool {
-        let props = TypedListViewProps { content_width, content_height, content_y };
+        let props = TypedListViewProps {
+            content_width,
+            content_height,
+            content_y,
+            item_at_anchor,
+            item_anchor_offset,
+        };
         self.ensure_updated_listview_callback(init, &props, listview_width, listview_height.get())
     }
 
@@ -1832,11 +1868,19 @@ mod ffi {
         row_count: usize,
         content_width: Option<Pin<&Property<LogicalLength>>>,
         content_height: Option<Pin<&Property<LogicalLength>>>,
+        item_at_anchor: Option<Pin<&Property<i32>>>,
+        item_anchor_offset: Option<Pin<&Property<LogicalLength>>>,
         content_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
     ) -> bool {
-        let props = TypedListViewProps { content_width, content_height, content_y };
+        let props = TypedListViewProps {
+            content_width,
+            content_height,
+            content_y,
+            item_at_anchor,
+            item_anchor_offset,
+        };
         // When a new item gets created in update_visible_instances and in its init
         // we call ensure-row-visible() we modify scroll_to_row
         // here we make a copy and reset `scroll_to_row`. If below `scroll_to_row`

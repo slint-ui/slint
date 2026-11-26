@@ -445,6 +445,10 @@ pub struct ListViewInfo {
     pub listview_height: MemberReference,
     /// The ListView's inner visible width (not counting eventual scrollbar)
     pub listview_width: MemberReference,
+    /// The property the layout sets to the ListView's item at the anchor, if it declares one
+    pub item_at_anchor: Option<MemberReference>,
+    /// The property the layout sets to the anchor item's offset from the anchor line, if it declares one
+    pub item_anchor_offset: Option<MemberReference>,
 
     // In the repeated component context
     pub prop_y: MemberReference,

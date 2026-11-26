@@ -16,6 +16,8 @@ fn test_listview_scroll() {
             new_item,
             None,
             None,
+            None,
+            None,
             content_y.as_ref(),
             LogicalLength::new(100 as Coord),
             listview_height.as_ref(),
@@ -63,6 +65,8 @@ fn test_listview_scrolled_after_insert_at_front() {
             new_item,
             None,
             None,
+            None,
+            None,
             content_y.as_ref(),
             LogicalLength::new(100 as Coord),
             listview_height.as_ref(),
@@ -101,6 +105,8 @@ fn test_listview_scrolled_to_end_after_remove_at_end() {
     let update = || {
         repeater.as_ref().ensure_updated_listview(
             new_item,
+            None,
+            None,
             None,
             None,
             content_y.as_ref(),

@@ -510,6 +510,8 @@ impl Instance {
                 content_y: lv.content_y.clone(),
                 content_width: lv.content_width.clone(),
                 content_height: lv.content_height.clone(),
+                item_at_anchor: lv.item_at_anchor.clone(),
+                item_anchor_offset: lv.item_anchor_offset.clone(),
                 ctx_sub: sub.clone(),
             };
             repeater.ensure_updated_listview_callback(
@@ -568,6 +570,8 @@ impl Instance {
                 content_y: lv.content_y.clone(),
                 content_width: lv.content_width.clone(),
                 content_height: lv.content_height.clone(),
+                item_at_anchor: None,
+                item_anchor_offset: None,
                 ctx_sub: sub.clone(),
             };
             let listview_width = read_logical_length(&sub, &lv.listview_width);
@@ -966,6 +970,8 @@ struct ValueListViewProps {
     /// the ListView must not overwrite it (see #12264).
     content_width: Option<llr::MemberReference>,
     content_height: Option<llr::MemberReference>,
+    item_at_anchor: Option<llr::MemberReference>,
+    item_anchor_offset: Option<llr::MemberReference>,
     ctx_sub: Pin<Rc<SubComponentInstance>>,
 }
 
@@ -1001,6 +1007,16 @@ impl i_slint_core::model::ListViewProperties for ValueListViewProps {
         let Some(content_height) = &self.content_height else { return };
         let ctx = crate::eval::EvalContext::new(self.ctx_sub.clone());
         crate::eval::store_property(&ctx, content_height, Value::Number(value.get() as f64));
+    }
+    fn item_at_anchor_set(&self, row: i32) {
+        let Some(item_at_anchor) = &self.item_at_anchor else { return };
+        let ctx = crate::eval::EvalContext::new(self.ctx_sub.clone());
+        crate::eval::store_property(&ctx, item_at_anchor, Value::Number(row as f64));
+    }
+    fn item_anchor_offset_set(&self, offset: i_slint_core::lengths::LogicalLength) {
+        let Some(item_anchor_offset) = &self.item_anchor_offset else { return };
+        let ctx = crate::eval::EvalContext::new(self.ctx_sub.clone());
+        crate::eval::store_property(&ctx, item_anchor_offset, Value::Number(offset.get() as f64));
     }
     fn register_as_dependencies(&self) {
         // Reading through `load_property` registers the dependency with the

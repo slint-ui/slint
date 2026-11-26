@@ -93,6 +93,18 @@ The width of the visible area of the ScrollView (not including the scrollbar)
 The height of the visible area of the ScrollView (not including the scrollbar)
 </SlintProperty>
 
+### visible-x
+<SlintProperty propName="visible-x" typeName="length" propertyVisibility="out">
+The x position of the visible area within the ScrollView.
+Some styles inset it from the ScrollView's edge, for example to draw a frame.
+</SlintProperty>
+
+### visible-y
+<SlintProperty propName="visible-y" typeName="length" propertyVisibility="out">
+The y position of the visible area within the ScrollView.
+Use it to place an overlay on the visible area.
+</SlintProperty>
+
 ### vertical-scrollbar-policy
 <SlintProperty propName="vertical-scrollbar-policy" typeName="enum" enumName="ScrollBarPolicy" defaultValue="as-needed">
 The vertical scroll bar visibility policy.
