@@ -624,7 +624,7 @@ pub fn filter_sort_selection_stack(
 }
 
 pub fn parent_layout_kind(element: &i_slint_editor_preview::ElementRcNode) -> ui::LayoutKind {
-    element.parent().map(|p| p.layout_kind()).unwrap_or(ui::LayoutKind::None)
+    element.parent().map(|p| p.children_layout_kind()).unwrap_or(ui::LayoutKind::None)
 }
 
 fn filter_nodes_for_selection(
