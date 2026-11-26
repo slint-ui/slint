@@ -510,3 +510,73 @@ fn test_control_glyphs() {
         .collect::<Vec<_>>();
     assert_eq!(missing_glyphs, paragraph.control_glyphs(&line));
 }
+
+fn styled_layout(markdown: &str) -> Layout {
+    let builder = super::shaping::plain_builder_for_tests();
+    let mut font_ctx = test_font_context();
+    let paragraphs = create_text_paragraphs(
+        &builder,
+        &mut font_ctx,
+        PlainOrStyledText::Styled(crate::styled_text::StyledText::from_markdown(markdown).unwrap()),
+        Color::default(),
+    );
+    layout(
+        &builder,
+        &mut font_ctx,
+        paragraphs,
+        ScaleFactor::new(1.0),
+        LayoutOptions::default(),
+        None,
+    )
+}
+
+#[test]
+fn inline_code_padding_is_an_object_outside_the_text() {
+    // Parley wants a U+FFFC in the text for each inline box that takes room, so the left padding
+    // of each code has one in the layout's text, but not in the paragraph's.
+    let layout = styled_layout("a `b` c `d`");
+    let paragraph = &layout.paragraphs[0];
+    assert_eq!(paragraph.range, 0.."a b c d".len());
+    assert_eq!(paragraph.objects, [2, 6]);
+    assert_eq!(paragraph.code_ranges, [5..6, 12..13]);
+    for offset in 0..=paragraph.range.len() {
+        assert_eq!(paragraph.text_offset(paragraph.layout_offset(offset)), offset);
+    }
+    // On or right after an object is the start of the code it pads.
+    assert_eq!(paragraph.text_offset(3), 2);
+    assert_eq!(paragraph.text_offset(5), 2);
+    assert_eq!(paragraph.text_offset(6), 3);
+}
+
+#[test]
+fn inline_code_cursor_positions_hit_test_back_to_their_offsets() {
+    use crate::items::TextCursorAffinity;
+
+    let text = "a `b` c `d`";
+    let layout = styled_layout(text);
+    let cursor_width = PhysicalLength::new(1.0);
+    let x_at = |offset| {
+        layout
+            .cursor_rect_for_byte_offset(offset, TextCursorAffinity::NextCharacter, cursor_width)
+            .origin
+            .x
+    };
+    let len = layout.paragraphs[0].range.len();
+    for offset in 0..=len {
+        let (hit, _) = layout.byte_offset_from_point(PhysicalPoint::new(x_at(offset), 1.));
+        assert_eq!(hit, offset, "cursor at {offset}");
+    }
+    // The left padding is a box with room, starting where the cursor before the code is.
+    let boxes: Vec<_> = layout.paragraphs[0]
+        .layout
+        .lines()
+        .flat_map(|line| line.items())
+        .filter_map(|item| match item {
+            parley::PositionedLayoutItem::InlineBox(inline_box) => Some(inline_box),
+            parley::PositionedLayoutItem::GlyphRun(_) => None,
+        })
+        .collect();
+    assert_eq!(boxes.len(), 2);
+    assert!(boxes[0].width > 1.0);
+    assert!((boxes[0].x - x_at(2)).abs() < 0.5, "{} vs {}", boxes[0].x, x_at(2));
+}

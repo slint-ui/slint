@@ -137,8 +137,8 @@ impl Layout {
                 continue;
             }
 
-            let local_start = selection_start - paragraph.range.start;
-            let local_end = selection_end - paragraph.range.start;
+            let local_start = paragraph.layout_offset(selection_start - paragraph.range.start);
+            let local_end = paragraph.layout_offset(selection_end - paragraph.range.start);
 
             let selection = parley::editing::Selection::new(
                 parley::editing::Cursor::from_byte_index(
