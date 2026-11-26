@@ -1,0 +1,42 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Docs CI image
+
+on:
+    workflow_dispatch:
+    push:
+        branches: [master]
+        paths:
+            - docker/Dockerfile.docs-ci
+            - .github/workflows/docs_ci_image.yaml
+
+permissions:
+    contents: read
+    packages: write
+
+jobs:
+    build:
+        runs-on: blacksmith-4vcpu-ubuntu-2404
+        steps:
+            - uses: actions/checkout@v7
+            - uses: useblacksmith/setup-docker-builder@v2
+              with:
+                  cache-key: docker/Dockerfile.docs-ci
+            - uses: docker/login-action@v4
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+            - name: Build and publish docs environment
+              id: image
+              uses: useblacksmith/build-push-action@v2
+              with:
+                  context: .
+                  file: docker/Dockerfile.docs-ci
+                  push: true
+                  tags: ghcr.io/slint-ui/slint/docs-ci:${{ github.sha }}
+            - name: Record image identity
+              env:
+                  IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+              run: echo "ghcr.io/slint-ui/slint/docs-ci@$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"

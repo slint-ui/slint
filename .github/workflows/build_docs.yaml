@@ -31,6 +31,14 @@ on:
           type: string
           default: ubuntu-26.04
           description: The runner for the jobs
+        container-image:
+          type: string
+          default: ghcr.io/slint-ui/slint/docs-ci@sha256:538fb3a2218076400d66897c0e6ff5448922396a5623c2fd4df04b39b51e0a35
+          description: Prebuilt docs environment, or an empty string to install dependencies on the host
+
+defaults:
+    run:
+        shell: bash -e {0}
 
 env:
     CARGO_PROFILE_DEV_DEBUG: 0
@@ -39,11 +47,17 @@ jobs:
     # Job 1: Build Rust and C++ documentation
     rust-cpp-docs:
         runs-on: ${{ inputs.os }}
+        container:
+            image: ${{ inputs.container-image }}
+            options: --ipc=host
+            volumes:
+                - /usr/local/lib/android/sdk:/usr/local/lib/android/sdk:ro
+                - /usr/lib/jvm:/usr/lib/jvm:ro
         env:
             # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
             # for which the stable alternative is not yet available.
             RUSTFLAGS: -D warnings -W deprecated --cfg slint_nightly_test
-            RUSTDOCFLAGS: --html-in-header=${{ github.workspace }}/docs/astro/src/utils/slint-docs-highlight.html -D warnings -W deprecated --cfg docsrs -Zunstable-options --generate-link-to-definition
+            RUSTDOCFLAGS: -D warnings -W deprecated --cfg docsrs -Zunstable-options --generate-link-to-definition
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
             RELEASE_INPUT: ${{ inputs.release }}
@@ -52,11 +66,20 @@ jobs:
             CPPREFERENCE_DOC_VERSION: "20250209"
         steps:
             - uses: actions/checkout@v7
+            - name: Use the runner Android toolchain
+              if: inputs.container-image != ''
+              run: |
+                  java_home=$(find /usr/lib/jvm -mindepth 1 -maxdepth 1 -name 'temurin-17-*' -type d | head -1)
+                  test -n "$java_home"
+                  echo "JAVA_HOME=$java_home" >> "$GITHUB_ENV"
+                  echo "$java_home/bin" >> "$GITHUB_PATH"
+                  echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> "$GITHUB_ENV"
             - name: Set up crate rustdoc link
               run: |
                   rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
-                  echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 --extern-html-root-url winit=https://docs.rs/winit/0.30 --extern-html-root-url wgpu=https://docs.rs/wgpu/30 --extern-html-root-url input=https://docs.rs/input/0.9 --extern-html-root-url fontique=https://docs.rs/fontique/0.8" >> $GITHUB_ENV
+                  echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --html-in-header=$PWD/docs/astro/src/utils/slint-docs-highlight.html --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 --extern-html-root-url winit=https://docs.rs/winit/0.30 --extern-html-root-url wgpu=https://docs.rs/wgpu/30 --extern-html-root-url input=https://docs.rs/input/0.9 --extern-html-root-url fontique=https://docs.rs/fontique/0.8" >> $GITHUB_ENV
             - uses: ./.github/actions/install-linux-dependencies
+              if: inputs.container-image == ''
               with:
                   extra-packages: doxygen
             - uses: pnpm/action-setup@v6.1.1
@@ -66,6 +89,7 @@ jobs:
                 package-manager-cache: false
             - uses: ./.github/actions/setup-rust
               with:
+                  save_if: ${{ github.ref == 'refs/heads/master' }}
                   toolchain: nightly
                   target: aarch64-linux-android
             - name: "Install Node dependencies"
@@ -135,6 +159,9 @@ jobs:
     # Job 2: Build Astro docs and run tests
     astro-docs-tests:
         runs-on: ${{ inputs.os }}
+        container:
+            image: ${{ inputs.container-image }}
+            options: --ipc=host
         outputs:
             version: ${{ steps.version.outputs.VERSION }}
         env:
@@ -152,12 +179,15 @@ jobs:
                 node-version: 24
                 package-manager-cache: false
             - name: Accept the MS fonts license, for comic sans needed by one of the screenshots in the docs
+              if: inputs.container-image == ''
               run: echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
             - uses: ./.github/actions/install-linux-dependencies
+              if: inputs.container-image == ''
               with:
                   extra-packages: ttf-mscorefonts-installer fonts-liberation
             - uses: ./.github/actions/setup-rust
               with:
+                  save_if: ${{ github.ref == 'refs/heads/master' }}
                   toolchain: stable
                   target: aarch64-linux-android
                   components: clippy
@@ -169,6 +199,18 @@ jobs:
               uses: taiki-e/install-action@cargo-llvm-cov
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
+            - name: Check Playwright image version
+              if: inputs.container-image != ''
+              working-directory: docs/astro
+              run: |
+                  version=$(node -p 'require("@playwright/test/package.json").version')
+                  image_version="${SLINT_DOCS_CI_PLAYWRIGHT_VERSION:-unknown}"
+                  if [[ "$version" != "$image_version" ]]; then
+                      echo "::error::The docs image has Playwright $image_version, but Astro uses $version."
+                      echo "Update the Playwright version and base image digest in docker/Dockerfile.docs-ci."
+                      echo "Run the Docs CI image workflow on the updated branch, then pin its published digest in .github/workflows/build_docs.yaml."
+                      exit 1
+                  fi
             - name: Test shared docs utilities and prerendering
               run: pnpm -C docs/common test
             - name: Extract Version from Cargo.toml
@@ -256,12 +298,14 @@ jobs:
                   path: |
                       docs/safety/dist-offline/
                       !docs/safety/dist-offline/*.zip
-            - name: Install Playwright
+            - name: Install Playwright browsers
               working-directory: docs/astro
-              run: pnpm exec playwright install --with-deps
+              run: pnpm exec playwright install ${{ inputs.container-image == '' && '--with-deps' || '' }}
             - name: Run Playwright tests
               working-directory: docs/astro
-              run: pnpm exec playwright test
+              # Firefox requires HOME to belong to the user running the browser.
+              run: |
+                  HOME="$(getent passwd "$(id -u)" | cut -d: -f6)" pnpm exec playwright test
             - name: Publish Test Summary Results
               working-directory: docs/astro
               run: npx github-actions-ctrf playwright-report/ctrf-report.json
@@ -302,6 +346,9 @@ jobs:
     node-python-docs:
         if: ${{ inputs['node-python-docs'] }}
         runs-on: ${{ inputs.os }}
+        container:
+            image: ${{ inputs.container-image }}
+            options: --ipc=host
         env:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
@@ -312,8 +359,10 @@ jobs:
                 node-version: 24
                 package-manager-cache: false
             - uses: ./.github/actions/install-linux-dependencies
+              if: inputs.container-image == ''
             - uses: ./.github/actions/setup-rust
               with:
+                  save_if: ${{ github.ref == 'refs/heads/master' }}
                   toolchain: stable
                   target: aarch64-linux-android
             - name: Install uv
