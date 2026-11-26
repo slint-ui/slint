@@ -109,9 +109,13 @@ struct Fixture {
 
 impl Fixture {
     fn new() -> Self {
+        Self::with_source(SOURCE)
+    }
+
+    fn with_source(source: &str) -> Self {
         i_slint_backend_testing::init_no_event_loop();
         let result = i_slint_compiler::poll_ready(
-            Compiler::default().build_from_source(SOURCE.into(), Default::default()),
+            Compiler::default().build_from_source(source.into(), Default::default()),
         );
         assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
         let instance = result.component("TestCase").unwrap().create().unwrap();
@@ -173,6 +177,140 @@ fn new_tree_describes_the_item_tree() {
     assert!(volume.supports_action(Action::Decrement));
     assert!(volume.supports_action(Action::SetValue));
     assert!(!volume.supports_action(Action::Click));
+}
+
+const POPUP_SOURCE: &str = r#"
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+
+    public function open-popup() { popup.show(); }
+    public function close-popup() { popup.close(); }
+    public function open-quiet-popup() { quiet.show(); }
+
+    Rectangle {
+        accessible-role: button;
+        accessible-label: "Background";
+    }
+
+    opener := Rectangle {
+        accessible-role: button;
+        accessible-label: "Opener";
+        height: 20px;
+        y: 0px;
+
+        popup := PopupWindow {
+            x: 0px;
+            y: 30px;
+            width: 100px;
+            height: 50px;
+            Rectangle {
+                accessible-role: button;
+                accessible-label: "In the popup";
+            }
+        }
+    }
+
+    Rectangle {
+        accessible-role: button;
+        accessible-label: "Beside";
+        y: 100px;
+    }
+
+    quiet := PopupWindow {
+        close-policy: no-auto-close;
+        Rectangle {
+            accessible-role: button;
+            accessible-label: "In the quiet popup";
+        }
+    }
+}
+"#;
+
+fn hidden_labels(update: &TreeUpdate) -> Vec<String> {
+    let mut labels: Vec<String> = update
+        .nodes
+        .iter()
+        .filter(|(_, node)| node.is_hidden())
+        .filter_map(|(_, node)| node.label().map(str::to_string))
+        .collect();
+    labels.sort();
+    labels
+}
+
+#[test]
+fn an_open_popup_hides_the_rest_of_the_window() {
+    let mut f = Fixture::with_source(POPUP_SOURCE);
+    assert!(hidden_labels(&f.tree.build_new_tree()).is_empty());
+
+    f.instance.invoke("open-popup", &[]).unwrap();
+    let update = f.tree.build_new_tree();
+    // The popup blocks input to the rest of the window, so that is hidden.
+    // The button that opened the popup is what the popup is a child of.
+    let hidden = hidden_labels(&update);
+    assert_eq!(hidden, ["Background", "Beside"], "{hidden:?}");
+    assert!(!node_by_label(&update, "In the popup").1.is_hidden());
+    assert!(!node_by_label(&update, "Opener").1.is_hidden());
+
+    f.instance.invoke("close-popup", &[]).unwrap();
+    assert!(hidden_labels(&f.tree.build_new_tree()).is_empty());
+}
+
+const REPEATED_POPUP_SOURCE: &str = r#"
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+
+    in property <[string]> items: ["First", "Second"];
+    in property <bool> show-extra: true;
+    public function open-popup() { popup.show(); }
+
+    Rectangle {
+        accessible-role: button;
+        accessible-label: "Background";
+    }
+
+    opener := Rectangle {
+        accessible-role: button;
+        accessible-label: "Opener";
+        height: 20px;
+
+        popup := PopupWindow {
+            y: 30px;
+            width: 100px;
+            height: 80px;
+            for item in root.items: Rectangle {
+                accessible-role: button;
+                accessible-label: item;
+            }
+            if root.show-extra: Rectangle {
+                accessible-role: button;
+                accessible-label: "Extra";
+            }
+        }
+    }
+}
+"#;
+
+#[test]
+fn items_repeated_in_a_popup_are_not_hidden() {
+    let mut f = Fixture::with_source(REPEATED_POPUP_SOURCE);
+    f.instance.invoke("open-popup", &[]).unwrap();
+    let update = f.tree.build_new_tree();
+    let hidden = hidden_labels(&update);
+    assert_eq!(hidden, ["Background"], "{hidden:?}");
+    for label in ["First", "Second", "Extra"] {
+        assert!(!node_by_label(&update, label).1.is_hidden(), "{label}");
+    }
+}
+
+#[test]
+fn a_popup_that_does_not_close_itself_blocks_input_too() {
+    let mut f = Fixture::with_source(POPUP_SOURCE);
+    f.instance.invoke("open-quiet-popup", &[]).unwrap();
+    // Input to the rest of the window is blocked here too.
+    let hidden = hidden_labels(&f.tree.build_new_tree());
+    assert_eq!(hidden, ["Background", "Beside", "Opener"], "{hidden:?}");
 }
 
 #[test]
@@ -375,4 +513,40 @@ fn clearing_the_text_state_keeps_the_tree_usable() {
     f.tree.clear_text_state();
     let update = f.tree.build_new_tree();
     assert!(update.tree.is_some());
+}
+
+#[test]
+fn a_rebuilt_node_in_a_popup_keeps_the_position_of_the_popup() {
+    let source = r#"
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+    in-out property <string> label: "Before";
+    public function open-popup() { popup.show(); }
+
+    popup := PopupWindow {
+        x: 20px;
+        y: 120px;
+        width: 100px;
+        height: 50px;
+        Rectangle {
+            accessible-role: button;
+            accessible-label: root.label;
+        }
+    }
+}
+"#;
+    let mut f = Fixture::with_source(source);
+    f.instance.invoke("open-popup", &[]).unwrap();
+    let full = f.tree.build_new_tree();
+    let (id, node) = node_by_label(&full, "Before");
+    let bounds = node.bounds().unwrap();
+    assert_eq!((bounds.x0, bounds.y0), (20., 120.));
+
+    f.instance.set_property("label", Value::String("After".into())).unwrap();
+    assert!(f.tree.has_dirty_nodes());
+    let partial = f.tree.rebuild_dirty_nodes();
+    let node = &partial.nodes.iter().find(|(n, _)| *n == id).expect("the node is rebuilt").1;
+    assert_eq!(node.label(), Some("After"));
+    assert_eq!(node.bounds(), Some(bounds));
 }
