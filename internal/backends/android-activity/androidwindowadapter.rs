@@ -38,6 +38,7 @@ pub struct AndroidWindowAdapter {
     requested_graphics_api: RefCell<Option<i_slint_core::graphics::RequestedGraphicsAPI>>,
     pub(crate) event_queue: EventQueue,
     pub(crate) pending_redraw: Cell<bool>,
+    stopped: Cell<bool>,
     pub(super) java_helper: JavaHelper,
     pub(crate) fullscreen: Cell<bool>,
     light_system_bars: Cell<Option<bool>>,
@@ -246,6 +247,7 @@ impl AndroidWindowAdapter {
             requested_graphics_api: RefCell::new(None),
             event_queue: Default::default(),
             pending_redraw: Default::default(),
+            stopped: Default::default(),
             java_helper,
             fullscreen: Cell::new(false),
             light_system_bars: Cell::new(None),
@@ -302,6 +304,12 @@ impl AndroidWindowAdapter {
                         .show_or_hide_soft_input(false)
                         .unwrap_or_else(|e| print_jni_error(&self.app, e));
                 }
+            }
+            PollEvent::Main(MainEvent::Stop) => self.stopped.set(true),
+            PollEvent::Main(MainEvent::Start) => {
+                self.stopped.set(false);
+                // The draws that were skipped while stopped.
+                self.request_redraw();
             }
             PollEvent::Main(MainEvent::LowMemory) => self.renderer.free_gpu_resources(),
             PollEvent::Main(MainEvent::TerminateWindow { .. }) => {
@@ -684,6 +692,11 @@ impl AndroidWindowAdapter {
     }
 
     pub fn do_render(&self) -> Result<(), PlatformError> {
+        // Android 9 takes the window of a stopped activity away without sending `TerminateWindow`,
+        // and drawing on it fails.
+        if self.stopped.get() {
+            return Ok(());
+        }
         if let Some(win) = self.app.native_window() {
             let o = self.offset.get();
             let _ = self.renderer.render_transformed(
