@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ScrollView, LineEdit } from "std-widgets-impl.slint";
+import { LineEdit } from "std-widgets-impl.slint";
+import { ListView } from "./listview.slint";
 import { StateLayer, IconButton, IconButtonStyle, SelectionButton, SelectionButtonStyle, ColoredTextStyle } from "./internal-components.slint";
 
 import { Date } from "std-widget-interfaces.slint";
@@ -189,7 +190,6 @@ export component Calendar {
 }
 
 component YearSelection {
-    // The years offered: `year-count` years from `first-year` on.
     in property <int> first-year;
     in property <int> year-count;
     in property <length> spacing;
@@ -207,33 +207,38 @@ component YearSelection {
     property <int> row-count: ceil(root.year-count / root.column-count);
     property <length> content-height: root.row-count * root.row-height;
     property <length> start-x: root.width / (root.column-count + 1);
-    property <length> start-y: root.height / (root.visible-row-count + 1);
 
-    // The list is long, so it opens scrolled to the selected year.
     init => {
         root.scroll-to-year(root.selected-year);
     }
 
-    scroll-view := ScrollView {
+    scroll-view := ListView {
         width: 100%;
         height: 100%;
         content-width: root.width;
         content-height: root.content-height;
 
-        for index in root.year-count: CalendarDelegate {
-            property <int> year: root.first-year + index;
+        for row in root.row-count: Rectangle {
+            width: root.width;
+            height: root.row-height;
 
-            x: root.delegate-center-x(index) - self.width / 2;
-            y: root.delegate-center-y(index) - self.height / 2;
-            width: root.delegate-width;
-            height: root.delegate-height;
-            text: self.year;
-            style: root.delegate-style;
-            selected: self.year == root.selected-year;
-            today: self.year == root.today-year;
+            for column in root.column-count: CalendarDelegate {
+                property <int> index: row * root.column-count + column;
+                property <int> year: root.first-year + self.index;
 
-            clicked => {
-                root.select-year(self.year);
+                x: root.delegate-center-x(self.index) - self.width / 2;
+                y: (root.row-height - self.height) / 2;
+                width: root.delegate-width;
+                height: root.delegate-height;
+                visible: self.index < root.year-count;
+                text: self.year;
+                style: root.delegate-style;
+                selected: self.year == root.selected-year;
+                today: self.year == root.today-year;
+
+                clicked => {
+                    root.select-year(self.year);
+                }
             }
         }
     }
@@ -249,7 +254,7 @@ component YearSelection {
     }
 
     function delegate-center-y(index: int) -> length {
-        root.start-y * (root.row-for-index(index) + 1)
+        root.row-height * root.row-for-index(index) + root.row-height / 2
     }
 
     function row-for-index(index: int) -> int {

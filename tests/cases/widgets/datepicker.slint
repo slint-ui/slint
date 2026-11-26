@@ -76,5 +76,8 @@ assert_eq!(year_button("1850").expect("a year before 1900").accessible_checked()
 instance.set_date(Date{ day: 1, month: 1, year: 2150});
 open_years("January 2150");
 assert_eq!(year_button("2150").expect("a year after 2100").accessible_checked(), Some(true));
+instance.set_date(Date{ day: 1, month: 1, year: 9999});
+open_years("January 9999");
+assert_eq!(year_button("9999").expect("the selected year is scrolled into view").accessible_checked(), Some(true));
 ```
 */
