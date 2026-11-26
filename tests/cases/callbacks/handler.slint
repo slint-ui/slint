@@ -31,6 +31,14 @@ assert_eq(callback_3_emitted, 0);
 instance.invoke_test_callback2();
 assert_eq(instance.get_callback_emission_count(), 88);
 assert_eq(callback_3_emitted, 1);
+instance.on_test_callback3([&]{
+    callback_3_emitted++;
+    instance.on_test_callback3([&]{ callback_3_emitted += 10; });
+});
+instance.invoke_test_callback2();
+assert_eq(callback_3_emitted, 2);
+instance.invoke_test_callback2();
+assert_eq(callback_3_emitted, 12);
 ```
 
 
@@ -56,6 +64,19 @@ assert_eq!(callback_3_emitted.get(), 0);
 instance.invoke_test_callback2();
 assert_eq!(instance.get_callback_emission_count(), 88);
 assert_eq!(callback_3_emitted.get(), 1);
+instance.on_test_callback3({
+    let weak = instance.as_weak();
+    let callback_3_emitted = callback_3_emitted.clone();
+    move || {
+        callback_3_emitted.set(callback_3_emitted.get() + 1);
+        let callback_3_emitted = callback_3_emitted.clone();
+        weak.unwrap().on_test_callback3(move || callback_3_emitted.set(callback_3_emitted.get() + 10));
+    }
+});
+instance.invoke_test_callback2();
+assert_eq!(callback_3_emitted.get(), 2);
+instance.invoke_test_callback2();
+assert_eq!(callback_3_emitted.get(), 12);
 ```
 
 ```js
@@ -75,5 +96,13 @@ assert.equal(callback_3_emitted, 0);
 instance.test_callback2();
 assert.equal(instance.callback_emission_count, 88);
 assert.equal(callback_3_emitted, 1);
+instance.test_callback3 = function() {
+    callback_3_emitted++;
+    instance.test_callback3 = function() { callback_3_emitted += 10; };
+};
+instance.test_callback2();
+assert.equal(callback_3_emitted, 2);
+instance.test_callback2();
+assert.equal(callback_3_emitted, 12);
 ```
 */

@@ -566,9 +566,9 @@ mod ffi {
     ) {
         let property = std::str::from_utf8(&property).unwrap();
         if let Some((global, prop)) = property.split_once('.') {
-            component.borrow_mut().set_global_property(global, prop, value.clone());
+            component.borrow().set_global_property(global, prop, value.clone());
         } else {
-            component.borrow_mut().set_property(property, value.clone());
+            component.borrow().set_property(property, value.clone());
         }
     }
 
@@ -623,9 +623,9 @@ mod ffi {
         let handler = Rc::new(move |args: &[Value]| ud.call(args));
         let callback = std::str::from_utf8(&callback).unwrap();
         if let Some((global, prop)) = callback.split_once('.') {
-            component.borrow_mut().set_global_callback(global, prop, handler);
+            component.borrow().set_global_callback(global, prop, handler);
         } else {
-            component.borrow_mut().set_callback(callback, handler);
+            component.borrow().set_callback(callback, handler);
         }
     }
 
