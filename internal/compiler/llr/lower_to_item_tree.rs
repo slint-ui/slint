@@ -787,7 +787,6 @@ fn lower_sub_component(
             .get(p)
             .is_none_or(|a| a.is_set || a.is_set_externally)
             && let Some(anim) = binding.animation.as_ref()
-            && !matches!(prop, MemberReference::Global { .. })
             && let Animation::Static(anim) =
                 super::lower_expression::lower_animation(anim, &mut ctx)
         {
