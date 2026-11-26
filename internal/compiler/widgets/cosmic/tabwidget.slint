@@ -140,7 +140,7 @@ export component TabImpl inherits Rectangle {
 component CosmicTabBarBase inherits TabBarBase {
     // injected properties:
     // The currently focused tab
-    in-out property <int> current-focused: focus-scope.has-focus ? focus-scope.focused-tab : -1;
+    in-out property <int> current-focused: focus-scope.has-focus ? root.focused-tab : -1;
 
     accessible-role: tab-list;
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
@@ -154,8 +154,6 @@ component CosmicTabBarBase inherits TabBarBase {
     }
 
     focus-scope := FocusScope {
-        property <int> focused-tab: 0;
-
         x: 0;
         // Do not react on clicks
         width: 0px;
@@ -166,11 +164,11 @@ component CosmicTabBarBase inherits TabBarBase {
                 return accept;
             }
             if (event.text == Key.LeftArrow) {
-                 self.focused-tab = Math.max(self.focused-tab - 1,  0);
+                 root.focused-tab = root.clamp-tab(root.focused-tab - 1);
                  return accept;
             }
             if (event.text == Key.RightArrow) {
-                 self.focused-tab = Math.min(self.focused-tab + 1, root.num-tabs - 1);
+                 root.focused-tab = root.clamp-tab(root.focused-tab + 1);
                  return accept;
             }
             return reject;
