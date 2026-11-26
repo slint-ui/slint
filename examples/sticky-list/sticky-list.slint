@@ -52,6 +52,7 @@ component StickyList inherits Rectangle {
     property <length> next-header-y: list.item-anchor-offset + root.to-next-header;
 
     // Hides the header while the next one pushes it out of the visible area
+    // `visible-x` and `visible-y` are added because some styles inset the visible area from the ListView's edge
     Rectangle {
         x: list.x + list.visible-x;
         y: list.y + list.visible-y;
