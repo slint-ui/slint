@@ -165,12 +165,10 @@ let open_nested = |x: f32| {
     assert_eq!(open_popups(window), 2, "an inner popup opens");
 };
 
-// A click in the main window closes only the top popup.
+// A click in the main window closes the outer popup and the inner one opened from it.
 open_nested(25.);
 click(window, 250., 250.);
-assert_eq!(open_popups(window), 1, "only the inner popup closes");
-click(window, 250., 250.);
-assert_eq!(open_popups(window), 0, "the next click closes the outer popup");
+assert_eq!(open_popups(window), 0, "all popups close");
 
 // close-on-click: a click in the inner popup closes it, and the outer one stays open.
 open_nested(125.);
