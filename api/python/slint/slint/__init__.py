@@ -31,6 +31,7 @@ from .models import FilterModel, ListModel, MapModel, Model, ReverseModel, SortM
 _logger = logging.getLogger(__name__)
 
 Image = native.Image
+Window = native.Window
 Color = native.Color
 Brush = native.Brush
 Keys = native.Keys
@@ -66,6 +67,13 @@ class Component:
     window, or run the event loop."""
 
     __instance__: native.ComponentInstance
+
+    window: Window
+    """The window that renders this component.
+    Use it to take a snapshot with `Window.take_snapshot()`.
+    Components without a window, such as the ones that inherit from `SystemTrayIcon`, don't have this attribute.
+
+    If your `.slint` file declares a property, callback, or function called `window`, it takes the place of this attribute."""
 
     def show(self) -> None:
         """Shows the window on the screen."""
@@ -165,6 +173,13 @@ def _build_class(
 ) -> typing.Callable[..., Component]:
     def cls_init(self: Component, **kwargs: Any) -> Any:
         self.__instance__ = compdef.create()
+        window = self.__instance__.window
+        if (
+            window is not None
+            and "window" not in vars(self)
+            and not hasattr(type(self), "window")
+        ):
+            self.window = window
         for name, value in self.__class__.__dict__.items():
             if hasattr(value, "slint.callback"):
                 callback_info = getattr(value, "slint.callback")
@@ -717,6 +732,7 @@ __all__ = [
     "StyledText",
     "Timer",
     "TimerMode",
+    "Window",
     "_load_file_checked",
     "callback",
     "init_translations",

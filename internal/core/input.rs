@@ -3,7 +3,7 @@
 
 // cSpell: ignore altgr rpos Unapply
 /*! Module handling mouse events
-*/
+ */
 #![warn(missing_docs)]
 
 use crate::cursor::MouseCursorInner;
@@ -231,7 +231,7 @@ pub struct TouchHistory {
 
 /// The mouse events a backend can deliver to the runtime.
 #[allow(missing_docs)]
-#[repr(C)]
+#[repr(C, u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BackendMouseEvent {
     /// The mouse or finger was pressed
@@ -350,7 +350,7 @@ pub enum InputEventResult {
 /// This value is returned by the `input_event_filter_before_children` function, which
 /// can specify how to further process the event.
 /// See [`crate::items::ItemVTable::input_event_filter_before_children`].
-#[repr(C)]
+#[repr(C, u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub enum InputEventFilterResult {
     /// The event is going to be forwarded to children, then the [`crate::items::ItemVTable::input_event`]

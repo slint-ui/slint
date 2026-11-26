@@ -16,11 +16,11 @@ error: the `-Z` flag is only accepted on the nightly channel of Cargo, but this 
 ```
 
 Solution: You need to configure your Rust toolchain to use the esp channel. Either set the `RUSTUP_TOOLCHAIN` environment variable to the value `esp` or create a file called `rust-toolchain.toml` in your project directory with the following contents:
+
 ```toml
 [toolchain]
 channel = "esp"
 ```
-
 
 ## The device crashes at boot or enter a boot loop
 

@@ -183,7 +183,7 @@ impl Item for NativeLineEdit {
         FocusEventResult::FocusIgnored
     }
 
-    fn_render! { this dpr size painter widget initial_state =>
+    fn_render! { this size painter widget initial_state =>
         let has_focus: bool = this.has_focus();
         let enabled: bool = this.enabled();
 
@@ -191,7 +191,6 @@ impl Item for NativeLineEdit {
             painter as "QPainterPtr*",
             widget as "QWidget*",
             size as "QSize",
-            dpr as "float",
             enabled as "bool",
             has_focus as "bool",
             initial_state as "int"
@@ -199,7 +198,7 @@ impl Item for NativeLineEdit {
             QStyleOptionFrame option;
             option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
-            option.rect = QRect(QPoint(), size / dpr);
+            option.rect = QRect(QPoint(), size);
             option.lineWidth = qApp->style()->pixelMetric(
                 QStyle::PM_DefaultFrameWidth, &option, widget);
             option.midLineWidth = 0;

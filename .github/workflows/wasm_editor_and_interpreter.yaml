@@ -16,6 +16,10 @@ on:
             release:
                 type: boolean
                 default: true
+            os:
+                type: string
+                description: The runner for the jobs
+
 jobs:
     wasm:
         env:
@@ -25,7 +29,7 @@ jobs:
             # cargo defaults, still small enough for the preview deployment.
             CARGO_PROFILE_RELEASE_LTO: ${{ inputs.release && 'fat' || 'false' }}
             CARGO_PROFILE_RELEASE_CODEGEN_UNITS: ${{ inputs.release && '1' || '16' }}
-        runs-on: ubuntu-22.04
+        runs-on: ${{ inputs.os || 'ubuntu-22.04' }}
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
@@ -60,7 +64,7 @@ jobs:
 
     build-slintpad:
         needs: [wasm]
-        runs-on: ubuntu-22.04
+        runs-on: ${{ inputs.os || 'ubuntu-22.04' }}
         steps:
             - uses: actions/checkout@v7
             - uses: actions/setup-node@v7

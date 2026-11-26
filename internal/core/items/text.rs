@@ -1081,7 +1081,7 @@ impl PreEditSelection {
     }
 }
 
-#[repr(C)]
+#[repr(u8)]
 #[derive(Clone)]
 enum UndoItemKind {
     TextInsert,
@@ -1159,6 +1159,7 @@ impl Item for TextInput {
         // Seed the mirror so the change handler doesn't treat the initial text as external.
         self.internal_text.set(self.text());
         self.text_change_tracker.init_delayed(
+            self_rc.slint_context().change_handler_queue(),
             self_rc.downgrade(),
             |self_weak| {
                 self_weak
@@ -1294,9 +1295,9 @@ impl Item for TextInput {
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
             MouseEvent::Released { position, button: PointerEventButton::Middle, .. } => {
-                if self.read_only() {
+                let Some(access) = self.user_edit_access() else {
                     return InputEventResult::EventAccepted;
-                }
+                };
                 let (clicked_offset, clicked_affinity) =
                     self.byte_offset_for_position(*position, window_adapter, self_rc);
                 let clicked_offset = clicked_offset as i32;
@@ -1310,7 +1311,12 @@ impl Item for TextInput {
                     window_adapter,
                     self_rc,
                 );
-                self.paste_clipboard(window_adapter, self_rc, Clipboard::SelectionClipboard);
+                self.paste_clipboard(
+                    access,
+                    window_adapter,
+                    self_rc,
+                    Clipboard::SelectionClipboard,
+                );
             }
             MouseEvent::Exit => self.as_ref().pressed.set(0),
             MouseEvent::Moved { position, .. } => {
@@ -1408,11 +1414,13 @@ impl Item for TextInput {
                     }
                     None => None,
                 };
+                let access = self.user_edit_access();
+
                 if let Some(direction) = delete_direction {
-                    if self.read_only() {
+                    let Some(access) = access else {
                         return KeyEventResult::EventIgnored;
-                    }
-                    TextInput::select_and_delete(self, direction, window_adapter, self_rc);
+                    };
+                    TextInput::select_and_delete(self, access, direction, window_adapter, self_rc);
                     return KeyEventResult::EventAccepted;
                 }
 
@@ -1436,41 +1444,47 @@ impl Item for TextInput {
                 }
 
                 if let Some(shortcut) = event.shortcut() {
-                    match shortcut {
-                        StandardShortcut::SelectAll => {
+                    match (shortcut, access) {
+                        (StandardShortcut::SelectAll, _) => {
                             self.select_all(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Copy if !self.is_password() => {
+                        (StandardShortcut::Copy, _) if !self.is_password() => {
                             self.copy(window_adapter);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Paste if !self.read_only() => {
-                            self.paste(window_adapter, self_rc);
+                        (StandardShortcut::Paste, Some(access)) => {
+                            self.paste(access, window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Cut if !self.read_only() && !self.is_password() => {
-                            self.cut(window_adapter, self_rc);
+                        (StandardShortcut::Cut, Some(access)) if !self.is_password() => {
+                            self.cut(access, window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Copy
-                        | StandardShortcut::Paste
-                        | StandardShortcut::Cut => {
+                        (
+                            StandardShortcut::Copy
+                            | StandardShortcut::Paste
+                            | StandardShortcut::Cut,
+                            _,
+                        ) => {
                             return KeyEventResult::EventIgnored;
                         }
-                        StandardShortcut::Undo if !self.read_only() => {
-                            self.undo(window_adapter, self_rc);
+                        (StandardShortcut::Undo, Some(access)) => {
+                            self.undo(access, window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Redo if !self.read_only() => {
-                            self.redo(window_adapter, self_rc);
+                        (StandardShortcut::Redo, Some(access)) => {
+                            self.redo(access, window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
                         _ => (),
                     }
                 }
 
-                if self.read_only() || event.key_event.modifiers.control {
+                let Some(access) = access else {
+                    return KeyEventResult::EventIgnored;
+                };
+                if event.key_event.modifiers.control {
                     return KeyEventResult::EventIgnored;
                 }
 
@@ -1484,7 +1498,12 @@ impl Item for TextInput {
                     return KeyEventResult::EventIgnored;
                 }
 
-                self.delete_selection(window_adapter, self_rc, TextChangeNotify::SkipCallbacks);
+                self.delete_selection(
+                    access,
+                    window_adapter,
+                    self_rc,
+                    TextChangeNotify::SkipCallbacks,
+                );
 
                 let mut text: String = self.text().into();
 
@@ -1500,7 +1519,7 @@ impl Item for TextInput {
                     kind: UndoItemKind::TextInsert,
                 });
 
-                self.as_ref().set_text_internal(text.into());
+                self.as_ref().set_text_internal(access, text.into());
                 let new_cursor_pos = (insert_pos + event.key_event.text.len()) as i32;
                 self.as_ref().anchor_position_byte_offset.set(new_cursor_pos);
                 self.set_cursor_position(
@@ -1530,6 +1549,10 @@ impl Item for TextInput {
                 }
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
+                let Some(access) = self.user_edit_access() else {
+                    self.preedit_text.set(Default::default());
+                    return KeyEventResult::EventIgnored;
+                };
                 if !self.accept_text_input(&event.key_event.text, window_adapter) {
                     return KeyEventResult::EventIgnored;
                 }
@@ -1544,6 +1567,7 @@ impl Item for TextInput {
                     self.cursor_position_byte_offset.set(cursor.saturating_add(r.end));
                     if event.key_event.text.is_empty() {
                         self.delete_selection(
+                            access,
                             window_adapter,
                             self_rc,
                             if event.cursor_position.is_none() {
@@ -1555,7 +1579,7 @@ impl Item for TextInput {
                         );
                     }
                 }
-                self.insert(&event.key_event.text, window_adapter, self_rc);
+                self.insert(access, &event.key_event.text, window_adapter, self_rc);
                 if let Some(cursor) = event.cursor_position {
                     self.anchor_position_byte_offset.set(event.anchor_position.unwrap_or(cursor));
                     self.set_cursor_position(
@@ -1600,7 +1624,10 @@ impl Item for TextInput {
                         ));
                     }
 
-                    if cfg!(not(target_vendor = "apple")) && *_reason == FocusReason::TabNavigation
+                    // Like line edits on Windows and Linux.
+                    if cfg!(not(target_vendor = "apple"))
+                        && *_reason == FocusReason::TabNavigation
+                        && self.single_line()
                     {
                         self.select_all(window_adapter, self_rc);
                     }
@@ -1615,30 +1642,28 @@ impl Item for TextInput {
                         .set(self.as_ref().cursor_position_byte_offset());
                 }
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
-                if !self.read_only() {
-                    // commit the preedit text on android
-                    #[cfg(target_os = "android")]
-                    {
-                        let preedit_text = self.preedit_text();
-                        if !preedit_text.is_empty() {
-                            let mut text = String::from(self.text());
-                            let cursor_position = self.cursor_position(&text);
-                            text.insert_str(cursor_position, &preedit_text);
-                            self.set_text_internal(text.into());
-                            let new_pos = (cursor_position + preedit_text.len()) as i32;
-                            self.anchor_position_byte_offset.set(new_pos);
-                            self.set_cursor_position(
-                                new_pos,
-                                false,
-                                TextChangeNotify::TriggerCallbacks,
-                                window_adapter,
-                                self_rc,
-                            );
-                            Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
-                        }
+                // commit the preedit text on android
+                #[cfg(target_os = "android")]
+                if let Some(access) = self.user_edit_access() {
+                    let preedit_text = self.preedit_text();
+                    if !preedit_text.is_empty() {
+                        let mut text = String::from(self.text());
+                        let cursor_position = self.cursor_position(&text);
+                        text.insert_str(cursor_position, &preedit_text);
+                        self.set_text_internal(access, text.into());
+                        let new_pos = (cursor_position + preedit_text.len()) as i32;
+                        self.anchor_position_byte_offset.set(new_pos);
+                        self.set_cursor_position(
+                            new_pos,
+                            false,
+                            TextChangeNotify::TriggerCallbacks,
+                            window_adapter,
+                            self_rc,
+                        );
+                        Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
                     }
-                    self.preedit_text.set(Default::default());
                 }
+                self.preedit_text.set(Default::default());
             }
         }
         FocusEventResult::FocusAccepted
@@ -1753,7 +1778,7 @@ impl core::convert::TryFrom<char> for TextCursorDirection {
 
 /// Which visual position a cursor byte offset means when it sits at a soft line break: the same
 /// offset is both the end of the wrapped line and the start of the following one.
-#[repr(C)]
+#[repr(u8)]
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub enum TextCursorAffinity {
     /// The start of the line after the break. Produced by typing and horizontal movement.
@@ -1784,6 +1809,22 @@ pub enum TextChangeNotify {
     TriggerCallbacks,
     /// Skip triggering the callbacks, as a subsequent operation will trigger them.
     SkipCallbacks,
+}
+
+/// Permission to change the text of a [`TextInput`].
+/// Each method that changes the text takes one.
+///
+/// For an edit that comes from user input, get it from [`TextInput::user_edit_access`],
+/// which denies it while the input is `read-only` or disabled.
+#[derive(Copy, Clone)]
+pub struct TextEditAccess(());
+
+impl TextEditAccess {
+    /// Permission for an edit the application requests, such as calling `paste()` on the element.
+    /// Neither `read-only` nor `enabled` prevents those.
+    pub(crate) fn programmatic() -> Self {
+        Self(())
+    }
 }
 
 fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
@@ -2041,9 +2082,15 @@ impl TextInput {
 
     /// Set `text` from an internal edit, keeping the `internal_text` mirror in sync so the
     /// change handler doesn't mistake this edit for an external assignment.
-    fn set_text_internal(self: Pin<&Self>, text: SharedString) {
+    fn set_text_internal(self: Pin<&Self>, _access: TextEditAccess, text: SharedString) {
         self.internal_text.set(text.clone());
         self.text.set(text);
+    }
+
+    /// Returns the permission for an edit that comes from user input,
+    /// or `None` while the input is `read-only` or disabled.
+    pub fn user_edit_access(self: Pin<&Self>) -> Option<TextEditAccess> {
+        (self.enabled() && !self.read_only()).then_some(TextEditAccess(()))
     }
 
     /// Called by the change handler when the public `text` property changes. If the new text
@@ -2153,6 +2200,7 @@ impl TextInput {
 
     fn select_and_delete(
         self: Pin<&Self>,
+        access: TextEditAccess,
         step: TextCursorDirection,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
@@ -2166,11 +2214,12 @@ impl TextInput {
                 self_rc,
             );
         }
-        self.delete_selection(window_adapter, self_rc, TextChangeNotify::TriggerCallbacks);
+        self.delete_selection(access, window_adapter, self_rc, TextChangeNotify::TriggerCallbacks);
     }
 
     pub fn delete_selection(
         self: Pin<&Self>,
+        access: TextEditAccess,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
         trigger_callbacks: TextChangeNotify,
@@ -2193,7 +2242,7 @@ impl TextInput {
         };
 
         let text = [text.split_at(anchor).0, text.split_at(cursor).1].concat();
-        self.set_text_internal(text.into());
+        self.set_text_internal(access, text.into());
         self.anchor_position_byte_offset.set(anchor as i32);
 
         self.add_undo_item(UndoItem {
@@ -2305,6 +2354,7 @@ impl TextInput {
 
     fn insert(
         self: Pin<&Self>,
+        access: TextEditAccess,
         text_to_insert: &str,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
@@ -2318,7 +2368,7 @@ impl TextInput {
             (self.cursor_position(&text), self.anchor_position(&text))
         };
 
-        self.delete_selection(window_adapter, self_rc, TextChangeNotify::SkipCallbacks);
+        self.delete_selection(access, window_adapter, self_rc, TextChangeNotify::SkipCallbacks);
         let mut text: String = self.text().into();
         let cursor_pos = self.selection_anchor_and_cursor().1;
         let mut inserted_text: SharedString = text_to_insert.into();
@@ -2338,7 +2388,7 @@ impl TextInput {
         });
 
         let cursor_pos = cursor_pos + text_to_insert.len();
-        self.set_text_internal(text.into());
+        self.set_text_internal(access, text.into());
         self.anchor_position_byte_offset.set(cursor_pos as i32);
         self.set_cursor_position(
             cursor_pos as i32,
@@ -2350,12 +2400,17 @@ impl TextInput {
         Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
     }
 
-    pub fn cut(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+    pub fn cut(
+        self: Pin<&Self>,
+        access: TextEditAccess,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
         if self.is_password() {
             return;
         }
         self.copy(window_adapter);
-        self.delete_selection(window_adapter, self_rc, TextChangeNotify::TriggerCallbacks);
+        self.delete_selection(access, window_adapter, self_rc, TextChangeNotify::TriggerCallbacks);
     }
 
     pub fn set_selection_offsets(
@@ -2482,12 +2537,18 @@ impl TextInput {
             .set_clipboard_text(&text[anchor..cursor], clipboard);
     }
 
-    pub fn paste(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
-        self.paste_clipboard(window_adapter, self_rc, Clipboard::DefaultClipboard);
+    pub fn paste(
+        self: Pin<&Self>,
+        access: TextEditAccess,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        self.paste_clipboard(access, window_adapter, self_rc, Clipboard::DefaultClipboard);
     }
 
     fn paste_clipboard(
         self: Pin<&Self>,
+        access: TextEditAccess,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
         clipboard: Clipboard,
@@ -2498,7 +2559,7 @@ impl TextInput {
             .clipboard_text(clipboard)
         {
             self.preedit_text.set(Default::default());
-            self.insert(&text, window_adapter, self_rc);
+            self.insert(access, &text, window_adapter, self_rc);
         }
     }
 
@@ -2679,7 +2740,12 @@ impl TextInput {
         self.undo_items.set(items);
     }
 
-    pub fn undo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+    pub fn undo(
+        self: Pin<&Self>,
+        access: TextEditAccess,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
         // The change tracker runs delayed, so `text` may have been assigned since (#13814).
         self.align_to_text(&self.text(), self_rc);
         let mut items = self.undo_items.take();
@@ -2692,7 +2758,7 @@ impl TextInput {
                 let text: String = self.text().into();
                 let text = [text.split_at(last.pos).0, text.split_at(last.pos + last.text.len()).1]
                     .concat();
-                self.set_text_internal(text.into());
+                self.set_text_internal(access, text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2706,7 +2772,7 @@ impl TextInput {
             UndoItemKind::TextRemove => {
                 let mut text: String = self.text().into();
                 text.insert_str(last.pos, &last.text);
-                self.set_text_internal(text.into());
+                self.set_text_internal(access, text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2726,7 +2792,12 @@ impl TextInput {
         Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
     }
 
-    pub fn redo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+    pub fn redo(
+        self: Pin<&Self>,
+        access: TextEditAccess,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
         // See `undo`.
         self.align_to_text(&self.text(), self_rc);
         let mut items = self.redo_items.take();
@@ -2738,7 +2809,7 @@ impl TextInput {
             UndoItemKind::TextInsert => {
                 let mut text: String = self.text().into();
                 text.insert_str(last.pos, &last.text);
-                self.set_text_internal(text.into());
+                self.set_text_internal(access, text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2753,7 +2824,7 @@ impl TextInput {
                 let text: String = self.text().into();
                 let text = [text.split_at(last.pos).0, text.split_at(last.pos + last.text.len()).1]
                     .concat();
-                self.set_text_internal(text.into());
+                self.set_text_internal(access, text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2942,5 +3013,25 @@ mod selection_tests {
         assert_eq!(ordered_selection("café", 9, -1), (0, 5));
         assert_eq!(ordered_selection("café", 4, 4), (5, 5));
         assert_eq!(ordered_selection("café", 2, 1), (1, 2));
+    }
+}
+
+#[cfg(test)]
+mod edit_access_tests {
+    use super::*;
+
+    #[test]
+    fn user_edits_need_an_enabled_writable_input() {
+        let text_input = alloc::boxed::Box::pin(TextInput::default());
+        let text_input = text_input.as_ref();
+        let access = |enabled, read_only| {
+            text_input.enabled.set(enabled);
+            text_input.read_only.set(read_only);
+            text_input.user_edit_access().is_some()
+        };
+        assert!(access(true, false));
+        assert!(!access(true, true));
+        assert!(!access(false, false));
+        assert!(!access(false, true));
     }
 }

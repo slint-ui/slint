@@ -90,7 +90,11 @@ pub fn parse_struct_declaration<P: Parser>(p: &mut P, checkpoint: Option<P::Chec
     }
 
     if p.peek().kind() == SyntaxKind::ColonEqual {
-        p.warning("':=' to declare a struct is deprecated. Remove the ':='");
+        if p.edition() >= Some(crate::project_file::SlintEdition::V1_20) {
+            p.error("':=' to declare a struct isn't supported from edition 1.20. Remove the ':='");
+        } else {
+            p.warning("':=' to declare a struct is deprecated. Remove the ':='");
+        }
         p.consume();
     }
 

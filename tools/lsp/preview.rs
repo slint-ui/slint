@@ -15,6 +15,7 @@ use crate::editor_preview::{
 };
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
+use i_slint_compiler::object_tree::ElementLocation;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
@@ -30,7 +31,7 @@ use slint::{PlatformError, SharedString, ToSharedString};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 use user_settings::{PREVIEW_SETTINGS_FILE, PreviewUserSettings};
 
@@ -144,6 +145,17 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         // never on the receiving end of one.
         Message::PairingHello { .. } | Message::PairingResponse { .. } => {
             tracing::warn!("Ignoring a pairing message addressed to a local preview");
+        }
+        Message::Debugger { message, .. } => {
+            debug_assert!(false, "The LSP sent its preview a debugger message: {message:?}");
+            tracing::warn!("Ignoring debugger message {message:?}");
+        }
+        Message::DebuggerNotification(notification) => {
+            debug_assert!(
+                false,
+                "The LSP sent its preview a debugger notification: {notification:?}"
+            );
+            tracing::warn!("Ignoring debugger notification {notification:?}");
         }
     }
 }
@@ -466,12 +478,11 @@ fn add_new_component() {
         return;
     };
 
-    if let Some((edit, drop_data)) =
+    if let Some((edit, inserted)) =
         drop_location::add_new_component(&document_cache, &component_name, document)
     {
         element_selection::select_element_at_source_code_position(
-            drop_data.path,
-            drop_data.selection_offset,
+            inserted,
             None,
             SelectionNotification::AfterUpdate,
         );
@@ -933,10 +944,9 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
     let drop_result = drop_location::drop_at(&document_cache, position, &component)
         .map(|(e, d)| (e, d, component.name.clone()));
 
-    if let Some((edit, drop_data, component_name)) = drop_result {
+    if let Some((edit, inserted, component_name)) = drop_result {
         element_selection::select_element_at_source_code_position(
-            drop_data.path,
-            drop_data.selection_offset,
+            inserted,
             None,
             SelectionNotification::AfterUpdate,
         );
@@ -962,7 +972,7 @@ fn delete_selected_element() {
         return;
     };
 
-    let Some(url) = selected.path.to_url() else {
+    let Some(url) = selected.location.path.to_url() else {
         return;
     };
 
@@ -1017,16 +1027,15 @@ fn resize_selected_element_impl(
     let component_instance = component_instance()?;
 
     // They all have the same size anyway:
-    let (path, offset) = element_node.path_and_offset();
+    let ElementLocation { path, offset } = element_node.location();
     let geometry = element_node.geometries(&component_instance).get(instance_index).cloned()?.rect;
 
     let position = rect.origin;
     let parent = element_node
         .parent()
         .and_then(|parent_element| {
-            let (parent_path, parent_offset) = parent_element.path_and_offset();
-            component_instance
-                .component_positions(&parent_path, parent_offset.into())
+            parent_element
+                .geometries(&component_instance)
                 .iter()
                 .find(|geometry| geometry.contains(position))
                 .map(|geometry| geometry.rect.origin)
@@ -1119,7 +1128,7 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
         return;
     };
 
-    if let Some((edit, drop_data)) = drop_location::move_element_to(
+    if let Some((edit, inserted)) = drop_location::move_element_to(
         &document_cache,
         selected_element_node,
         selected.instance_index,
@@ -1127,8 +1136,7 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
         mouse_position,
     ) {
         element_selection::select_element_at_source_code_position(
-            drop_data.path,
-            drop_data.selection_offset,
+            inserted,
             None,
             SelectionNotification::AfterUpdate,
         );
@@ -1204,28 +1212,6 @@ fn start_parsing() {
             ui::set_diagnostics(&api, &[]);
         }
     });
-}
-
-fn extract_resources(
-    dependencies: &HashSet<Url>,
-    component_instance: &ComponentInstance,
-) -> HashSet<Url> {
-    let type_loader = component_instance.definition().type_loader();
-
-    let mut result: HashSet<Url> = Default::default();
-
-    for dependency in dependencies {
-        let path = SourcePath::from_url(dependency);
-        let Some(doc) = type_loader.get_document(&path) else {
-            continue;
-        };
-
-        result.extend(
-            doc.embedded_file_resources.borrow().iter().filter_map(|er| er.path.as_ref()?.to_url()),
-        );
-    }
-
-    result
 }
 
 fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, success: bool) {
@@ -1321,33 +1307,12 @@ fn update_previewed_component(preview_url: &Url, previewed_component: Option<Str
                 ui::ui_set_uses_widgets(&api, uses_widgets);
                 ui::ui_set_known_components(&api, &preview_state.known_components, index);
                 let component =
-                    document_cache.get_document(source_url).and_then(
-                        |doc| match previewed_component.as_ref() {
-                            Some(c_id) => doc
-                                .inner_components
-                                .iter()
-                                .find(|c| {
-                                    c.id == c_id
-                                        || doc.export_names(c).first().is_some_and(|n| n == c_id)
-                                })
-                                .cloned(),
-                            None => doc.last_exported_component(),
-                        },
-                    );
+                    document_cache.component(source_url, previewed_component.as_deref());
                 outline::reset_outline(&api, component);
                 ui::ui_set_preview_data(&api, preview_data, previewed_component);
             }
         });
     }
-
-    PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if let Some(component_instance) = preview_state.component_instance() {
-            preview_state.resources =
-                extract_resources(&preview_state.dependencies, &component_instance);
-        } else {
-            preview_state.resources.clear();
-        }
-    });
 }
 
 fn config_changed(config: PreviewConfig) {
@@ -1477,25 +1442,19 @@ async fn reload_timer_function() {
 
     if let Some(se) = selected {
         element_selection::select_element_at_source_code_position(
-            se.path.clone(),
-            se.offset,
+            se.location.clone(),
             None,
             SelectionNotification::Never,
         );
 
-        if notify_editor
-            && let Some(component_instance) = component_instance()
-            && let Some((element, debug_index)) = component_instance
-                .element_node_at_source_code_position(&se.path, se.offset.into())
-                .first()
-        {
-            let Some(element_node) = ElementRcNode::new(element.clone(), *debug_index) else {
-                return;
-            };
+        if notify_editor && let Some(element_node) = se.as_element_node() {
             let format = PREVIEW_STATE.with_borrow(|ps| ps.format());
             let (path, pos) = element_node.with_element_node(|node| {
                 let sf = &node.source_file;
-                (sf.path().to_url(), util::text_size_to_lsp_position(sf, se.offset, format))
+                (
+                    sf.path().to_url(),
+                    util::text_size_to_lsp_position(sf, se.location.offset, format),
+                )
             });
             let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
             if let Some(url) = path {
@@ -1553,6 +1512,15 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
     });
 }
 
+/// A successful compilation of the previewed component.
+struct Compiled {
+    definition: ComponentDefinition,
+    /// The tree as the user wrote it, which the `DocumentCache` of the preview is built from.
+    raw_type_loader: i_slint_compiler::typeloader::TypeLoader,
+    /// The files other than `.slint` documents that the compilation read.
+    resources: HashSet<Url>,
+}
+
 async fn parse_source(
     config: PreviewConfig,
     path: SourcePath,
@@ -1569,7 +1537,7 @@ async fn parse_source(
     > + 'static,
 ) -> (
     Vec<diagnostics::Diagnostic>,
-    Option<ComponentDefinition>,
+    Option<Compiled>,
     Option<editor_preview::document_cache::OpenImportCallback>,
     Rc<RefCell<editor_preview::document_cache::SourceFileVersionMap>>,
 ) {
@@ -1579,6 +1547,7 @@ async fn parse_source(
     editor_preview::document_cache::configure_preview(cc, component);
     cc.resource_url_mapper = resource_url_mapper();
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
+    cc.edition = config.default_edition.or(cc.edition);
 
     let (open_file_fallback, source_file_versions) =
         editor_preview::document_cache::document_cache_parts_setup(
@@ -1596,10 +1565,14 @@ async fn parse_source(
             path.to_url().and_then(|url| config.rust_macro_editions.get(&url).copied());
     }
     builder.set_overrides(overrides, i_slint_core::InternalToken);
-    builder.set_project_root(
-        PREVIEW_STATE.with_borrow(|preview_state| preview_state.project_root.clone()),
-        i_slint_core::InternalToken,
-    );
+    let is_project_url = path.as_native_path().is_none()
+        && path.file_name() == Some(i_slint_compiler::project_file::FILE_NAME);
+    if !is_project_url {
+        builder.set_project_root(
+            PREVIEW_STATE.with_borrow(|preview_state| preview_state.project_root.clone()),
+            i_slint_core::InternalToken,
+        );
+    }
     let project_loader = open_file_fallback.clone();
     let project_versions = source_file_versions.clone();
     builder.set_project_file_loader(
@@ -1621,10 +1594,25 @@ async fn parse_source(
         }),
         i_slint_core::InternalToken,
     );
-    let result =
-        builder.build_from_source_path(source_code, path, i_slint_core::InternalToken).await;
+    // A project URL supplies its own root and entry file through the project loader.
+    let (result, raw_type_loader) = builder
+        .build_with_raw_type_loader(
+            source_code.filter(|_| !is_project_url),
+            path,
+            slint_interpreter::AnimationMode::Running,
+            i_slint_core::InternalToken,
+        )
+        .await;
 
-    let compiled = result.components().next();
+    let compiled = result.components().next().zip(raw_type_loader).map(|(definition, raw)| {
+        let resources = result
+            .watch_paths(i_slint_core::InternalToken)
+            .iter()
+            .filter(|path| raw.get_document(path).is_none())
+            .filter_map(|path| path.to_url())
+            .collect();
+        Compiled { definition, raw_type_loader: raw, resources }
+    });
     (result.diagnostics().collect(), compiled, open_file_fallback, source_file_versions)
 }
 
@@ -1688,12 +1676,12 @@ async fn reload_preview_impl(
         return Ok(());
     }
     let success = compiled.is_some();
-    let loaded_component_name = compiled.as_ref().map(|c| c.name().to_string());
+    let loaded_component_name = compiled.as_ref().map(|c| c.definition.name().to_string());
 
     // Reflect the style the compiler actually used (after resolving the default,
     // SLINT_STYLE, and "native") in the ComboBox.
     if let Some(compiled) = &compiled {
-        set_current_style(compiled.type_loader().resolved_style.clone());
+        set_current_style(compiled.raw_type_loader.resolved_style.clone());
     }
 
     tracing::debug!(
@@ -1823,12 +1811,8 @@ pub fn highlight(url: Option<Url>, offset: TextSize) {
         return;
     };
 
-    let selected = selected_element();
-
-    if let Some(selected) = &selected
-        && selected.path == path
-        && selected.offset == offset
-    {
+    let location = ElementLocation { path, offset };
+    if selected_element().is_some_and(|selected| selected.location == location) {
         return;
     }
 
@@ -1837,13 +1821,8 @@ pub fn highlight(url: Option<Url>, offset: TextSize) {
     });
 
     if contains_dependency {
-        if Some((path.clone(), offset)) == selected.map(|s| (s.path, s.offset)) {
-            // Already selected!
-            return;
-        }
         element_selection::select_element_at_source_code_position(
-            path,
-            offset,
+            location,
             None,
             SelectionNotification::Never,
         );
@@ -1863,7 +1842,7 @@ pub fn get_component_info(component_type: &str) -> Option<ComponentInformation> 
 fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
     file_versions: &editor_preview::document_cache::SourceFileVersionMap,
-) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
+) -> BTreeMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
     PREVIEW_STATE.with_borrow(|preview_state| {
         let mut result = i_slint_live_preview::protocol::diagnostics_by_url(
             diagnostics,
@@ -1973,19 +1952,22 @@ fn set_selected_element(
                             find_last_component_identifier(document)
                         }?;
 
-                        let path = identifier.source_file.path().clone();
-                        let offset = identifier.text_range().start();
-
-                        Some(ElementSelection { path, offset, instance_index: 0 })
+                        Some(ElementSelection {
+                            location: ElementLocation {
+                                path: identifier.source_file.path().clone(),
+                                offset: identifier.text_range().start(),
+                            },
+                            instance_index: 0,
+                        })
                     })
                     .as_ref()
                     .and_then(|selection| {
-                        let url = selection.path.to_url()?;
+                        let url = selection.location.path.to_url()?;
                         let version = document_cache.document_version(&url);
                         Some((
                             url.clone(),
                             version,
-                            document_cache.element_at_offset(&url, selection.offset)?,
+                            document_cache.element_at_offset(&url, selection.location.offset)?,
                         ))
                     })
             {
@@ -2108,7 +2090,7 @@ fn set_status_text(text: &str) {
 
 /// This ensure that the preview window is visible and runs `set_preview_factory`
 fn update_preview_area(
-    compiled: Option<ComponentDefinition>,
+    compiled: Option<Compiled>,
     behavior: LoadBehavior,
     open_import_callback: Option<editor_preview::document_cache::OpenImportCallback>,
     source_file_versions: Rc<RefCell<editor_preview::document_cache::SourceFileVersionMap>>,
@@ -2122,25 +2104,23 @@ fn update_preview_area(
         let shared_handle = preview_state.handle.clone();
         let shared_document_cache = preview_state.document_cache.clone();
 
-        if let Some(compiled) = compiled {
+        if let Some(Compiled { definition, raw_type_loader, resources }) = compiled {
+            preview_state.resources = resources;
+            let document_cache = Rc::new(editor_preview::DocumentCache::new_from_raw_parts(
+                raw_type_loader,
+                open_import_callback,
+                source_file_versions,
+                format,
+            ));
             api.set_focus_previewed_element(behavior == LoadBehavior::BringWindowToFront);
             api.set_current_element(Default::default());
 
             set_preview_factory(
                 app_window,
                 &api,
-                compiled,
+                definition,
                 Box::new(move |instance| {
-                    if let Some(rtl) = instance.definition().raw_type_loader() {
-                        shared_document_cache.replace(Some(Rc::new(
-                            editor_preview::DocumentCache::new_from_raw_parts(
-                                rtl,
-                                open_import_callback.clone(),
-                                source_file_versions.clone(),
-                                format,
-                            ),
-                        )));
-                    }
+                    shared_document_cache.replace(Some(document_cache.clone()));
 
                     shared_handle.replace(Some(instance));
                 }),
@@ -2203,31 +2183,47 @@ pub mod test {
 
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
-        let (diagnostics, component_definition, _, _) = spin_on::spin_on(super::parse_source(
-            crate::preview::test::preview_config(),
-            path,
-            Some(24),
-            Some(source_code.to_string()),
-            style.to_string(),
-            None,
-            move |path| {
-                let code = code.clone();
+        let (diagnostics, compiled, _, versions) =
+            i_slint_compiler::poll_ready(super::parse_source(
+                crate::preview::test::preview_config(),
+                path.clone(),
+                Some(24),
+                Some(source_code.to_string()),
+                style.to_string(),
+                None,
+                move |path| {
+                    let code = code.clone();
 
-                Box::pin(async move {
-                    let Some(source) = code.get(&path) else {
-                        return Some(Result::Err(std::io::Error::new(
-                            std::io::ErrorKind::NotFound,
-                            "path not found",
-                        )));
-                    };
-                    Some(Ok((Some(24), source.clone())))
-                })
-            },
-        ));
+                    Box::pin(async move {
+                        let Some(source) = code.get(&path) else {
+                            return Some(Result::Err(std::io::Error::new(
+                                std::io::ErrorKind::NotFound,
+                                "path not found",
+                            )));
+                        };
+                        Some(Ok((Some(24), source.clone())))
+                    })
+                },
+            ));
 
         assert!(diagnostics.is_empty());
 
-        component_definition.unwrap().create().unwrap()
+        // Register the compilation the way `update_preview_area` does.
+        let compiled = compiled.unwrap();
+        let document_cache = crate::editor_preview::DocumentCache::new_from_raw_parts(
+            compiled.raw_type_loader,
+            None,
+            versions,
+            crate::editor_preview::ByteFormat::Utf8,
+        );
+        super::PREVIEW_STATE.with_borrow_mut(|state| {
+            state.set_current_component(super::PreviewComponent {
+                url: path.to_url().unwrap(),
+                component: None,
+            });
+            state.document_cache.replace(Some(Rc::new(document_cache)));
+        });
+        compiled.definition.create().unwrap()
     }
 
     #[track_caller]
@@ -2263,6 +2259,29 @@ mod tests {
         });
     }
 
+    /// The files other than documents that a compilation reads reload the preview.
+    #[test]
+    fn a_compilation_lists_the_files_it_reads_as_resources() {
+        i_slint_backend_testing::init_no_event_loop();
+        let main = Url::parse("file:///project/main.slint").unwrap();
+        let source = r#"export component Main inherits Window {
+                Image { source: @image-url("logo.png"); }
+            }"#;
+        let (diagnostics, compiled, _, _) = i_slint_compiler::poll_ready(parse_source(
+            crate::preview::test::preview_config(),
+            SourcePath::from_url(&main),
+            None,
+            Some(source.into()),
+            "fluent".into(),
+            None,
+            |_| Box::pin(async { Some(Err(std::io::ErrorKind::NotFound.into())) }),
+        ));
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        let resources = compiled.unwrap().resources;
+        assert!(resources.contains(&main.join("logo.png").unwrap()), "{resources:?}");
+        assert!(!resources.contains(&main), "{resources:?}");
+    }
+
     #[test]
     fn a_source_with_widgets_updates_the_live_preview_ui() {
         i_slint_backend_testing::init_no_event_loop();
@@ -2273,19 +2292,20 @@ mod tests {
         };
         let source = r#"import { Button } from "std-widgets.slint";
             export component Main inherits Window { Button {} }"#;
-        let (diagnostics, compiled, imports, versions) = spin_on::spin_on(parse_source(
-            crate::preview::test::preview_config(),
-            SourcePath::from_url(&target.url),
-            None,
-            Some(source.into()),
-            "fluent".into(),
-            None,
-            |_| Box::pin(async { Some(Err(std::io::ErrorKind::NotFound.into())) }),
-        ));
+        let (diagnostics, compiled, imports, versions) =
+            i_slint_compiler::poll_ready(parse_source(
+                crate::preview::test::preview_config(),
+                SourcePath::from_url(&target.url),
+                None,
+                Some(source.into()),
+                "fluent".into(),
+                None,
+                |_| Box::pin(async { Some(Err(std::io::ErrorKind::NotFound.into())) }),
+            ));
         assert!(diagnostics.is_empty(), "{diagnostics:?}");
         let compiled = compiled.unwrap();
         let document_cache = editor_preview::DocumentCache::new_from_raw_parts(
-            compiled.raw_type_loader().unwrap(),
+            compiled.raw_type_loader,
             imports,
             versions,
             editor_preview::ByteFormat::Utf8,
@@ -2316,7 +2336,7 @@ mod tests {
                 state.set_current_component(original.clone());
             });
             let switched_target = replacement.clone();
-            let (diagnostics, _, _, _) = spin_on::spin_on(parse_source(
+            let (diagnostics, _, _, _) = i_slint_compiler::poll_ready(parse_source(
                 crate::preview::test::preview_config(), SourcePath::from_url(&original.url), None,
                 Some(r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#.into()),
                 String::new(), None,
@@ -2374,7 +2394,7 @@ mod tests {
                     state.source_code.remove(&manifest);
                 }
             });
-            let (diagnostics, compiled, _, _) = spin_on::spin_on(parse_source(
+            let (diagnostics, compiled, _, _) = i_slint_compiler::poll_ready(parse_source(
                 crate::preview::test::preview_config(),
                 source.clone(),
                 Some(2),
@@ -2391,6 +2411,9 @@ mod tests {
                 "{diagnostics:?}"
             );
             assert_eq!(compiled.is_some(), !has_errors);
+            if let Some(compiled) = compiled {
+                assert!(compiled.resources.contains(&manifest), "{:?}", compiled.resources);
+            }
         }
         reset_preview_state(Default::default());
     }
@@ -2402,7 +2425,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         for file_name in ["main.slint", "main.rs"] {
             let path = SourcePath::new(directory.path().join(file_name));
-            let (diagnostics, compiled, _, versions) = spin_on::spin_on(parse_source(
+            let (diagnostics, compiled, _, versions) = i_slint_compiler::poll_ready(parse_source(
                 crate::preview::test::preview_config(),
                 path.clone(),
                 None,

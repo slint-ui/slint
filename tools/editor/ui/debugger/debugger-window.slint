@@ -1,0 +1,52 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics, Typography, Colors } from "../style.slint";
+import { ShellTitleBar } from "../components/title-bar.slint";
+import { ViewerControls } from "../components/viewer-controls.slint";
+
+export component DebuggerUi inherits Window {
+    in property <bool> can-start;
+    in property <bool> busy;
+    callback perform-native-window-zoom() -> bool;
+
+    preferred-width: Style.shell.width;
+    preferred-height: Style.shell.height;
+    min-width: Style.shell.min-width;
+    min-height: Style.shell.min-height;
+    title: "Slint Debugger";
+    background: Colors.background;
+    default-font-family: Typography.family;
+
+    VerticalLayout {
+        title-bar := ShellTitleBar {
+            zoom-requested => {
+                if !root.perform-native-window-zoom() {
+                    root.maximized = !root.maximized;
+                }
+            }
+
+            Text {
+                x: viewer.width + Metrics.space-large;
+                width: max(0px, parent.width - 2 * self.x);
+                text: root.title;
+                color: Colors.muted;
+                font-size: Typography.body.size;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+
+            viewer := ViewerControls {
+                x: parent.width - self.width - Metrics.space-large;
+                y: (parent.height - self.height) / 2;
+                can-start: root.can-start;
+                busy: root.busy;
+            }
+        }
+
+        main-pane := Rectangle {
+            vertical-stretch: 1;
+        }
+    }
+}

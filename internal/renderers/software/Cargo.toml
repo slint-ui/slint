@@ -34,7 +34,16 @@ systemfonts = [
   "dep:clru",
 ]
 path = ["dep:zeno", "dep:lyon_path", "i-slint-core/path"]
-std = ["zeno?/std", "num-traits/std", "euclid/std", "i-slint-core/std", "path", "systemfonts", "swash?/std"]
+std = [
+  "fearless_simd/std",
+  "zeno?/std",
+  "num-traits/std",
+  "euclid/std",
+  "i-slint-core/std",
+  "path",
+  "systemfonts",
+  "swash?/std",
+]
 libm = ["zeno?/libm", "num-traits/libm", "euclid/libm", "i-slint-core/libm", "swash?/libm"]
 
 experimental = []
@@ -54,6 +63,7 @@ skrifa = { workspace = true, optional = true }
 swash = { workspace = true, optional = true, features = ["scale", "render"] }
 zeno = { version = "0.3.3", optional = true, default-features = false, features = ["eval"] }
 lyon_path = { workspace = true, optional = true }
+fearless_simd = { version = "1.2", default-features = false, features = ["libm"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(cbindgen)", "cfg(slint_nightly_test)"] }

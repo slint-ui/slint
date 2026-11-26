@@ -521,10 +521,9 @@ pub struct WinitWindowAdapter {
     size: Cell<PhysicalSize>,
     /// We requested a size to be set, but we didn't get the resize event from winit yet
     pending_requested_size: Cell<Option<winit::dpi::Size>>,
-    /// A physical size requested before the window exists. Winit resolves it against the
-    /// scale factor it knows at creation, which on Wayland is 1 until the window is mapped,
-    /// so the size is applied again when the scale factor changes. A newer request or a
-    /// resize to another size drops it.
+    /// On Wayland, a physical size requested before the window exists. Winit resolves it
+    /// against a scale factor of 1 until the window is mapped, so the size is applied again
+    /// when the scale factor changes. A newer request or a resize to another size drops it.
     physical_size_before_scale_factor: Cell<Option<winit::dpi::PhysicalSize<u32>>>,
 
     /// Whether the size has been set explicitly via `set_size`.
@@ -948,6 +947,9 @@ impl WinitWindowAdapter {
         self.shared_backend_data.watch_hidden_window(&last_window_rc);
         self.shared_backend_data.unregister_window(Some(last_window_rc.id()));
 
+        // No event ends the touches that were down on a window that's gone.
+        self.touch_finger_ids.take();
+
         Ok(())
     }
 
@@ -1137,7 +1139,11 @@ impl WinitWindowAdapter {
             }
             WinitWindowOrNone::None(attributes) => {
                 attributes.borrow_mut().inner_size = Some(size);
-                if let winit::dpi::Size::Physical(physical) = size {
+                // Other platforms know the scale factor at creation. Applying the size again on a
+                // later change would undo winit keeping the logical size (#15092).
+                if let winit::dpi::Size::Physical(physical) = size
+                    && self.shared_backend_data.is_wayland
+                {
                     self.physical_size_before_scale_factor.set(Some(physical));
                 }
                 // The scale factor is not known yet: the resize event after creation corrects
@@ -2004,6 +2010,11 @@ impl WinitWindowAdapter {
 
     pub(crate) fn pending_redraw(&self) -> bool {
         self.pending_redraw.get()
+    }
+
+    #[cfg(target_vendor = "apple")]
+    pub(crate) fn has_active_touches(&self) -> bool {
+        self.touch_finger_ids.borrow().has_active_touches()
     }
 
     /// Asks the windowing system and updates `Window::is_minimized()` to match,

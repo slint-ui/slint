@@ -17,10 +17,10 @@ use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
 /// `slint-build` / `slint!` users.
 fn lower_to_llr_text(source: &str) -> String {
     let mut diagnostics = BuildDiagnostics::default();
-    let syntax_node = parse(source.into(), None, &mut diagnostics);
+    let syntax_node = parse(source.into(), None, None, &mut diagnostics);
     let config = CompilerConfiguration::new(OutputFormat::Llr);
     let (doc, diagnostics, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
+        i_slint_compiler::poll_ready(compile_syntax_node(syntax_node, diagnostics, config));
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
     let mut output = Vec::new();
     generator::generate(OutputFormat::Llr, &mut output, None, &doc, &loader.compiler_config)

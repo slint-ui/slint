@@ -12,7 +12,7 @@ fn compile(
     enable_experimental: bool,
 ) -> i_slint_compiler::diagnostics::BuildDiagnostics {
     let mut diag = i_slint_compiler::diagnostics::BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse(source.into(), None, &mut diag);
+    let syntax_node = i_slint_compiler::parser::parse(source.into(), None, None, &mut diag);
     let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(
         i_slint_compiler::generator::OutputFormat::Interpreter,
     );
@@ -23,8 +23,11 @@ fn compile(
         i_slint_compiler::ExperimentalFeatures::default()
     };
     compiler_config.style = Some("fluent".into());
-    let (_, build_diags, _) =
-        spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
+    let (_, build_diags, _) = i_slint_compiler::poll_ready(i_slint_compiler::compile_syntax_node(
+        syntax_node,
+        diag,
+        compiler_config,
+    ));
     build_diags
 }
 

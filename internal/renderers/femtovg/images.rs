@@ -153,7 +153,16 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     // pre-multiplied alpha. It's possible that this is not generally applicable, but it
                     // is the case for SVGs.
                     let image_flags = if html_image.is_svg() {
-                        if let Some(target_size) = target_size_for_scalable_source {
+                        if let Some(mut target_size) = target_size_for_scalable_source {
+                            // Rasterize at the SVG's aspect ratio, like the native SVG rendering does,
+                            // and let image-fit stretch the texture. Otherwise the browser applies the
+                            // SVG's preserveAspectRatio and bakes transparent bars into the texture.
+                            if let Some(source_size) = html_image.svg_intrinsic_size() {
+                                target_size = i_slint_core::graphics::aspect_preserving_render_size(
+                                    source_size,
+                                    target_size,
+                                );
+                            }
                             let dom_element = &html_image.dom_element;
                             dom_element.set_width(target_size.width);
                             dom_element.set_height(target_size.height);

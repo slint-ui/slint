@@ -2,17 +2,19 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore pixelfont vectorfont
-use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
-use super::{Fixed, PhysicalLength, PhysicalSize};
+use super::{Fixed, PhysicalLength, PhysicalSize, TextLength};
 #[cfg(feature = "owned-pre-rendered-resources")]
 use i_slint_core::graphics::OwnedStorage;
 use i_slint_core::graphics::{BitmapFont, FontRequest, Storage};
 #[cfg(feature = "systemfonts")]
 use i_slint_core::graphics::{PremultipliedRgba8Pixel, SharedPixelBuffer};
 use i_slint_core::lengths::ScaleFactor;
+use i_slint_core::shared_pointer::SharedPtr;
+#[cfg(feature = "owned-pre-rendered-resources")]
+use i_slint_core::shared_pointer::SharedWeak;
 use i_slint_core::textlayout::TextLayout;
 use pixelfont::PixelFont;
 
@@ -23,7 +25,7 @@ i_slint_core::thread_local! {
 enum RegisteredFont {
     Static(&'static BitmapFont),
     #[cfg(feature = "owned-pre-rendered-resources")]
-    Shared(alloc::rc::Weak<BitmapFont<OwnedStorage>>),
+    Shared(SharedWeak<BitmapFont<OwnedStorage>>),
 }
 
 impl PartialEq for RegisteredFont {
@@ -80,9 +82,9 @@ pub enum GlyphAlphaMap {
     /// A glyph of a font built at run time, which it keeps alive while the glyph is drawn
     #[cfg(feature = "owned-pre-rendered-resources")]
     #[from(skip)]
-    Shared { font: Rc<BitmapFont<OwnedStorage>>, glyph_set: u16, glyph: u16 },
+    Shared { font: SharedPtr<BitmapFont<OwnedStorage>>, glyph_set: u16, glyph: u16 },
     /// A glyph rendered at run time, from a vector font
-    Rendered(Rc<[u8]>),
+    Rendered(SharedPtr<[u8]>),
 }
 
 impl GlyphAlphaMap {
@@ -120,7 +122,7 @@ impl RenderableGlyph {
 #[derive(Clone)]
 pub enum VectorGlyphPixels {
     /// One coverage value per pixel, drawn in the text's color.
-    AlphaMap(Rc<[u8]>),
+    AlphaMap(SharedPtr<[u8]>),
     /// Premultiplied RGBA pixels of a color glyph, such as an emoji, drawn as they are.
     Color(SharedPixelBuffer<PremultipliedRgba8Pixel>),
 }
@@ -205,24 +207,24 @@ macro_rules! with_font {
 }
 pub(crate) use with_font;
 
-impl i_slint_core::textlayout::FontMetrics<PhysicalLength> for Font {
-    fn ascent(&self) -> PhysicalLength {
+impl i_slint_core::textlayout::FontMetrics<TextLength> for Font {
+    fn ascent(&self) -> TextLength {
         with_font!(self, |font| { font.ascent() })
     }
 
-    fn height(&self) -> PhysicalLength {
+    fn height(&self) -> TextLength {
         with_font!(self, |font| { font.height() })
     }
 
-    fn descent(&self) -> PhysicalLength {
+    fn descent(&self) -> TextLength {
         with_font!(self, |font| { font.descent() })
     }
 
-    fn x_height(&self) -> PhysicalLength {
+    fn x_height(&self) -> TextLength {
         with_font!(self, |font| { font.x_height() })
     }
 
-    fn cap_height(&self) -> PhysicalLength {
+    fn cap_height(&self) -> TextLength {
         with_font!(self, |font| { font.cap_height() })
     }
 }
@@ -284,13 +286,13 @@ pub fn text_layout_for_font<'a, Font>(
 ) -> TextLayout<'a, Font>
 where
     Font: i_slint_core::textlayout::AbstractFont
-        + i_slint_core::textlayout::TextShaper<Length = PhysicalLength>,
+        + i_slint_core::textlayout::TextShaper<Length = TextLength>,
 {
     let letter_spacing =
         font_request.letter_spacing.map(|spacing| (spacing.cast() * scale_factor).cast());
     let line_height = line_height_factor.map(|factor| {
         let line_height = font.height().get() as f32 * factor;
-        PhysicalLength::new(num_traits::Float::round(line_height).max(0.) as i16)
+        TextLength::new(num_traits::Float::round(line_height).max(0.) as i32)
     });
 
     TextLayout { font, letter_spacing, line_height }
@@ -301,8 +303,8 @@ pub fn register_bitmap_font(font_data: &'static BitmapFont) {
 }
 
 #[cfg(feature = "owned-pre-rendered-resources")]
-pub fn register_shared_bitmap_font(font_data: &Rc<BitmapFont<OwnedStorage>>) {
-    register(RegisteredFont::Shared(Rc::downgrade(font_data)));
+pub fn register_shared_bitmap_font(font_data: &SharedPtr<BitmapFont<OwnedStorage>>) {
+    register(RegisteredFont::Shared(SharedPtr::downgrade(font_data)));
 }
 
 fn register(font: RegisteredFont) {
@@ -327,27 +329,27 @@ mod tests {
 
     struct TestFont;
 
-    impl FontMetrics<PhysicalLength> for TestFont {
-        fn ascent(&self) -> PhysicalLength {
-            PhysicalLength::new(18)
+    impl FontMetrics<TextLength> for TestFont {
+        fn ascent(&self) -> TextLength {
+            TextLength::new(18)
         }
 
-        fn descent(&self) -> PhysicalLength {
-            PhysicalLength::new(-6)
+        fn descent(&self) -> TextLength {
+            TextLength::new(-6)
         }
 
-        fn x_height(&self) -> PhysicalLength {
-            PhysicalLength::new(10)
+        fn x_height(&self) -> TextLength {
+            TextLength::new(10)
         }
 
-        fn cap_height(&self) -> PhysicalLength {
-            PhysicalLength::new(14)
+        fn cap_height(&self) -> TextLength {
+            TextLength::new(14)
         }
     }
 
     impl TextShaper for TestFont {
-        type LengthPrimitive = i16;
-        type Length = PhysicalLength;
+        type LengthPrimitive = i32;
+        type Length = TextLength;
 
         fn shape_text<GlyphStorage: core::iter::Extend<Glyph<Self::Length>>>(
             &self,
@@ -384,7 +386,7 @@ mod tests {
     #[test]
     #[cfg(feature = "owned-pre-rendered-resources")]
     fn a_shared_font_goes_away_with_its_owner() {
-        let font = Rc::new(BitmapFont::<OwnedStorage> {
+        let font = SharedPtr::new(BitmapFont::<OwnedStorage> {
             family_name: b"Shared".to_vec(),
             character_map: Vec::new(),
             units_per_em: 1.,
@@ -424,8 +426,8 @@ mod tests {
         let layout =
             text_layout_for_font(&TestFont, &font_request, Some(1.5), ScaleFactor::new(1.));
 
-        assert_eq!(TestFont.height(), PhysicalLength::new(24));
-        assert_eq!(layout.line_height, Some(PhysicalLength::new(36)));
+        assert_eq!(TestFont.height(), TextLength::new(24));
+        assert_eq!(layout.line_height, Some(TextLength::new(36)));
     }
 
     #[test]
@@ -435,6 +437,6 @@ mod tests {
 
         let layout = text_layout_for_font(&TestFont, &font_request, Some(0.), ScaleFactor::new(1.));
 
-        assert_eq!(layout.line_height, Some(PhysicalLength::new(0)));
+        assert_eq!(layout.line_height, Some(TextLength::new(0)));
     }
 }

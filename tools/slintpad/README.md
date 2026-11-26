@@ -5,6 +5,7 @@ which is hosted on https://slint.dev/editor (last stable) and
 https://slint.dev/snapshots/master/editor (nightly).
 
 You need to install the following components:
+
 - **[Node.js](https://nodejs.org/download/release/)** (v20. or newer)
 - **[pnpm](https://www.pnpm.io/)**
 
@@ -28,10 +29,13 @@ pnpm preview              # Start a server serving the slintpad UI
 
 The `index.html` page contains a code editor and every key press reload the preview.
 The `preview.html` page contains only the preview and the code must be given via query parameter.
+
 -   `?load_url=` query argument make it possible to load the .slint code directly from an URL.
     If the slint code contains relative path for imports or images, they are loaded relative to
     that slint file. That way it is possible to load code from github (via raw.githubusercontent)
     or gists.
+    The URL may also point to a `slint-project.json` project file.
+    Then the page opens its `main` file and applies its settings, such as `edition` and `include-paths`.
 
     Example: this loads the printerdemo.slint file from the github URL
     -   https://slint.dev/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/printerdemo/ui/printerdemo.slint

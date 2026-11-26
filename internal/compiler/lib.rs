@@ -264,7 +264,7 @@ pub struct CompilerConfiguration {
     pub coverage: bool,
 
     /// Generate debug hooks to inspect/override properties.
-    pub debug_hooks: Option<std::hash::RandomState>,
+    pub debug_hooks: bool,
 
     pub components_to_generate: ComponentSelection,
 
@@ -406,7 +406,7 @@ impl CompilerConfiguration {
             error_on_binding_loop_with_window_layout: false,
             debug_info,
             coverage: false,
-            debug_hooks: None,
+            debug_hooks: false,
             components_to_generate: ComponentSelection::ExportedWindows,
             #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
             use_sdf_fonts: false,
@@ -485,23 +485,52 @@ fn prepare_for_compile(
     typeloader::TypeLoader::new(compiler_config, diagnostics)
 }
 
+/// Parses `source_code`, the content of the file at `path`, with the edition of its project,
+/// and compiles it like `compile_syntax_node`.
+/// When there is an error before compiling, such as a parse error, the document is empty.
+#[cfg(feature = "std")]
+pub async fn compile_source(
+    path: &SourcePath,
+    source_code: String,
+    mut diagnostics: diagnostics::BuildDiagnostics,
+    compiler_config: CompilerConfiguration,
+) -> (object_tree::Document, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
+    let mut loader = prepare_for_compile(&mut diagnostics, compiler_config, path);
+    let doc_node = loader.parse_file(path, source_code, &mut diagnostics).await;
+    if diagnostics.has_errors() {
+        return (Default::default(), diagnostics, loader);
+    }
+    compile_document(doc_node, loader, diagnostics).await
+}
+
+/// Compiles `doc_node`, which must be parsed with `compiler_config.edition`.
 #[cfg(feature = "std")]
 pub async fn compile_syntax_node(
     doc_node: parser::SyntaxNode,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
 ) -> (object_tree::Document, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
-    let mut loader =
+    assert_eq!(
+        doc_node.source_file.edition(),
+        compiler_config.edition,
+        "the root file must be parsed with compiler_config.edition"
+    );
+    let loader =
         prepare_for_compile(&mut diagnostics, compiler_config, doc_node.source_file.path());
+    compile_document(doc_node.into(), loader, diagnostics).await
+}
 
-    let doc_node: parser::syntax_nodes::Document = doc_node.into();
-
+#[cfg(feature = "std")]
+async fn compile_document(
+    doc_node: parser::syntax_nodes::Document,
+    mut loader: typeloader::TypeLoader,
+    mut diagnostics: diagnostics::BuildDiagnostics,
+) -> (object_tree::Document, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
     let type_registry =
         Rc::new(RefCell::new(typeregister::TypeRegister::new(&loader.global_type_registry)));
     let (foreign_imports, reexports) =
         loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
 
-    loader.set_edition(&doc_node);
     let ignore_missing_font_files = loader.compiler_config.resource_url_mapper.is_some();
     let mut doc = crate::object_tree::Document::from_node(
         doc_node,
@@ -525,36 +554,42 @@ pub async fn compile_syntax_node(
 /// Pass a file to the compiler and process it fully, applying all the
 /// necessary compilation passes.
 ///
-/// This returns a `Tuple` containing a set of `BuildDiagnostics` and a
-/// `TypeLoader` with all compilation passes applied.
+/// This returns a `Tuple` containing a set of `BuildDiagnostics`, a `TypeLoader`
+/// with all compilation passes applied and, if `keep_raw` is set, another
+/// `TypeLoader` with a minimal set of passes applied to it.
 #[cfg(feature = "std")]
 pub async fn load_root_file(
     path: &SourcePath,
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
-    let mut loader = prepare_for_compile(&mut diagnostics, compiler_config, path);
-    loader.load_root_file(path, source_code, false, &mut diagnostics).await;
-    (diagnostics, loader)
-}
-
-/// Pass a file to the compiler and process it fully, applying all the
-/// necessary compilation passes, just like `load_root_file`.
-///
-/// This returns a `Tuple` containing a set of `BuildDiagnostics`, a `TypeLoader`
-/// with all compilation passes applied and another `TypeLoader` with a minimal
-/// set of passes applied to it.
-#[cfg(feature = "std")]
-pub async fn load_root_file_with_raw_type_loader(
-    path: &SourcePath,
-    source_code: String,
-    mut diagnostics: diagnostics::BuildDiagnostics,
-    #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
+    keep_raw: bool,
 ) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader, Option<typeloader::TypeLoader>) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config, path);
-    let raw_type_loader = loader.load_root_file(path, source_code, true, &mut diagnostics).await;
+    let raw_type_loader =
+        loader.load_root_file(path, source_code, keep_raw, &mut diagnostics).await;
     (diagnostics, loader, raw_type_loader)
+}
+
+/// Polls `future` once and returns its output.
+///
+/// Use it to run the compiler's `async` functions when no file loader callback is set,
+/// or when its futures are ready immediately.
+///
+/// # Panics
+///
+/// Panics if `future` isn't ready after the first poll,
+/// for example when a file loader callback actually waits.
+/// Use a real executor in that case.
+#[track_caller]
+pub fn poll_ready<F: core::future::Future>(future: F) -> F::Output {
+    let mut ctx = core::task::Context::from_waker(core::task::Waker::noop());
+    match core::pin::pin!(future).poll(&mut ctx) {
+        core::task::Poll::Ready(result) => result,
+        core::task::Poll::Pending => {
+            panic!("poll_ready: the future wasn't ready on its first poll")
+        }
+    }
 }
 
 /// Returns true and reports an error on `source`, naming `what`, if `feature` is disabled.

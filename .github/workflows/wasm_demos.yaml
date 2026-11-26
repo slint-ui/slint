@@ -11,6 +11,9 @@ on:
                 type: boolean
                 required: true
                 description: True if we should build all demos and produce artefacts
+            os:
+                type: string
+                description: The runner for the jobs
 
 jobs:
     wasm_demo:
@@ -25,7 +28,7 @@ jobs:
             # This omits the software renderer (~450 KB), which is only used as a
             # fallback when WebGL is unavailable.
             WASM_SLINT_FEATURES: slint/backend-winit,slint/renderer-femtovg
-        runs-on: ubuntu-22.04
+        runs-on: ${{ inputs.os || 'ubuntu-22.04' }}
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies

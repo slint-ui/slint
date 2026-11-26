@@ -15,13 +15,14 @@
 //!   [`Renderer`](i_slint_core::renderer::Renderer) that drives any backend
 //!   implementing `SlintWindowRenderer`.
 //!
-//! Concrete backends (vello over wgpu, vello_cpu over softbuffer, ...) live
-//! in their own crates and only need to implement `SlintWindowRenderer`.
+//! Backends implement `SlintWindowRenderer`.
+//! The `vello` feature provides vello on WGPU,
+//! and the `vello-cpu` feature vello_cpu rendering into an offscreen buffer.
 //!
 //! Shadows of opaque backgrounds use the backend's analytic box shadow primitive.
 //! Translucent and border-only shadows require Gaussian blur filters on compositing layers.
-//! `anyrender_vello` 0.15 ignores these filters, rendering those shadows without blur.
-//! For `anyrender_vello_cpu` 0.18, enable its `filters` feature and leave
+//! `anyrender_vello` 0.16 ignores these filters, rendering those shadows without blur.
+//! For `anyrender_vello_cpu` 0.19, enable its `filters` feature and leave
 //! `multithreading` disabled, because that configuration ignores filters.
 
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
@@ -61,12 +62,16 @@ mod itemrenderer;
 mod recording;
 #[cfg(feature = "vello")]
 mod vello;
+#[cfg(feature = "vello-cpu")]
+mod vello_cpu;
 
 pub use imagecache::{ImageConversionCache, SharedImageData};
 pub use itemrenderer::AnyrenderItemRenderer;
 pub use recording::RecordingWindowRenderer;
 #[cfg(feature = "vello")]
 pub use vello::VelloWindowRenderer;
+#[cfg(feature = "vello-cpu")]
+pub use vello_cpu::{VelloCpuRenderer, VelloCpuWindowRenderer};
 
 /// A Slint renderer rendering through vello on WGPU.
 #[cfg(feature = "vello")]

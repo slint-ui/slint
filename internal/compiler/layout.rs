@@ -50,6 +50,27 @@ pub enum Layout {
     FlexboxLayout(FlexboxLayout),
 }
 
+/// The layout that a builtin layout element, such as `HorizontalLayout`, lays out its children with.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LayoutKind {
+    Grid,
+    Box(Orientation),
+    Flexbox,
+}
+
+impl LayoutKind {
+    /// Returns the kind of the builtin element `name`, or `None` if it isn't a layout.
+    pub fn from_builtin_name(name: &str) -> Option<Self> {
+        match name {
+            "GridLayout" => Some(Self::Grid),
+            "HorizontalLayout" => Some(Self::Box(Orientation::Horizontal)),
+            "VerticalLayout" => Some(Self::Box(Orientation::Vertical)),
+            "FlexboxLayout" => Some(Self::Flexbox),
+            _ => None,
+        }
+    }
+}
+
 impl Layout {
     /// Call the visitor for each NamedReference stored in the layout
     pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
@@ -990,8 +1011,7 @@ pub fn implicit_layout_info_call(
     }
 }
 
-/// Whether `elem`'s own builtin (not one inherited through a component)
-/// computes its vertical layout info from its width.
+/// Whether `elem`'s builtin computes its vertical layout info from its width.
 ///
 /// The binding analysis records that width read, and the box layout lowering
 /// only forwards the layout's width to a repeated cell when this holds: a read
@@ -999,7 +1019,7 @@ pub fn implicit_layout_info_call(
 /// `Element::is_builtin_height_for_width` is the variant for synthesis,
 /// which runs before `property_analysis` is filled.
 pub fn builtin_height_depends_on_width(elem: &Element) -> bool {
-    let ElementType::Builtin(b) = &elem.base_type else { return false };
+    let Some(b) = elem.builtin_type() else { return false };
     match b.name.as_str() {
         "Image" | "StyledText" => true,
         "Text" | "TextInput" => {
@@ -1012,6 +1032,58 @@ pub fn builtin_height_depends_on_width(elem: &Element) -> bool {
         }
         _ => false,
     }
+}
+
+/// Whether the vertical layout info of `elem` depends on its width,
+/// so a layout must measure it at a given width.
+/// This holds for a wrapping Text, an Image sized by its aspect ratio,
+/// and a component whose layout contains such a cell.
+pub fn is_height_for_width_cell(elem: &ElementRc) -> bool {
+    let elem_b = elem.borrow();
+
+    // Component path: `layoutinfo-v-with-constraint` may live on `elem`
+    // itself or on the base component's root_element.
+    let has_constrained_layoutinfo_v = elem_b.layout_info_v_with_constraint.is_some()
+        || matches!(
+            &elem_b.base_type,
+            ElementType::Component(base_comp)
+                if base_comp.root_element.borrow().layout_info_v_with_constraint.is_some()
+        );
+    if has_constrained_layoutinfo_v {
+        return true;
+    }
+
+    if elem_b.effective_layout_info_prop(Orientation::Vertical).is_some() {
+        return false;
+    }
+    drop(elem_b);
+
+    // Builtin path.
+    matches!(
+        implicit_layout_info_call(elem, Orientation::Vertical, BuiltinFilter::All, None),
+        Some(Expression::FunctionCall { .. })
+    )
+}
+
+/// The property that fixes the size of a cell along `orientation`, if any.
+pub fn fixed_size_property(
+    constraints: &LayoutConstraints,
+    orientation: Orientation,
+) -> Option<&NamedReference> {
+    let c = constraints.for_orientation(orientation);
+    c.min
+        .as_ref()
+        .filter(|min| c.fixed && c.max.as_ref() == Some(*min) && min.ty() == Type::LogicalLength)
+}
+
+/// The width a box layout measures the height-for-width cell `elem` at
+/// instead of the width it was given, if the cell fixes its own width.
+pub fn fixed_cell_width<'a>(
+    elem: &ElementRc,
+    constraints: &'a LayoutConstraints,
+) -> Option<&'a NamedReference> {
+    fixed_size_property(constraints, Orientation::Horizontal)
+        .filter(|_| elem.borrow().edition() >= Some(crate::project_file::SlintEdition::V1_19))
 }
 
 /// The stretch factor of elements based on text or image items, which never
@@ -1127,12 +1199,7 @@ pub fn is_layout(base_type: &ElementType) -> bool {
                 && root.debug.iter().any(|d| d.layout.is_some());
             is_lowered_layout || is_layout(&root.base_type)
         }
-        ElementType::Builtin(be) => {
-            matches!(
-                be.name.as_str(),
-                "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "FlexboxLayout"
-            )
-        }
+        ElementType::Builtin(be) => LayoutKind::from_builtin_name(&be.name).is_some(),
         _ => false,
     }
 }

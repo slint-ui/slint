@@ -2,7 +2,11 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
-## [0.5.1] - Unreleased
+## [0.5.2] - Unreleased
+
+ - Added `VRc::new_with`, which allocates before building the value.
+
+## [0.5.1] - 2026-11-16
 
  - Added `VRc::downcast`.
  - The `new()` function of the generated vtables is a `const fn`.

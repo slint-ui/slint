@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../../icons/index.slint";
+import { EditorCursors } from "../../cursors/index.slint";
 import { Style, Typography, FieldStyle } from "../../style.slint";
-
-import { EditorCursors } from "../index.slint";
 
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
@@ -144,7 +144,7 @@ export component InspectorValueField inherits FocusScope {
                     width: 9px;
                     height: 9px;
                     accessible-role: none;
-                    source: @image-url("../../assets/radius-rounded.svg");
+                    source: Icons.radius-rounded;
                     colorize: root.style.appearance.muted;
                     transform-rotation: root.corner-index == 1 ? 90deg : root.corner-index == 2 ? 270deg : root.corner-index == 3 ? 180deg : 0deg;
                 }

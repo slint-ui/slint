@@ -19,7 +19,7 @@ The `slint` crate re-exports its modules from these crates:
 - `language`: the built-in structs and enums from `i_slint_core::items`.
 - `wgpu_29` and `wgpu_30`: `i_slint_core::graphics::wgpu_*::api`.
 - `winit_030`: selected items from `i_slint_backend_winit`.
-- `fontique_012`: `fontique`, through `i_slint_common::sharedfontique`.
+- `fontique_013`: `fontique`, through `i_slint_common::sharedfontique`.
 - `android`: `i_slint_backend_android_activity`.
 
 `slint-interpreter` exports its `api` module at the top level.

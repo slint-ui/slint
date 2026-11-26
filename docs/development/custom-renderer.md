@@ -94,7 +94,7 @@ instead of drawing. See `Surface` in `internal/renderers/skia/lib.rs`.
 Available surface implementations: `OpenGLSurface`, `SoftwareSurface`, and one `WGPUSurface`
 per supported wgpu version.
 
-### Software Renderer Pattern: Scene Building
+### Software Renderer Pattern: Direct and Line-by-Line Rendering
 
 `SceneBuilder` implements `ItemRenderer` and hands each draw call to a `ProcessScene` implementation.
 `SoftwareRenderer::render()` uses `RenderToBuffer`, which draws each item straight into a whole pixel buffer.
@@ -102,6 +102,13 @@ per supported wgpu version.
 The renderer then rasterizes that scene into a `LineBufferProvider` one line at a time, for memory-constrained devices.
 Both return the `PhysicalRegion` that was painted.
 See `internal/renderers/software/api.rs` for the entry points and `lib.rs` for the implementation.
+
+`record_frame()` (experimental, on targets with atomic pointers) records the draw calls as `RasterCommand`s instead of drawing them.
+`RecordedRasterCommands::rasterize()` then draws them, so another core can rasterize while the event loop records the next frame.
+A recording shares images, bitmap fonts and glyph data with the window through `i_slint_core::shared_pointer::SharedPtr`.
+That is `Arc`, which makes the recording `Send` and `Sync`.
+Targets without atomic pointers, such as `thumbv6m`, have no `record_frame()`.
+Use `SharedPtr` for any new data that a recording keeps, so the `Send + Sync` assertion next to `RecordedRasterCommands` keeps holding.
 
 ### Anyrender Pattern: Window Renderer Abstraction
 

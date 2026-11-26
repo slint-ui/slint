@@ -1,12 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons, DiagnosticBadge } from "../icons/index.slint";
 import { SoftButton } from "device-action.slint";
 import { DiagnosticList } from "diagnostic-list.slint";
 import { Api } from "../api.slint";
 import { Diagnostics, PreviewAvailability } from "../diagnostics.slint";
 import { Style, Colors, Metrics, Typography, Theme, PreviewDiagnosticsStyle } from "../style.slint";
-import { DiagnosticBadge } from "icons.slint";
 import { FloatingSurface } from "floating-surface.slint";
 
 export component PreviewDiagnostics inherits Rectangle {
@@ -45,7 +45,7 @@ export component PreviewDiagnostics inherits Rectangle {
                         height: self.width;
                         Image {
                             x: 0px; y: 0px;
-                            source: @image-url("../assets/primer-file-code.svg");
+                            source: Icons.primer-file-code;
                             width: Metrics.control-small;
                             height: self.width;
                             colorize: root.style.muted;

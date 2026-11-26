@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../icons/index.slint";
 import { ButtonBase } from "../../controls/src/headless.slint";
 import { ViewerStyle, Style, Metrics } from "../style.slint";
 export { ViewerStyle }
@@ -52,14 +53,14 @@ export component ViewerButton inherits ButtonBase {
 export component Chevron inherits Image {
     width: Metrics.icon-medium;
     height: Metrics.icon-medium;
-    source: @image-url("../assets/lucide/chevron-down.svg");
+    source: Icons.chevron-down;
     colorize: ViewerStyle.icon;
 }
 
 export component Checkmark inherits Image {
     width: Metrics.icon-medium;
     height: Metrics.icon-medium;
-    source: @image-url("../assets/lucide/check.svg");
+    source: Icons.check;
     colorize: ViewerStyle.accent;
 }
 
@@ -68,6 +69,6 @@ export component ViewerIcon inherits Image {
     height: Metrics.icon-medium;
     in property <bool> remote;
     in property <color> ink: ViewerStyle.strong-icon;
-    source: root.remote ? @image-url("../assets/lucide/smartphone.svg") : @image-url("../assets/lucide/monitor.svg");
+    source: root.remote ? Icons.smartphone : Icons.monitor;
     colorize: root.ink;
 }

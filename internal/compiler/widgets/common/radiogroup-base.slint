@@ -39,6 +39,7 @@ export component RadioButtonImplBase {
     // `changed` handler below fires only on real selection transitions and
     // not on the brief revert loops in `changed checked`.
     private property <bool> selected: root.group-current-index == root.item-index;
+    private property <bool> notified-selected;
 
     callback toggled;
     callback group-select;
@@ -48,10 +49,13 @@ export component RadioButtonImplBase {
     out property <bool> pressed <=> base.pressed;
     out property <bool> has-hover <=> base.has-hover;
 
-    // Fires on every selection transition: when this button becomes the
-    // selection and when another button takes it over.
+    // Fires on every selection transition after `init`: when this button becomes the
+    // selection and when another button takes it over. The initial selection isn't a toggle.
     changed selected => {
-        root.toggled();
+        if root.selected != root.notified-selected {
+            root.notified-selected = root.selected;
+            root.toggled();
+        }
     }
 
     // Catch declarative initial state — `RadioButton { checked: true; }`
@@ -61,6 +65,7 @@ export component RadioButtonImplBase {
         if root.checked && root.group-current-index != root.item-index {
             root.group-select();
         }
+        root.notified-selected = root.selected;
     }
 
     // When the default binding has been replaced (e.g. by `checked <=> m.checked`),

@@ -208,6 +208,8 @@ welcome to listen in or ask your questions.
 
 You can of course also contact us privately via email to [info@slint.dev](mailto:info@slint.dev).
 
+<a href="https://www.blacksmith.sh"><img src="https://github.com/user-attachments/assets/427b8763-2f4d-4816-80fa-aa6e1e4106f5" alt="CI powered by Blacksmith" width="368"></a>
+
 [#1]: https://www.youtube.com/watch?v=_BDbNHrjK7g
 [#2]: https://www.youtube.com/watch?v=NNNOJJsOAis
 [#3]: https://www.youtube.com/watch?v=dkBwNocItGs

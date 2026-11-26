@@ -175,13 +175,9 @@ pub struct SubComponentInstance {
     pub parent: Weak<SubComponentInstance>,
     /// Back-reference to the owning root, populated right after construction.
     pub root: OnceCell<VWeak<ItemTreeVTable, Instance>>,
-    /// Change trackers for the timers (two per timer, first) and the
-    /// `change_callbacks` (in declaration order, after).
+    /// One change tracker per entry of the LLR `change_callbacks`.
     pub change_trackers: Vec<ChangeTracker>,
-    /// Per-sub-component runtime `Timer`s, one per `SubComponent::timers`
-    /// entry. Owned here so they stay alive with the instance; their
-    /// lifecycle (start / stop / interval) is driven by a change tracker
-    /// that re-evaluates the LLR `running` / `interval` expressions.
+    /// One runtime `Timer` per `SubComponent::timers` entry.
     pub timers: Vec<i_slint_core::timers::Timer>,
     /// One entry per `SubComponent::popup_windows`. Stores the currently
     /// open popup's id (handed out by `WindowInner::show_popup`) so a
@@ -236,7 +232,7 @@ pub struct Instance {
     pub window_attached: OnceCell<()>,
     window_attachment_disabled: bool,
     /// Set once `bindings::install_bindings_only` has wired up property
-    /// bindings, two-way links and timers. Idempotent on repeated calls.
+    /// bindings, two-way links and change trackers. Idempotent on repeated calls.
     pub bindings_installed: OnceCell<()>,
     /// Set once the user-facing `init_code` has run on this instance. Kept
     /// separate from `bindings_installed` so the listview-virtualization
@@ -250,11 +246,6 @@ pub struct Instance {
     /// `parent_node` uses this to let coordinate-mapping helpers walk up
     /// into the outer tree.
     pub embedded_in: OnceCell<(VWeak<ItemTreeVTable>, u32)>,
-    /// `TypeLoader` snapshots (post-pass + pre-pass) kept around for the
-    /// highlight module and the LSP live preview's `DocumentCache`
-    /// reconstruction. Both sides are `None` on sub-tree / popup / repeated
-    /// instances — only the top-level definition sets them.
-    pub type_loaders: crate::component::TypeLoaders,
 }
 
 impl Drop for Instance {
@@ -630,7 +621,6 @@ impl Instance {
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: PublicComponentIdx,
         window_adapter: i_slint_core::window::WindowAdapterRc,
-        type_loaders: crate::component::TypeLoaders,
         resources: Rc<crate::component::Resources>,
     ) -> VRc<ItemTreeVTable, Instance> {
         let context =
@@ -639,7 +629,6 @@ impl Instance {
             compilation_unit,
             public_component_index,
             Some(window_adapter),
-            type_loaders,
             resources,
             None,
             context,
@@ -652,7 +641,6 @@ impl Instance {
     pub fn new_with_context(
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: PublicComponentIdx,
-        type_loaders: crate::component::TypeLoaders,
         resources: Rc<crate::component::Resources>,
         context: SlintContext,
     ) -> VRc<ItemTreeVTable, Instance> {
@@ -660,7 +648,6 @@ impl Instance {
             compilation_unit,
             public_component_index,
             None,
-            type_loaders,
             resources,
             None,
             context,
@@ -673,7 +660,6 @@ impl Instance {
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: PublicComponentIdx,
         window_adapter: i_slint_core::window::WindowAdapterRc,
-        type_loaders: crate::component::TypeLoaders,
         resources: Rc<crate::component::Resources>,
     ) -> VRc<ItemTreeVTable, Instance> {
         let context =
@@ -682,7 +668,6 @@ impl Instance {
             compilation_unit,
             public_component_index,
             Some(window_adapter),
-            type_loaders,
             resources,
             None,
             context,
@@ -697,7 +682,6 @@ impl Instance {
     pub fn new_embedded(
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: PublicComponentIdx,
-        type_loaders: crate::component::TypeLoaders,
         resources: Rc<crate::component::Resources>,
         parent: vtable::VWeak<ItemTreeVTable>,
         parent_item_tree_index: u32,
@@ -710,7 +694,6 @@ impl Instance {
             compilation_unit,
             public_component_index,
             None,
-            type_loaders,
             resources,
             Some((parent, parent_item_tree_index)),
             context,
@@ -724,7 +707,6 @@ impl Instance {
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: PublicComponentIdx,
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
-        type_loaders: crate::component::TypeLoaders,
         resources: Rc<crate::component::Resources>,
         embedded_in: Option<(vtable::VWeak<ItemTreeVTable>, u32)>,
         context: SlintContext,
@@ -739,7 +721,6 @@ impl Instance {
             Weak::new(),
             globals,
             Some(public_component_index),
-            type_loaders,
             disable_window_attachment,
         );
         if let Some(adapter) = window_adapter {
@@ -773,15 +754,8 @@ impl Instance {
         repeater_idx: RepeatedElementIdx,
         globals: Rc<GlobalStorage>,
     ) -> VRc<ItemTreeVTable, Instance> {
-        let vrc = build_instance(
-            &compilation_unit,
-            item_tree,
-            parent.clone(),
-            globals,
-            None,
-            Default::default(),
-            false,
-        );
+        let vrc =
+            build_instance(&compilation_unit, item_tree, parent.clone(), globals, None, false);
         let _ = vrc.root_sub_component.repeated_in.set((parent, repeater_idx));
         vrc
     }
@@ -795,15 +769,7 @@ impl Instance {
         parent: Weak<SubComponentInstance>,
         globals: Rc<GlobalStorage>,
     ) -> VRc<ItemTreeVTable, Instance> {
-        build_instance(
-            &compilation_unit,
-            item_tree,
-            parent,
-            globals,
-            None,
-            Default::default(),
-            false,
-        )
+        build_instance(&compilation_unit, item_tree, parent, globals, None, false)
     }
 }
 
@@ -820,7 +786,6 @@ fn build_instance(
     parent: Weak<SubComponentInstance>,
     globals: Rc<GlobalStorage>,
     public_component_index: Option<PublicComponentIdx>,
-    type_loaders: crate::component::TypeLoaders,
     disable_window_attachment: bool,
 ) -> VRc<ItemTreeVTable, Instance> {
     let parent_for_root = parent.clone();
@@ -845,7 +810,6 @@ fn build_instance(
         bindings_installed: OnceCell::new(),
         init_code_run: OnceCell::new(),
         embedded_in: OnceCell::new(),
-        type_loaders,
     });
     let weak = VRc::downgrade(&vrc);
     let _ = vrc.self_weak.set(weak.clone());
@@ -879,8 +843,8 @@ pub(crate) fn finalize_instance(vrc: &VRc<ItemTreeVTable, Instance>) {
     crate::bindings::run_init_code_for_instance(vrc);
 }
 
-/// Everything [`finalize_instance`] does except running `init_code`:
-/// `Item::init()`, bindings, two-way links and timers.
+/// Everything [`finalize_instance`] does except running `init_code` and starting the timers:
+/// `Item::init()`, bindings, two-way links and change trackers.
 pub(crate) fn init_items_and_bindings(vrc: &VRc<ItemTreeVTable, Instance>) {
     if vrc.bindings_installed.get().is_some() {
         return;
@@ -966,7 +930,7 @@ fn build_sub_component_instance(
             parent,
             root: OnceCell::new(),
             change_trackers: core::iter::repeat_with(ChangeTracker::default)
-                .take(2 * sc.timers.len() + sc.change_callbacks.len())
+                .take(sc.change_callbacks.len())
                 .collect(),
             timers: core::iter::repeat_with(Default::default).take(sc.timers.len()).collect(),
             popup_ids: vec![Cell::new(None); sc.popup_windows.len()],

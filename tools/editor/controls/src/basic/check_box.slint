@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { CheckmarkIcon } from "../../../ui/icons/stroked-icons.slint";
 import { CheckBoxBase } from "../headless.slint";
 import { FocusOutline } from "focus_outline.slint";
 import { BasicTheme } from "theme.slint";
@@ -140,29 +141,13 @@ export component CheckBox inherits CheckBoxBase {
             border-width: root.indicator-border-width;
             border-radius: root.indicator-radius;
 
-            if root.checked: Path {
+            if root.checked: CheckmarkIcon {
                 x: root.checkmark-padding;
                 y: root.checkmark-padding;
                 width: max(0px, parent.width - 2 * root.checkmark-padding);
                 height: max(0px, parent.height - 2 * root.checkmark-padding);
-                viewbox-width: 16;
-                viewbox-height: 16;
                 stroke: root.state-style.checkmark-color;
                 stroke-width: root.checkmark-width;
-                MoveTo {
-                    x: 2;
-                    y: 8;
-                }
-
-                LineTo {
-                    x: 6;
-                    y: 12;
-                }
-
-                LineTo {
-                    x: 14;
-                    y: 4;
-                }
             }
 
             focus-outline := FocusOutline {

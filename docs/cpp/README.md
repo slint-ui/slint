@@ -100,6 +100,7 @@ Validated locally (Doxygen 1.9.8 + `pnpm`): the pipeline builds 79 pages and
 Starlight reports all internal links valid.
 
 Remaining:
+
 - **Doxygen strictness**: the `Doxyfile` sets `WARN_AS_ERROR = NO` because the
   public headers have two pre-existing, benign Doxygen quirks (a template
   constructor out-of-line match in `slint-interpreter.h` and a documented

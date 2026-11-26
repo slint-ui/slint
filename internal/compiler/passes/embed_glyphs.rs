@@ -127,8 +127,8 @@ pub fn embed_glyphs(
             .chain('A'..='Z')
             .chain('0'..='9')
             .chain(" '!\"#$%&()*+,-./:;<=>?@\\[]{}^_|~".chars())
-            .chain(std::iter::once('●'))
-            .chain(std::iter::once('…')),
+            .chain("●…".chars())
+            .chain(i_slint_common::styled_text::LIST_BULLETS),
     );
 
     if let Ok(sizes_str) = std::env::var("SLINT_FONT_SIZES") {
@@ -246,7 +246,10 @@ pub fn embed_glyphs(
                             }
                         };
                         font_paths.insert(query_font.family.0, path.clone());
-                        default_fonts.push((path.clone(), query_font));
+                        // Several exported components with the same default font share one embedded copy.
+                        if !default_fonts.iter().any(|(_, f)| f.family.0 == query_font.family.0) {
+                            default_fonts.push((path.clone(), query_font));
+                        }
                     }
                 }
             }
@@ -385,24 +388,27 @@ fn embed_font(
 ) -> BitmapFont {
     let coords_i16: Vec<i16> = normalized_coords.iter().map(|c| c.to_bits()).collect();
 
-    let character_map: Vec<char> = character_coverage
-        .filter(|code_point| {
-            core::iter::once(&font)
-                .chain(fallback_fonts.iter())
-                .any(|font| swash_font_ref(font).charmap().map(*code_point) != 0)
+    // Each character that a font has, with its glyph in the first such font.
+    let (character_map, mut glyph_sources): (Vec<char>, Vec<(&Font, u16)>) = character_coverage
+        .filter(|code_point| !code_point.is_control())
+        .filter_map(|code_point| {
+            core::iter::once(&font).chain(fallback_fonts.iter()).find_map(|font| {
+                let glyph_id = swash_font_ref(font).charmap().map(code_point);
+                (glyph_id != 0).then_some((code_point, (font, glyph_id)))
+            })
         })
-        .collect();
-    assert!(character_map.len() <= u16::MAX as usize, "more than 65535 glyphs are not supported");
+        .unzip();
+    assert!(character_map.len() < u16::MAX as usize, "more than 65534 glyphs are not supported");
+    glyph_sources.insert(0, (&font, 0));
 
     #[cfg(feature = "sdf-fonts")]
     let glyphs = if _compiler_config.use_sdf_fonts {
-        embed_sdf_glyphs(pixel_sizes, &character_map, &font, fallback_fonts, _variations)
+        embed_sdf_glyphs(pixel_sizes, &glyph_sources, _variations)
     } else {
-        embed_alpha_map_glyphs(pixel_sizes, &character_map, &font, fallback_fonts, &coords_i16)
+        embed_alpha_map_glyphs(pixel_sizes, &glyph_sources, &coords_i16)
     };
     #[cfg(not(feature = "sdf-fonts"))]
-    let glyphs =
-        embed_alpha_map_glyphs(pixel_sizes, &character_map, &font, fallback_fonts, &coords_i16);
+    let glyphs = embed_alpha_map_glyphs(pixel_sizes, &glyph_sources, &coords_i16);
 
     let font_ref = skrifa::FontRef::from_index(font.font.blob.data(), font.font.index).unwrap();
     let location = skrifa::instance::LocationRef::new(normalized_coords);
@@ -431,9 +437,7 @@ fn embed_font(
 #[cfg(not(target_arch = "wasm32"))]
 fn embed_alpha_map_glyphs(
     pixel_sizes: &[i16],
-    character_map: &[char],
-    font: &Font,
-    fallback_fonts: &[Font],
+    glyph_sources: &[(&Font, u16)],
     normalized_coords: &[i16],
 ) -> Vec<BitmapGlyphs> {
     use rayon::prelude::*;
@@ -447,16 +451,10 @@ fn embed_alpha_map_glyphs(
     pixel_sizes
         .par_iter()
         .map(|pixel_size| {
-            let glyph_data = character_map
+            let glyph_data = glyph_sources
                 .par_iter()
-                .map(|code_point| {
-                    let font_to_use = core::iter::once(font)
-                        .chain(fallback_fonts.iter())
-                        .find(|f| swash_font_ref(f).charmap().map(*code_point) != 0)
-                        .unwrap_or(font);
-
+                .map(|&(font_to_use, glyph_id)| {
                     let font_ref = swash_font_ref(font_to_use);
-                    let glyph_id = font_ref.charmap().map(*code_point);
                     let gm = font_ref.glyph_metrics(normalized_coords);
                     let fm = font_ref.metrics(normalized_coords);
                     let scale = *pixel_size as f32 / fm.units_per_em as f32;
@@ -511,9 +509,7 @@ fn embed_alpha_map_glyphs(
 #[cfg(all(not(target_arch = "wasm32"), feature = "sdf-fonts"))]
 fn embed_sdf_glyphs(
     pixel_sizes: &[i16],
-    character_map: &[char],
-    font: &Font,
-    fallback_fonts: &[Font],
+    glyph_sources: &[(&Font, u16)],
     variations: &[(skrifa::Tag, f32)],
 ) -> Vec<BitmapGlyphs> {
     use rayon::prelude::*;
@@ -526,25 +522,10 @@ fn embed_sdf_glyphs(
     let min_size = pixel_sizes.iter().min().expect("we have a 'max' so the vector is not empty");
     let target_pixel_size = (max_size * 2 / 3).max(16).min(RANGE as i16 * min_size);
 
-    let glyph_data = character_map
+    let glyph_data = glyph_sources
         .par_iter()
-        .map(|code_point| {
-            core::iter::once(font)
-                .chain(fallback_fonts.iter())
-                .find_map(|font| {
-                    (swash_font_ref(font).charmap().map(*code_point) != 0).then(|| {
-                        generate_sdf_for_glyph(
-                            font,
-                            *code_point,
-                            target_pixel_size,
-                            RANGE,
-                            variations,
-                        )
-                    })
-                })
-                .unwrap_or_else(|| {
-                    generate_sdf_for_glyph(font, *code_point, target_pixel_size, RANGE, variations)
-                })
+        .map(|&(font, glyph_id)| {
+            generate_sdf_for_glyph(font, glyph_id, target_pixel_size, RANGE, variations)
                 .unwrap_or_default()
         })
         .collect::<Vec<_>>();
@@ -555,7 +536,7 @@ fn embed_sdf_glyphs(
 #[cfg(all(not(target_arch = "wasm32"), feature = "sdf-fonts"))]
 fn generate_sdf_for_glyph(
     font: &Font,
-    code_point: char,
+    glyph_id: u16,
     target_pixel_size: i16,
     range: f64,
     variations: &[(skrifa::Tag, f32)],
@@ -571,7 +552,7 @@ fn generate_sdf_for_glyph(
             value,
         );
     }
-    let glyph_id = face.glyph_index(code_point).unwrap_or_default();
+    let glyph_id = fdsm_ttf_parser::ttf_parser::GlyphId(glyph_id);
 
     let font_ref = skrifa::FontRef::from_index(font.font.blob.data(), font.font.index).unwrap();
     let variation_settings: Vec<_> =

@@ -6,9 +6,9 @@ use std::{ffi::OsString, pin::Pin};
 use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewToLspMessage, pairing};
 use tokio::sync::{mpsc, oneshot};
 
-use super::LocalPreviewConfig;
 use super::discovery::RemoteViewer;
 use super::remote_connection::{self, ConnectionEvent, DialError, RemoteConnection};
+use super::{DebuggerEvent, LocalPreviewConfig};
 use crate::{
     child_process::ChildProcessLspToPreview,
     remote_authentication::{PairingAnswer, PairingCredentials, PairingPrompt},
@@ -39,10 +39,25 @@ pub(super) struct Connection {
     pub(super) pairing_code_length: Option<u8>,
     pub(super) error: String,
     preview: Option<ActivePreview>,
+    end_notice: Option<EndNotice>,
+}
+
+/// Sends [`DebuggerEvent::PreviewEnded`] when dropped with its preview,
+/// so the debugger stops waiting for answers.
+struct EndNotice(mpsc::UnboundedSender<DebuggerEvent>);
+
+impl Drop for EndNotice {
+    fn drop(&mut self) {
+        let _ = self.0.send(DebuggerEvent::PreviewEnded);
+    }
 }
 
 impl Connection {
-    pub(super) fn local(config: &LocalPreviewConfig, arguments: Vec<OsString>) -> Self {
+    pub(super) fn local(
+        config: &LocalPreviewConfig,
+        arguments: Vec<OsString>,
+        to_debugger: mpsc::UnboundedSender<DebuggerEvent>,
+    ) -> Self {
         let (sender, receiver) = mpsc::unbounded_channel();
         let preview = ChildProcessLspToPreview::new(config.executable.clone(), arguments, sender)
             .with_started_callback(config.on_started.clone());
@@ -50,6 +65,7 @@ impl Connection {
             Ok(()) => Self {
                 state: ui::ConnectionState::Connected,
                 preview: Some(ActivePreview::Local { preview, receiver }),
+                end_notice: Some(EndNotice(to_debugger)),
                 ..Default::default()
             },
             Err(error) => Self {
@@ -60,13 +76,18 @@ impl Connection {
         }
     }
 
-    pub(super) fn remote(viewer: RemoteViewer, credentials: Option<PairingCredentials>) -> Self {
+    pub(super) fn remote(
+        viewer: RemoteViewer,
+        credentials: Option<PairingCredentials>,
+        to_debugger: mpsc::UnboundedSender<DebuggerEvent>,
+    ) -> Self {
         Self {
             state: ui::ConnectionState::Connecting,
             preview: Some(ActivePreview::Remote {
                 connection: RemoteConnection::connect(viewer, credentials),
                 pairing_answer: None,
             }),
+            end_notice: Some(EndNotice(to_debugger)),
             ..Default::default()
         }
     }
@@ -115,6 +136,7 @@ impl Connection {
 
     pub(super) fn fail(&mut self, error: String) {
         self.preview = None;
+        self.end_notice = None;
         self.pairing_code_length = None;
         self.state = ui::ConnectionState::Failed;
         self.error = error;
@@ -204,6 +226,28 @@ impl Connection {
             Some(ActivePreview::Serial { connection, .. }) => connection.send(&message),
             _ => {}
         }
+    }
+
+    /// Sends the debugger's `message` to the preview, once connected.
+    /// Returns why it wasn't sent.
+    /// Sends a `Debugger` or `DebuggerNotification` message to the running preview.
+    pub(super) fn send_debugger_message(&self, message: LspToPreviewMessage) -> Result<(), String> {
+        match &self.preview {
+            Some(ActivePreview::Local { preview, .. }) => preview.send_running(&message),
+            Some(ActivePreview::Remote { connection, .. })
+                if self.state == ui::ConnectionState::Connected =>
+            {
+                connection.send(message)
+            }
+            Some(ActivePreview::Remote { .. }) => {
+                return Err("The viewer isn't connected yet".into());
+            }
+            Some(ActivePreview::Serial { .. }) => {
+                return Err("Serial previews don't answer debugger requests".into());
+            }
+            None => return Err("No preview is running".into()),
+        }
+        Ok(())
     }
 }
 

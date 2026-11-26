@@ -16,7 +16,7 @@ This automatically builds the `slint-python` shared library via maturin if neede
 
 The Rust test driver (`tests/driver/python/python.rs`) processes `.slint` test cases from `tests/cases/`:
 
-1. **Compiles the `.slint` file** using `OutputFormat::Python` (via `compile_syntax_node` + `generator::generate`). This goes through LLR lowering and generates a `.py` file.
+1. **Compiles the `.slint` file** using `OutputFormat::Python` (via `compile_source` + `generator::generate`). This goes through LLR lowering and generates a `.py` file.
 
 2. **Runs the generated `.py` file** as a subprocess using `uv run`. The subprocess loads the `slint` Python module, which re-compiles the `.slint` source using `slint-interpreter` (with full inlining enabled).
 

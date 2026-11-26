@@ -1,11 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { EditorCursors } from "../cursors/index.slint";
 import { Style, Colors, Metrics, SelectionFrameStyle } from "../style.slint";
 // cspell:ignore nesw
 import { Api, CanvasCorner, Geometry, ResizeHandle } from "../api.slint";
-import { EditorCursors } from "index.slint";
-
 
 export component MoveResizeFrame inherits Rectangle {
     in property <SelectionFrameStyle> style: Style.selection-frame;

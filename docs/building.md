@@ -134,7 +134,8 @@ The repository is split into several Cargo workspaces that all share the same
 
 - the root workspace contains the library and tool crates,
 - `examples/`, `demos/` and `tests/` each contain their respective crates,
-- `ui-libraries/material/` contains the material library and its gallery.
+- `ui-libraries/material/` contains the material library and its gallery,
+- `editors/zed/` contains the Zed extension, which Zed builds with an older Rust than the libraries need.
 
 Keeping the examples, demos and tests out of the root workspace keeps
 rust-analyzer fast when working on the libraries; the shared `target/` directory

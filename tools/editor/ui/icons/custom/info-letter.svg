@@ -1,0 +1,6 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10">
+<circle cx="5" cy="1.75" r="0.8"/>
+<rect x="4.25" y="3.5" width="1.5" height="5.5" rx="0.25"/>
+</svg>

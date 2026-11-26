@@ -7,6 +7,7 @@ description: ListItem content
 `ListItem`
 
 This structure represents a ListItem with a text, supporting text, avatar icon, avatar text, avatar background, avatar foreground, and action icon.
+
 - **`text`** (_string_): The text to display in the item.
 - **`supporting_text`** (_string_): The supporting text to display in the item.
 - **`avatar-icon`** (_image_): The avatar icon to display in the item.

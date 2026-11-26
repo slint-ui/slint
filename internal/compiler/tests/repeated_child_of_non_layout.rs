@@ -15,10 +15,11 @@ use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
 /// Every diagnostic compiling `source` produces, at any level.
 fn diagnostics(source: &str, edition: Option<SlintEdition>) -> Vec<String> {
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parse(source.into(), None, &mut diag);
+    let syntax_node = parse(source.into(), None, edition, &mut diag);
     let mut config = CompilerConfiguration::new(OutputFormat::Llr);
     config.edition = edition;
-    let (_doc, diag, _loader) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, config));
+    let (_doc, diag, _loader) =
+        i_slint_compiler::poll_ready(compile_syntax_node(syntax_node, diag, config));
     diag.to_string_vec()
 }
 

@@ -1,0 +1,329 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// When the target of focus() refuses the focus, the focus moves on as with tabbing (issue #14893).
+
+import { Button, LineEdit } from "std-widgets.slint";
+
+global FocusLog {
+    in-out property <bool> all-disabled;
+    in-out property <string> focused;
+    in-out property <FocusReason> reason;
+}
+
+component Scope inherits FocusScope {
+    in property <string> name;
+    enabled: !FocusLog.all-disabled;
+    focus-gained(reason) => {
+        FocusLog.focused = name;
+        FocusLog.reason = reason;
+    }
+    focus-lost(reason) => {
+        if (FocusLog.focused == name) {
+            FocusLog.focused = "";
+        }
+    }
+}
+
+component Panel {
+    forward-focus: refuses;
+    refuses := Scope {
+        name: "panel-refuses";
+        enabled: false;
+    }
+
+    Rectangle {
+        visible: false;
+        Scope {
+            name: "panel-hidden";
+        }
+    }
+}
+
+component Inner {
+    Scope {
+        name: "inner";
+    }
+}
+
+component Outer {
+    Rectangle {
+        Inner { }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+
+    in property <bool> all-disabled <=> FocusLog.all-disabled;
+    out property <FocusReason> reason: FocusLog.reason;
+    out property <string> focused: edit.has-focus ? "edit"
+        : hidden-edit.has-focus ? "hidden-edit"
+        : FocusLog.focused;
+
+    public function focus-first() {
+        first.focus();
+    }
+    public function focus-disabled-a() {
+        disabled-a.focus();
+    }
+    public function focus-disabled-b() {
+        disabled-b.focus();
+    }
+    public function focus-disabled-c() {
+        disabled-c.focus();
+    }
+    public function focus-panel() {
+        panel.focus();
+    }
+    public function focus-disabled-d() {
+        disabled-d.focus();
+    }
+    public function focus-disabled-e() {
+        disabled-e.focus();
+    }
+    public function focus-save() {
+        save.focus();
+    }
+    public function focus-disabled-last() {
+        disabled-last.focus();
+    }
+
+    first := Scope {
+        name: "first";
+    }
+
+    disabled-a := Scope {
+        enabled: false;
+    }
+
+    Scope {
+        name: "no-tab";
+        focus-on-tab-navigation: false;
+    }
+
+    Rectangle {
+        visible: false;
+        Rectangle {
+            Scope {
+                name: "hidden-deep";
+            }
+        }
+    }
+
+    Scope {
+        name: "after-hidden";
+    }
+
+    disabled-b := Scope {
+        enabled: false;
+    }
+
+    Flickable {
+        y: 100px;
+        height: 40px;
+        viewport-height: 400px;
+
+        Scope {
+            name: "hidden-in-flick";
+            height: 20px;
+            visible: false;
+        }
+
+        // Scrolled out of view
+        Scope {
+            name: "in-flick";
+            y: 300px;
+            height: 20px;
+        }
+    }
+
+    disabled-c := Scope {
+        enabled: false;
+    }
+
+    Flickable {
+        y: 150px;
+        height: 40px;
+        viewport-height: 400px;
+
+        // Scrolled out of view, with the item scrolled out of its view too
+        Flickable {
+            y: 200px;
+            height: 40px;
+            viewport-height: 400px;
+
+            Scope {
+                name: "in-nested-flick";
+                y: 300px;
+                height: 20px;
+            }
+        }
+    }
+
+    panel := Panel { }
+
+    Panel {
+        visible: false;
+    }
+
+    Outer { }
+
+    disabled-d := Scope {
+        enabled: false;
+    }
+
+    if false: Scope {
+        name: "if-false";
+    }
+
+    if true: Rectangle {
+        visible: false;
+        Scope {
+            name: "hidden-in-if";
+        }
+    }
+
+    if true: Scope {
+        name: "in-if";
+    }
+
+    disabled-e := Scope {
+        enabled: false;
+    }
+
+    for i in 4: Scope {
+        name: "for-" + i;
+        enabled: i != 0 && !FocusLog.all-disabled;
+        visible: i != 1;
+    }
+
+    save := Button {
+        enabled: false;
+    }
+
+    hidden-edit := LineEdit {
+        visible: false;
+        enabled: !FocusLog.all-disabled;
+    }
+
+    edit := LineEdit {
+        enabled: !FocusLog.all-disabled;
+    }
+
+    disabled-last := Scope {
+        enabled: false;
+    }
+}
+
+/*
+```rust
+use slint::private_unstable_api::re_exports::FocusReason;
+
+let instance = TestCase::new().unwrap();
+
+instance.invoke_focus_first();
+assert_eq!(instance.get_focused(), "first");
+assert_eq!(instance.get_reason(), FocusReason::Programmatic);
+
+// Skips an item that opted out of tabbing, and one hidden two levels up
+instance.invoke_focus_disabled_a();
+assert_eq!(instance.get_focused(), "after-hidden");
+assert_eq!(instance.get_reason(), FocusReason::TabNavigation);
+
+// Skips an item hidden inside a Flickable, but not one the Flickable scrolled out of view
+instance.invoke_focus_disabled_b();
+assert_eq!(instance.get_focused(), "in-flick");
+assert_eq!(instance.get_reason(), FocusReason::TabNavigation);
+
+instance.invoke_focus_disabled_c();
+assert_eq!(instance.get_focused(), "in-nested-flick");
+assert_eq!(instance.get_reason(), FocusReason::TabNavigation);
+
+// Through forward-focus into a sub-component, past items hidden in it and a hidden instance of it,
+// into a sub-component nested in another one
+instance.invoke_focus_panel();
+assert_eq!(instance.get_focused(), "inner");
+assert_eq!(instance.get_reason(), FocusReason::TabNavigation);
+
+// Past a false `if` and a hidden item in a true one
+instance.invoke_focus_disabled_d();
+assert_eq!(instance.get_focused(), "in-if");
+assert_eq!(instance.get_reason(), FocusReason::TabNavigation);
+
+// Past a disabled and a hidden repeated item
+instance.invoke_focus_disabled_e();
+assert_eq!(instance.get_focused(), "for-2");
+assert_eq!(instance.get_reason(), FocusReason::TabNavigation);
+
+// From a disabled Button past a hidden LineEdit
+instance.invoke_focus_save();
+assert_eq!(instance.get_focused(), "edit");
+
+// Wraps around to the first item
+instance.invoke_focus_disabled_last();
+assert_eq!(instance.get_focused(), "first");
+assert_eq!(instance.get_reason(), FocusReason::TabNavigation);
+
+// Ends without focus when no item accepts it
+instance.set_all_disabled(true);
+instance.invoke_focus_disabled_a();
+assert_eq!(instance.get_focused(), "");
+```
+
+```cpp
+using slint::cbindgen_private::FocusReason;
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+instance.invoke_focus_first();
+assert_eq(instance.get_focused(), "first");
+assert(instance.get_reason() == FocusReason::Programmatic);
+
+// Skips an item that opted out of tabbing, and one hidden two levels up
+instance.invoke_focus_disabled_a();
+assert_eq(instance.get_focused(), "after-hidden");
+assert(instance.get_reason() == FocusReason::TabNavigation);
+
+// Skips an item hidden inside a Flickable, but not one the Flickable scrolled out of view
+instance.invoke_focus_disabled_b();
+assert_eq(instance.get_focused(), "in-flick");
+assert(instance.get_reason() == FocusReason::TabNavigation);
+
+instance.invoke_focus_disabled_c();
+assert_eq(instance.get_focused(), "in-nested-flick");
+assert(instance.get_reason() == FocusReason::TabNavigation);
+
+// Through forward-focus into a sub-component, past items hidden in it and a hidden instance of it,
+// into a sub-component nested in another one
+instance.invoke_focus_panel();
+assert_eq(instance.get_focused(), "inner");
+assert(instance.get_reason() == FocusReason::TabNavigation);
+
+// Past a false `if` and a hidden item in a true one
+instance.invoke_focus_disabled_d();
+assert_eq(instance.get_focused(), "in-if");
+assert(instance.get_reason() == FocusReason::TabNavigation);
+
+// Past a disabled and a hidden repeated item
+instance.invoke_focus_disabled_e();
+assert_eq(instance.get_focused(), "for-2");
+assert(instance.get_reason() == FocusReason::TabNavigation);
+
+// From a disabled Button past a hidden LineEdit
+instance.invoke_focus_save();
+assert_eq(instance.get_focused(), "edit");
+
+// Wraps around to the first item
+instance.invoke_focus_disabled_last();
+assert_eq(instance.get_focused(), "first");
+assert(instance.get_reason() == FocusReason::TabNavigation);
+
+// Ends without focus when no item accepts it
+instance.set_all_disabled(true);
+instance.invoke_focus_disabled_a();
+assert_eq(instance.get_focused(), "");
+```
+*/

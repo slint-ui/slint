@@ -119,7 +119,7 @@ pub struct PathQuadraticTo {
     pub control_y: f32,
 }
 
-#[repr(C)]
+#[repr(C, u8)]
 #[derive(Clone, Debug, PartialEq, derive_more::From)]
 /// PathElement describes a single element on a path, such as move-to, line-to, etc.
 pub enum PathElement {
@@ -342,7 +342,7 @@ impl FittedPath {
     }
 }
 
-#[repr(C)]
+#[repr(C, u8)]
 #[derive(Clone, Debug, PartialEq)]
 /// PathData represents a path described by either high-level elements or low-level
 /// events and coordinates.

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../../icons/index.slint";
 import { Properties, FillData, BrushKind, GradientStop, GradientStopOrder } from "../../properties.slint";
 
 import { Style, Metrics, Colors, Typography, GradientStopsStyle } from "../../style.slint";
@@ -11,7 +12,6 @@ import { InspectorTextFieldBase } from "text-field-base.slint";
 import { InspectorSegment } from "segment.slint";
 import { EditorScrollView } from "../editor-scroll-view.slint";
 import { EditorGradientStopMarker } from "../gradient-stop-marker.slint";
-
 
 export component InspectorGradientStops inherits Rectangle {
     in property <GradientStopsStyle> style: Style.gradient-stops;
@@ -132,7 +132,7 @@ export component InspectorGradientStops inherits Rectangle {
             Text { text: @tr("Stops"); color: Colors.foreground; font-size: Typography.control.size; font-weight: FontWeight.semi-bold; vertical-alignment: center; }
             Rectangle { horizontal-stretch: 1; }
             InspectorSegment {
-                width: root.style.action-width; kind: "text"; label: "+";
+                width: root.style.action-width; icon: Icons.plus; label: @tr("Add gradient stop");
                 accessible-label: @tr("Add gradient stop");
                 clicked => { FillSession.add-stop-position(Properties.gradient-stop-gap(root.value.stops).clamp(0, 1)); }
             }
@@ -197,7 +197,7 @@ export component InspectorGradientStops inherits Rectangle {
                             remove-requested => { FillSession.remove-stop(index); }
                         }
                         if root.value.stops.length > 1: InspectorSegment {
-                            width: root.style.action-width; kind: "text"; label: "−";
+                            width: root.style.action-width; icon: Icons.minus; label: @tr("Remove stop {}", index + 1);
                             accessible-label: @tr("Remove stop {}", index + 1);
                             clicked => { FillSession.remove-stop(index); }
                         }

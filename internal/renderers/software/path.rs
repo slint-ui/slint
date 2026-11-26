@@ -4,7 +4,8 @@
 //! Path rendering support for the software renderer using zeno
 
 use super::PhysicalRect;
-use super::draw_functions::{LineClip, PremultipliedRgbaColor, TargetPixel, interpolate_color};
+use super::draw_functions::{LineClip, interpolate_color};
+use super::target_pixel::{PremultipliedRgbaColor, TargetPixel};
 use super::{
     AnyGradientCommand, PhysicalLength, PhysicalRegion, RoundedClip, ShapeClip, shape_clips,
 };
@@ -281,13 +282,13 @@ pub fn render_filled_path<T: TargetPixel>(
     );
 }
 
-#[derive(Clone, Copy)]
-pub struct StrokeStyle<'a> {
+#[derive(Clone)]
+pub struct StrokeStyle {
     pub width: f32,
     pub line_cap: i_slint_core::items::LineCap,
     pub line_join: i_slint_core::items::LineJoin,
     pub miter_limit: f32,
-    pub dash_array: &'a [f32],
+    pub dash_array: Vec<f32>,
     pub dash_offset: f32,
 }
 
@@ -308,7 +309,7 @@ pub fn render_stroked_path<T: TargetPixel>(
     rounded_clips: &[RoundedClip],
     clips: &mut Vec<ShapeClip>,
     paint: &Paint,
-    stroke_style: StrokeStyle<'_>,
+    stroke_style: &StrokeStyle,
     buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
     let mut stroke = Stroke::new(stroke_style.width);
@@ -324,7 +325,7 @@ pub fn render_stroked_path<T: TargetPixel>(
             i_slint_core::items::LineJoin::Miter | _ => Join::Miter,
         })
         .miter_limit(stroke_style.miter_limit)
-        .dash(stroke_style.dash_array, stroke_style.dash_offset);
+        .dash(&stroke_style.dash_array, stroke_style.dash_offset);
 
     let style = Style::Stroke(stroke);
     render_path_with_style(

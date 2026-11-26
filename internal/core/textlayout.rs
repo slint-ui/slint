@@ -54,7 +54,7 @@ mod shaping;
 /// cbindgen:ignore
 pub mod sharedparley;
 use shaping::ShapeBuffer;
-pub use shaping::{AbstractFont, CheckedAdd, DivCount, FontMetrics, Glyph, TextShaper};
+pub use shaping::{AbstractFont, CheckedAdd, DivCount, FontMetrics, Glyph, MulCount, TextShaper};
 
 mod linebreaker;
 pub use linebreaker::TextLine;
@@ -106,7 +106,7 @@ impl<Font: AbstractFont> TextLayout<'_, Font> {
         Font::Length: core::fmt::Debug,
     {
         let mut max_line_width = Font::Length::zero();
-        let mut line_count: i16 = 0;
+        let mut line_count = 0;
         let shape_buffer = ShapeBuffer::new(self, text);
 
         for line in
@@ -116,7 +116,7 @@ impl<Font: AbstractFont> TextLayout<'_, Font> {
             line_count += 1;
         }
 
-        (max_line_width, self.line_height() * line_count.into())
+        (max_line_width, self.line_height().mul_count(line_count))
     }
 
     // The min- and max-content width: the width of the widest chunk that cannot be broken
@@ -234,8 +234,8 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
             if self.single_line {
                 line_height
             } else {
-                text_lines = Some(new_line_break_iter().collect::<Vec<_>>());
-                line_height * (text_lines.as_ref().unwrap().len() as i16).into()
+                let lines = text_lines.insert(new_line_break_iter().collect::<Vec<_>>());
+                line_height.mul_count(lines.len())
             }
         };
 

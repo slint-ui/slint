@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../icons/index.slint";
 import { InputSurface } from "input-surface.slint";
 import { ButtonBase } from "../../controls/src/headless.slint";
 import { Metrics } from "../style.slint";
@@ -215,7 +216,7 @@ export component EditorInput inherits InputSurface {
                 content << Image {
                     width: Metrics.icon-medium;
                     height: self.width;
-                    source: @image-url("../assets/lucide/x.svg");
+                    source: Icons.x;
                     colorize: root.paint.foreground;
                 }
                 clicked => {

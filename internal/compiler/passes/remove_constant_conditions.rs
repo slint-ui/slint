@@ -133,10 +133,11 @@ export component Foo {
 "#
         .into(),
         Some(crate::source_path::SourcePath::new("test.slint")),
+        None,
         &mut test_diags,
     );
     let (doc, diag, _) =
-        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
+        crate::poll_ready(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
     assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
 
     let foo = doc.inner_components.iter().find(|c| c.id == "Foo").unwrap();

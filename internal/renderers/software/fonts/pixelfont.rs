@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::PhysicalLength;
 use crate::fixed::Fixed;
+use crate::{PhysicalLength, TextLength};
 use core::ops::Deref;
 use i_slint_core::graphics::{BitmapFont, BitmapGlyphs, StaticStorage, Storage};
 use i_slint_core::textlayout::{FontMetrics, Glyph, TextShaper};
@@ -23,7 +23,7 @@ impl FontStorage for StaticStorage {
 
 #[cfg(feature = "owned-pre-rendered-resources")]
 impl FontStorage for i_slint_core::graphics::OwnedStorage {
-    type Font = alloc::rc::Rc<BitmapFont<Self>>;
+    type Font = i_slint_core::shared_pointer::SharedPtr<BitmapFont<Self>>;
     fn alpha_map(font: &Self::Font, glyph_set: usize, glyph: usize) -> GlyphAlphaMap {
         GlyphAlphaMap::Shared {
             font: font.clone(),
@@ -32,6 +32,8 @@ impl FontStorage for i_slint_core::graphics::OwnedStorage {
         }
     }
 }
+
+const NOTDEF_GLYPH_INDEX: usize = 0;
 
 /// A bitmap font that is resolved to a specific pixel size.
 pub struct PixelFont<S: FontStorage = StaticStorage> {
@@ -68,20 +70,19 @@ impl<S: FontStorage> PixelFont<S> {
     }
 
     fn glyph_index(&self, ch: char) -> Option<usize> {
-        self.font.character_map.binary_search(&ch).ok()
+        self.font.character_map.binary_search(&ch).ok().map(|index| index + 1)
     }
 
-    fn x_advance(&self, glyph_index: usize) -> PhysicalLength {
+    fn x_advance(&self, glyph_index: usize) -> TextLength {
         let glyphs = self.glyph_set();
         let x_advance = glyphs.glyph_data[glyph_index].x_advance;
-        ((self.pixel_size.cast() * x_advance as i32 / glyphs.pixel_size as i32
+        (self.pixel_size.cast() * x_advance as i32 / glyphs.pixel_size as i32
             + euclid::Length::new(32))
-            / 64)
-            .cast()
+            / 64
     }
 
     /// `metric`, in the design units of the font, at the pixel size.
-    fn scaled(&self, metric: f32) -> PhysicalLength {
+    fn scaled(&self, metric: f32) -> TextLength {
         (self.pixel_size.cast() * metric / self.font.units_per_em).cast()
     }
 }
@@ -134,17 +135,19 @@ impl<S: FontStorage> GlyphRenderer for PixelFont<S> {
 }
 
 impl<S: FontStorage> TextShaper for PixelFont<S> {
-    type LengthPrimitive = i16;
-    type Length = PhysicalLength;
-    fn shape_text<GlyphStorage: core::iter::Extend<Glyph<PhysicalLength>>>(
+    type LengthPrimitive = i32;
+    type Length = TextLength;
+    fn shape_text<GlyphStorage: core::iter::Extend<Glyph<TextLength>>>(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
     ) {
         let glyphs_iter = text.char_indices().map(|(byte_offset, char)| {
-            let glyph_index = self.glyph_index(char);
+            let glyph_index = self
+                .glyph_index(char)
+                .or_else(|| (!char.is_control()).then_some(NOTDEF_GLYPH_INDEX));
             let x_advance = glyph_index
-                .map_or_else(|| self.pixel_size, |glyph_index| self.x_advance(glyph_index));
+                .map_or_else(|| self.pixel_size.cast(), |glyph_index| self.x_advance(glyph_index));
             Glyph {
                 glyph_id: glyph_index.map(Self::glyph_index_to_glyph_id),
                 advance: x_advance,
@@ -155,7 +158,7 @@ impl<S: FontStorage> TextShaper for PixelFont<S> {
         glyphs.extend(glyphs_iter);
     }
 
-    fn glyph_for_char(&self, ch: char) -> Option<Glyph<PhysicalLength>> {
+    fn glyph_for_char(&self, ch: char) -> Option<Glyph<TextLength>> {
         self.glyph_index(ch).map(|glyph_index| Glyph {
             glyph_id: Some(Self::glyph_index_to_glyph_id(glyph_index)),
             advance: self.x_advance(glyph_index),
@@ -165,25 +168,25 @@ impl<S: FontStorage> TextShaper for PixelFont<S> {
     }
 }
 
-impl<S: FontStorage> FontMetrics<PhysicalLength> for PixelFont<S> {
-    fn ascent(&self) -> PhysicalLength {
+impl<S: FontStorage> FontMetrics<TextLength> for PixelFont<S> {
+    fn ascent(&self) -> TextLength {
         self.scaled(self.font.ascent)
     }
 
-    fn descent(&self) -> PhysicalLength {
+    fn descent(&self) -> TextLength {
         self.scaled(self.font.descent)
     }
 
-    fn height(&self) -> PhysicalLength {
+    fn height(&self) -> TextLength {
         // The descent is negative (relative to the baseline)
         self.scaled(self.font.ascent - self.font.descent)
     }
 
-    fn x_height(&self) -> PhysicalLength {
+    fn x_height(&self) -> TextLength {
         self.scaled(self.font.x_height)
     }
 
-    fn cap_height(&self) -> PhysicalLength {
+    fn cap_height(&self) -> TextLength {
         self.scaled(self.font.cap_height)
     }
 }

@@ -1,13 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore BITMAPINFO BITMAPINFOHEADER BOTTOMALIGN Hotspot HSTRING ICONINFO LEFTALIGN NOTIFYICONDATAW PCWSTR RETURNCMD TRAYICON WNDCLASSW
+// cSpell: ignore BITMAPINFO BITMAPINFOHEADER BOTTOMALIGN Hotspot HSTRING ICONINFO LEFTALIGN MSGFLT NOTIFYICONDATAW PCWSTR RETURNCMD TRAYICON WNDCLASSW
 //! Windows system tray backend using the `Shell_NotifyIconW` API directly.
 //!
 //! Everything here runs on the Slint event-loop thread, which on Windows is the
-//! same thread that owns the winit message pump. The hidden message-only window
-//! we create for tray callbacks therefore delivers its messages through the
-//! usual `PeekMessage` loop that winit already spins.
+//! same thread that owns the winit message pump. The hidden window we create
+//! for tray callbacks therefore delivers its messages through the usual
+//! `PeekMessage` loop that winit already spins.
 
 use super::{Error, Params};
 use crate::SharedVector;
@@ -27,16 +27,16 @@ use windows::Win32::Graphics::Gdi::{
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Shell::{
     NIF_ICON, NIF_MESSAGE, NIF_STATE, NIF_TIP, NIM_ADD, NIM_DELETE, NIM_MODIFY, NIS_HIDDEN,
-    NOTIFY_ICON_STATE, NOTIFYICONDATAW, Shell_NotifyIconW,
+    NOTIFY_ICON_MESSAGE, NOTIFY_ICON_STATE, NOTIFYICONDATAW, Shell_NotifyIconW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    AppendMenuW, CreateIconIndirect, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyIcon,
-    DestroyMenu, DestroyWindow, GWLP_USERDATA, GetCursorPos, GetWindowLongPtrW, HICON, HMENU,
-    HWND_MESSAGE, ICONINFO, MF_CHECKED, MF_DISABLED, MF_GRAYED, MF_POPUP, MF_SEPARATOR, MF_STRING,
-    MF_UNCHECKED, PostMessageW, RegisterClassW, RegisterWindowMessageW, SetForegroundWindow,
-    SetWindowLongPtrW, TPM_BOTTOMALIGN, TPM_LEFTALIGN, TPM_RETURNCMD, TPM_RIGHTBUTTON,
-    TrackPopupMenu, WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP, WM_CONTEXTMENU, WM_LBUTTONUP, WM_NULL,
-    WM_RBUTTONUP, WNDCLASSW,
+    AppendMenuW, ChangeWindowMessageFilterEx, CreateIconIndirect, CreatePopupMenu, CreateWindowExW,
+    DefWindowProcW, DestroyIcon, DestroyMenu, DestroyWindow, GWLP_USERDATA, GetCursorPos,
+    GetWindowLongPtrW, HICON, HMENU, ICONINFO, MF_CHECKED, MF_DISABLED, MF_GRAYED, MF_POPUP,
+    MF_SEPARATOR, MF_STRING, MF_UNCHECKED, MSGFLT_ALLOW, PostMessageW, RegisterClassW,
+    RegisterWindowMessageW, SetForegroundWindow, SetWindowLongPtrW, TPM_BOTTOMALIGN, TPM_LEFTALIGN,
+    TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenu, WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP,
+    WM_CONTEXTMENU, WM_LBUTTONUP, WM_NULL, WM_RBUTTONUP, WNDCLASSW,
 };
 use windows::core::{HSTRING, PCWSTR, w};
 
@@ -56,18 +56,37 @@ const TRAY_UID: u32 = 1;
 
 struct Inner {
     hwnd: HWND,
-    // Both `hicon` and `tip` can be replaced via `set_icon` / `set_tooltip`, and
-    // are read on the wnd-proc thread for the `TaskbarCreated` re-add path —
-    // which is the same thread, so a single-threaded interior mutability cell
-    // is sufficient. `HICON` is `Copy`; `HSTRING` is not, so it lives in a
-    // `RefCell`.
     hicon: Cell<HICON>,
     self_weak: ItemWeak,
     hmenu: Cell<Option<HMENU>>,
     tip: RefCell<HSTRING>,
+    visible: Cell<bool>,
 }
 
 impl Inner {
+    // Sends the whole cached state, so any message fully restores the icon.
+    fn notify(&self, message: NOTIFY_ICON_MESSAGE) -> bool {
+        let tip = self.tip.borrow();
+        let mut sz_tip = [0u16; 128];
+        let n = tip.len().min(sz_tip.len() - 1);
+        sz_tip[..n].copy_from_slice(&tip[..n]);
+        // The unused trailing fields (`szInfo`, `szInfoTitle`, `guidItem`, …) stay
+        // zero, which also NUL-terminates `szTip` past the copy.
+        let data = NOTIFYICONDATAW {
+            cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
+            hWnd: self.hwnd,
+            uID: TRAY_UID,
+            uFlags: NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_STATE,
+            uCallbackMessage: WM_TRAYICON,
+            hIcon: self.hicon.get(),
+            szTip: sz_tip,
+            dwState: if self.visible.get() { NOTIFY_ICON_STATE(0) } else { NIS_HIDDEN },
+            dwStateMask: NIS_HIDDEN,
+            ..Default::default()
+        };
+        unsafe { Shell_NotifyIconW(message, &data) }.as_bool()
+    }
+
     fn activate(&self, entry_index: usize) {
         let Some(item_rc) = self.self_weak.upgrade() else { return };
         let Some(tray) = item_rc.downcast::<super::SystemTrayIcon>() else { return };
@@ -103,71 +122,59 @@ impl PlatformTray {
         _context: &crate::SlintContext,
     ) -> Result<Self, Error> {
         ensure_class_registered()?;
-        // Ensure the TaskbarCreated message id is registered before the window can
-        // receive it.
-        let _ = taskbar_created_message();
 
         let hinstance = unsafe { GetModuleHandleW(None) }.map_err(|e| {
             Error::PlatformError(crate::platform::PlatformError::Other(e.message()))
         })?;
 
-        // A hidden message-only window: invisible to the user, its only job is to
-        // receive `Shell_NotifyIcon` callbacks (`WM_TRAYICON`) and the
-        // `TaskbarCreated` broadcast. Wrapped in a scope guard so any `?` or
-        // early return below destroys it; defused by `into_inner` on success.
-        let hwnd_guard = scopeguard::guard(
-            unsafe {
-                CreateWindowExW(
-                    WINDOW_EX_STYLE(0),
-                    CLASS_NAME,
-                    PCWSTR::null(),
-                    WINDOW_STYLE(0),
-                    0,
-                    0,
-                    0,
-                    0,
-                    Some(HWND_MESSAGE),
-                    None,
-                    Some(hinstance.into()),
-                    None,
-                )
-            }
-            .map_err(|e| {
-                Error::PlatformError(crate::platform::PlatformError::Other(e.message()))
-            })?,
-            |h| unsafe {
-                let _ = DestroyWindow(h);
-            },
-        );
-
         let hicon_guard = scopeguard::guard(create_hicon(params.icon)?, |h| unsafe {
             let _ = DestroyIcon(h);
         });
 
-        let tip = HSTRING::from(params.tooltip);
-        let data = notify_icon_data(*hwnd_guard, *hicon_guard, &tip);
-        let added = unsafe { Shell_NotifyIconW(NIM_ADD, &data) };
-        if !added.as_bool() {
-            return Err(Error::PlatformError(crate::platform::PlatformError::Other(
-                "Shell_NotifyIconW(NIM_ADD) failed".into(),
-            )));
+        // A top-level window that is never shown: its only job is to receive
+        // `Shell_NotifyIcon` callbacks (`WM_TRAYICON`) and the `TaskbarCreated`
+        // broadcast. It can't be message-only (`HWND_MESSAGE`), because those
+        // don't receive broadcasts (#14839).
+        let hwnd = unsafe {
+            CreateWindowExW(
+                WINDOW_EX_STYLE(0),
+                CLASS_NAME,
+                PCWSTR::null(),
+                WINDOW_STYLE(0),
+                0,
+                0,
+                0,
+                0,
+                None,
+                None,
+                Some(hinstance.into()),
+                None,
+            )
+        }
+        .map_err(|e| Error::PlatformError(crate::platform::PlatformError::Other(e.message())))?;
+
+        let tray = Self {
+            inner: std::boxed::Box::new(Inner {
+                hwnd,
+                hicon: Cell::new(scopeguard::ScopeGuard::into_inner(hicon_guard)),
+                self_weak,
+                hmenu: Cell::new(None),
+                tip: RefCell::new(HSTRING::from(params.tooltip)),
+                visible: Cell::new(params.visible),
+            }),
+        };
+        unsafe {
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, &*tray.inner as *const Inner as _);
+            // User Interface Privilege Isolation drops the broadcast from a non-elevated
+            // Explorer to an elevated process unless the message is allowed explicitly.
+            let _ =
+                ChangeWindowMessageFilterEx(hwnd, taskbar_created_message(), MSGFLT_ALLOW, None);
         }
 
-        // NIM_ADD succeeded: hand ownership of the handles over to `Inner` by
-        // defusing the guards. The wnd proc can't observe `Inner` until we stash
-        // its pointer in GWLP_USERDATA below, and no `WM_TRAYICON` can be
-        // delivered before that either (the Shell only sends those in response
-        // to user input after `NIM_ADD` has returned).
-        let inner = std::boxed::Box::new(Inner {
-            hwnd: scopeguard::ScopeGuard::into_inner(hwnd_guard),
-            hicon: Cell::new(scopeguard::ScopeGuard::into_inner(hicon_guard)),
-            self_weak,
-            hmenu: Cell::new(None),
-            tip: RefCell::new(tip),
-        });
-        unsafe { SetWindowLongPtrW(inner.hwnd, GWLP_USERDATA, &*inner as *const Inner as _) };
+        // The taskbar may not exist yet, such as at login.
+        // `TaskbarCreated` adds the icon once it does.
+        tray.inner.notify(NIM_ADD);
 
-        let tray = Self { inner };
         if let Some((menu, entries_out)) = params.menu {
             tray.rebuild_menu(menu, entries_out);
         }
@@ -195,50 +202,26 @@ impl PlatformTray {
     }
 
     pub fn set_visible(&self, visible: bool) {
-        // Shell_NotifyIconW supports a real visibility toggle via
-        // NIF_STATE + NIS_HIDDEN, so the icon stays registered (HWND, HICON,
-        // tooltip, and wnd-proc routing all survive). Unlike the SNI backend
-        // there's no recreation and no flicker. dwStateMask scopes the change
-        // to the visibility bit so any future state bits are left alone.
-        let data = NOTIFYICONDATAW {
-            cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
-            hWnd: self.inner.hwnd,
-            uID: TRAY_UID,
-            uFlags: NIF_STATE,
-            dwState: if visible { NOTIFY_ICON_STATE(0) } else { NIS_HIDDEN },
-            dwStateMask: NIS_HIDDEN,
-            ..Default::default()
-        };
-        let _ = unsafe { Shell_NotifyIconW(NIM_MODIFY, &data) };
+        // `NIS_HIDDEN` keeps the icon registered (HWND, HICON, tooltip, and
+        // wnd-proc routing all survive). Unlike the SNI backend there's no
+        // recreation and no flicker.
+        self.inner.visible.set(visible);
+        self.inner.notify(NIM_MODIFY);
     }
 
     pub fn set_icon(&self, icon: &Image) {
         // Build the new HICON before touching anything else; if conversion
         // fails, leave the previous icon in place rather than blanking it.
         let Ok(new_hicon) = create_hicon(icon) else { return };
-        let tip = self.inner.tip.borrow();
-        let data = notify_icon_data(self.inner.hwnd, new_hicon, &tip);
-        drop(tip);
-        let ok = unsafe { Shell_NotifyIconW(NIM_MODIFY, &data) };
-        if !ok.as_bool() {
-            // Shell rejected the modify; the registered icon hasn't changed,
-            // so we own the new HICON and have to free it.
-            let _ = unsafe { DestroyIcon(new_hicon) };
-            return;
-        }
-        // Success: swap in the new handle (so TaskbarCreated re-add picks it
-        // up too) and free the previous one.
         let old = self.inner.hicon.replace(new_hicon);
+        self.inner.notify(NIM_MODIFY);
+        // The shell keeps its own copy of the icon.
         let _ = unsafe { DestroyIcon(old) };
     }
 
     pub fn set_tooltip(&self, tooltip: &str) {
-        let new_tip = HSTRING::from(tooltip);
-        let data = notify_icon_data(self.inner.hwnd, self.inner.hicon.get(), &new_tip);
-        let _ = unsafe { Shell_NotifyIconW(NIM_MODIFY, &data) };
-        // Update the cache regardless of NIM_MODIFY's outcome so the next
-        // TaskbarCreated re-add reflects the property the user asked for.
-        *self.inner.tip.borrow_mut() = new_tip;
+        *self.inner.tip.borrow_mut() = HSTRING::from(tooltip);
+        self.inner.notify(NIM_MODIFY);
     }
 
     pub fn set_title(&self, _title: &str) {
@@ -254,16 +237,8 @@ impl Drop for PlatformTray {
         // which is the same thread running Drop. The `Box<Inner>` field drops
         // after this body, freeing the heap allocation only once the wnd proc
         // can no longer reach it (USERDATA cleared, HWND destroyed).
+        self.inner.notify(NIM_DELETE);
         unsafe {
-            // NIM_DELETE only needs the identity fields; leave everything else zero.
-            let data = NOTIFYICONDATAW {
-                cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
-                hWnd: self.inner.hwnd,
-                uID: TRAY_UID,
-                ..Default::default()
-            };
-            let _ = Shell_NotifyIconW(NIM_DELETE, &data);
-
             // Detach from the window before destroying it so any pending messages
             // resolve through DefWindowProc.
             SetWindowLongPtrW(self.inner.hwnd, GWLP_USERDATA, 0 as _);
@@ -286,7 +261,8 @@ unsafe extern "system" fn wnd_proc(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
-    if msg == WM_TRAYICON {
+    // Other processes can broadcast `WM_APP` messages to top-level windows.
+    if msg == WM_TRAYICON && wparam.0 == TRAY_UID as usize {
         // With the default notify-icon version the mouse event is packed in the
         // low word of lparam.
         let event = (lparam.0 as u32) & 0xFFFF;
@@ -308,9 +284,10 @@ unsafe extern "system" fn wnd_proc(
         let inner_ptr = unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) } as *const Inner;
         if !inner_ptr.is_null() {
             let inner = unsafe { &*inner_ptr };
-            let tip = inner.tip.borrow();
-            let data = notify_icon_data(hwnd, inner.hicon.get(), &tip);
-            let _ = unsafe { Shell_NotifyIconW(NIM_ADD, &data) };
+            // The icon may still exist, such as when the broadcast follows a DPI change.
+            if !inner.notify(NIM_ADD) {
+                inner.notify(NIM_MODIFY);
+            }
         }
         return LRESULT(0);
     }
@@ -450,25 +427,6 @@ fn create_hicon(icon: &Image) -> Result<HICON, Error> {
 
     unsafe { CreateIconIndirect(&ii) }
         .map_err(|e| Error::PlatformError(crate::platform::PlatformError::Other(e.message())))
-}
-
-// Fully populated `NOTIFYICONDATAW` for `NIM_ADD` / `NIM_MODIFY`. The unused
-// trailing fields (`szInfo`, `szInfoTitle`, `guidItem`, …) are zero-initialized
-// via `Default::default()`, which also NUL-terminates `szTip` past the copy.
-fn notify_icon_data(hwnd: HWND, hicon: HICON, tip: &[u16]) -> NOTIFYICONDATAW {
-    let mut buf = [0u16; 128];
-    let n = tip.len().min(buf.len() - 1);
-    buf[..n].copy_from_slice(&tip[..n]);
-    NOTIFYICONDATAW {
-        cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
-        hWnd: hwnd,
-        uID: TRAY_UID,
-        uFlags: NIF_MESSAGE | NIF_ICON | NIF_TIP,
-        uCallbackMessage: WM_TRAYICON,
-        hIcon: hicon,
-        szTip: buf,
-        ..Default::default()
-    }
 }
 
 fn append_menu_entry(

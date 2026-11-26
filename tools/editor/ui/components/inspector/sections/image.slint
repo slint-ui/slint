@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Images } from "../../../images/index.slint";
 import { Style, Theme, Colors, Metrics, Typography, InspectorStyle } from "../../../style.slint";
 import { Properties } from "../../../properties.slint";
 import { InspectorComboBox, InspectorEnumOptions, InspectorFieldLabel, InspectorImageAlignment, InspectorImageSourceField, InspectorInfoIcon, InspectorSection } from "../index.slint";
@@ -16,7 +17,7 @@ export component InspectorImageSection inherits InspectorSection {
     private property <string> fit: InspectorEnumOptions.option-value("image-fit", "fill", InspectorEnumOptions.image-fit-options);
     private property <string> pending-fit;
     private property <string> displayed-fit: fit-combo.preview-value != "" ? fit-combo.preview-value : root.pending-fit != "" ? root.pending-fit : root.fit;
-    private property <image> preview-picture: @image-url("../../../assets/image-fit-preview.svg");
+    private property <image> preview-picture: Images.image-fit-preview;
 
     changed selection-key => {
         root.preview-visible = false;

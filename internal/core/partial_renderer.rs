@@ -333,14 +333,7 @@ impl DirtyRegion {
     /// Bounding rectangle of the region.
     #[must_use]
     pub fn bounding_rect(&self) -> LogicalRect {
-        if self.count == 0 {
-            return Default::default();
-        }
-        let mut r = self.rectangles[0];
-        for i in 1..self.count {
-            r = r.union(&self.rectangles[i]);
-        }
-        r.to_rect()
+        self.iter().reduce(|a, b| a.union(&b)).map(|r| r.to_rect()).unwrap_or_default()
     }
 
     /// Intersection of a region and a rectangle.

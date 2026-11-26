@@ -43,11 +43,13 @@ fn compile(source: &str) -> Vec<String> {
     let syntax_node = parse(
         source.into(),
         Some(i_slint_compiler::source_path::SourcePath::new("main.slint")),
+        None,
         &mut diag,
     );
     let mut config = CompilerConfiguration::new(OutputFormat::Llr);
     config.style = Some("fluent".into());
-    let (_doc, diag, _loader) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, config));
+    let (_doc, diag, _loader) =
+        i_slint_compiler::poll_ready(compile_syntax_node(syntax_node, diag, config));
     diag.to_string_vec()
 }
 

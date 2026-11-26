@@ -7,6 +7,7 @@ import { InspectorSegmentIcon } from "segment-icon.slint";
 export component InspectorSegment inherits Rectangle {
     in property <SegmentStyle> style: Style.segment;
     in property <string> kind;
+    in property <image> icon;
     in property <int> index;
     in property <bool> selected;
     in property <string> label: @tr("{} option {}", root.kind, root.index + 1);
@@ -35,7 +36,7 @@ export component InspectorSegment inherits Rectangle {
         }
     }
 
-    if root.kind == "text": Text {
+    if root.kind == "text" && root.icon.width == 0: Text {
         text: root.label;
         color: root.style.foreground;
         font-size: root.style.text.size;
@@ -43,7 +44,13 @@ export component InspectorSegment inherits Rectangle {
         horizontal-alignment: center;
         vertical-alignment: center;
     }
-    if root.kind != "text": InspectorSegmentIcon {
+    if root.icon.width > 0: Image {
+        width: root.style.text.size;
+        height: root.style.text.size;
+        source: root.icon;
+        colorize: root.style.foreground;
+    }
+    if root.kind != "text" && root.icon.width == 0: InspectorSegmentIcon {
         style: root.style;
         kind: root.kind;
         index: root.index;

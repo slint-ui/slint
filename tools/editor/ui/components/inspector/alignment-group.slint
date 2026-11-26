@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../../icons/index.slint";
 import { ButtonBase } from "../../../controls/src/headless.slint";
 import { Theme, ThemeKind, Colors, Metrics } from "../../style.slint";
 
@@ -78,8 +79,8 @@ export component InspectorAlignmentGroup inherits Rectangle {
                 ? [@tr("Align top"), @tr("Align middle"), @tr("Align bottom")][index]
                 : [@tr("Align left"), @tr("Align center"), @tr("Align right")][index];
             icon: root.vertical
-                ? [@image-url("../../assets/lucide/align-start-horizontal.svg"), @image-url("../../assets/lucide/align-center-horizontal.svg"), @image-url("../../assets/lucide/align-end-horizontal.svg")][index]
-                : [@image-url("../../assets/lucide/text-align-start.svg"), @image-url("../../assets/lucide/text-align-center.svg"), @image-url("../../assets/lucide/text-align-end.svg")][index];
+                ? [Icons.align-start-horizontal, Icons.align-center-horizontal, Icons.align-end-horizontal][index]
+                : [Icons.text-align-start, Icons.text-align-center, Icons.text-align-end][index];
             clicked => { root.chosen(index); }
         }
     }

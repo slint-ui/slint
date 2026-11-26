@@ -85,7 +85,7 @@ class _SlintSelector(selectors.BaseSelector):
             self.unregister(fileobj)
             key = self.register(fileobj, events, data)
         elif key.data != data:
-            key._replace(data=data)
+            key = key._replace(data=data)
             self.fd_to_selector_key[fd] = key
 
         return key

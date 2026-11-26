@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 /*! module for the C++ code generator
-*/
+ */
 
 // cSpell:ignore constexpr decltype intptr itertools nullptr prepended struc subcomponent uintptr vals compl consteval constinit glyphset glyphsets reflexpr
 
@@ -2545,6 +2545,7 @@ fn generate_sub_component_body(
     }
 
     let mut user_init = vec!["[[maybe_unused]] auto self = this;".into()];
+    let mut init_change_trackers = vec!["[[maybe_unused]] auto self = this;".into()];
 
     let mut children_visitor_cases = Vec::new();
     let mut subtrees_ranges_cases = Vec::new();
@@ -2580,6 +2581,9 @@ fn generate_sub_component_body(
         init.push(format!(
             "this->{sub_field}.init(globals, self_weak.into_dyn(), {global_index}, {global_children});"
         ));
+        if sub_sc.needs_change_trackers_init(root) {
+            init_change_trackers.push(format!("this->{sub_field}.init_change_trackers();"));
+        }
         if sub_sc.needs_user_init(root) {
             user_init.push(format!("this->{sub_field}.user_init();"));
         }
@@ -2765,16 +2769,16 @@ fn generate_sub_component_body(
 
     init.extend(properties_init_code);
 
+    init_change_trackers.extend(component.change_callbacks.iter().enumerate().map(|(idx, (p, e))| {
+        let code = compile_expression(&e.borrow(), &ctx);
+        let prop = compile_expression(&llr::Expression::PropertyReference(p.clone()), &ctx);
+        format!("self->change_tracker{idx}.init(self, [](auto self) {{ return {prop}; }}, []([[maybe_unused]] auto self, auto) {{ {code}; }});")
+    }));
+
     user_init.extend(component.init_code.iter().map(|e| {
         let mut expr_str = compile_expression(&e.borrow(), &ctx);
         expr_str.push(';');
         expr_str
-    }));
-
-    user_init.extend(component.change_callbacks.iter().enumerate().map(|(idx, (p, e))| {
-        let code = compile_expression(&e.borrow(), &ctx);
-        let prop = compile_expression(&llr::Expression::PropertyReference(p.clone()), &ctx);
-        format!("self->change_tracker{idx}.init(self, [](auto self) {{ return {prop}; }}, []([[maybe_unused]] auto self, auto) {{ {code}; }});")
     }));
 
     if !component.timers.is_empty() {
@@ -2825,8 +2829,24 @@ fn generate_sub_component_body(
         }),
     ));
 
+    let has_change_trackers = init_change_trackers.len() > 1;
+    debug_assert_eq!(component.needs_change_trackers_init(root), has_change_trackers);
+    if has_change_trackers {
+        target_struct.members.push((
+            field_access,
+            Declaration::Function(Function {
+                name: "init_change_trackers".into(),
+                signature: "() -> void".into(),
+                statements: Some(init_change_trackers),
+                ..Default::default()
+            }),
+        ));
+    }
     debug_assert_eq!(component.needs_user_init(root), user_init.len() > 1);
     if is_item_tree_root || component.needs_user_init(root) {
+        if is_item_tree_root && has_change_trackers {
+            user_init.insert(1, "this->init_change_trackers();".into());
+        }
         target_struct.members.push((
             field_access,
             Declaration::Function(Function {
@@ -6302,16 +6322,18 @@ fn generate_translation(
     compilation_unit: &llr::CompilationUnit,
     declarations: &mut Vec<Declaration>,
 ) {
-    for (idx, m) in translations.strings.iter().enumerate() {
+    let languages = 0..translations.languages.len();
+    for idx in 0..translations.string_count() {
         declarations.push(Declaration::Var(Var {
             ty: "const char8_t* const".into(),
             name: format_smolstr!("slint_translation_bundle_{idx}"),
-            array_size: Some(m.len()),
+            array_size: Some(languages.len()),
             init: Some(format!(
                 "{{ {} }}",
-                m.iter()
-                    .map(|s| match s {
-                        Some(s) => format_smolstr!("u8\"{}\"", escape_string(s.as_str())),
+                languages
+                    .clone()
+                    .map(|language| match translations.string(language, idx) {
+                        Some(s) => format_smolstr!("u8\"{}\"", escape_string(s)),
                         None => "nullptr".into(),
                     })
                     .join(", ")
@@ -6338,8 +6360,11 @@ fn generate_translation(
         )),
         ..Default::default()
     }));
-    for (idx, ms) in translations.plurals.iter().enumerate() {
-        let all_strs = ms.iter().flatten().flatten();
+    for idx in 0..translations.plural_count() {
+        let all_strs = languages
+            .clone()
+            .filter_map(|language| translations.plural_forms(language, idx))
+            .flatten();
         let all_strs_len = all_strs.clone().count();
         declarations.push(Declaration::Var(Var {
             ty: "const char8_t* const".into(),
@@ -6347,7 +6372,7 @@ fn generate_translation(
             array_size: Some(all_strs_len),
             init: Some(format!(
                 "{{ {} }}",
-                all_strs.map(|s| format_smolstr!("u8\"{}\"", escape_string(s.as_str()))).join(", ")
+                all_strs.map(|s| format_smolstr!("u8\"{}\"", escape_string(s))).join(", ")
             )),
             ..Default::default()
         }));
@@ -6356,12 +6381,14 @@ fn generate_translation(
         declarations.push(Declaration::Var(Var {
             ty: "const uint32_t".into(),
             name: format_smolstr!("slint_translation_bundle_plural_{}_idx", idx),
-            array_size: Some(ms.len()),
+            array_size: Some(languages.len()),
             init: Some(format!(
                 "{{ {} }}",
-                ms.iter()
-                    .map(|x| {
-                        count += x.as_ref().map_or(0, |x| x.len());
+                languages
+                    .clone()
+                    .map(|language| {
+                        count +=
+                            translations.plural_forms(language, idx).map_or(0, Iterator::count);
                         count
                     })
                     .join(", ")

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore LOGI rgbpix
+// cSpell: ignore LOGI LOGW rgbpix
 #include <deque>
 #include <mutex>
 #include "slint-esp.h"
@@ -55,6 +55,10 @@ struct EspPlatform : public slint::platform::Platform
           rotation(config.rotation)
     {
         task = xTaskGetCurrentTaskHandle();
+#ifdef SLINT_ESP_RASTERIZE_IN_SEPARATE_TASK
+        rasterize_in_separate_task = config.rasterize_in_separate_task;
+        raster_task_stack_size = config.raster_task_stack_size;
+#endif
     }
 
     std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override;
@@ -65,6 +69,11 @@ struct EspPlatform : public slint::platform::Platform
     void run_in_event_loop(Task) override;
 
 private:
+    slint::PhysicalSize physical_size() const;
+    void draw_bitmap(int x_start, int y_start, int x_end, int y_end, const void *color_data);
+    template<typename Render>
+    bool render_and_present(Render &&render);
+
     slint::PhysicalSize size;
     esp_lcd_panel_handle_t panel_handle;
     SlintDisplayPanelType panel_type;
@@ -73,6 +82,10 @@ private:
     std::optional<std::span<PixelType>> buffer2;
     bool byte_swap;
     slint::platform::SoftwareRenderer::RenderingRotation rotation;
+#ifdef SLINT_ESP_RASTERIZE_IN_SEPARATE_TASK
+    bool rasterize_in_separate_task = false;
+    uint32_t raster_task_stack_size = 8192;
+#endif
     class EspWindowAdapter *m_window = nullptr;
 
     // Need to be static because we can't pass user data to the touch interrupt callback
@@ -157,6 +170,15 @@ extern "C" bool on_dpi_refresh_done(esp_lcd_panel_handle_t, esp_lcd_dpi_panel_ev
 {
     return dpi_give_from_any_context(sem_dpi_refresh);
 }
+
+// Waits for a refresh that starts after the call. Draining a refresh that arrived earlier can cost
+// one refresh, but never lets the wait end early. The timeout keeps a panel that stops signaling
+// refresh from hanging the event loop.
+static void wait_for_dpi_refresh()
+{
+    xSemaphoreTake(sem_dpi_refresh, 0);
+    xSemaphoreTake(sem_dpi_refresh, pdMS_TO_TICKS(100));
+}
 #endif
 
 namespace {
@@ -170,6 +192,88 @@ void byte_swap_color(slint::Rgb8Pixel *pixel)
 {
     std::swap(pixel->r, pixel->b);
 }
+}
+
+// The size of the panel, which the rotation swaps relative to the window.
+template<typename PixelType>
+slint::PhysicalSize EspPlatform<PixelType>::physical_size() const
+{
+    using RenderingRotation = slint::platform::SoftwareRenderer::RenderingRotation;
+    const bool rotated =
+            rotation == RenderingRotation::Rotate90 || rotation == RenderingRotation::Rotate270;
+    return rotated ? slint::PhysicalSize({ size.height, size.width }) : size;
+}
+
+// Issues esp_lcd_panel_draw_bitmap, first waiting for any previous asynchronous DPI
+// transfer to complete so we never overrun the panel's single in-flight draw operation.
+template<typename PixelType>
+void EspPlatform<PixelType>::draw_bitmap(int x_start, int y_start, int x_end, int y_end,
+                                         const void *color_data)
+{
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+    if (sem_dpi_draw_done) {
+        xSemaphoreTake(sem_dpi_draw_done, portMAX_DELAY);
+    }
+#endif
+    esp_lcd_panel_draw_bitmap(panel_handle, x_start, y_start, x_end, y_end, color_data);
+}
+
+// Draws a frame into buffer1 with `render`, which returns the region it drew, and presents
+// it. Returns whether it waited for the panel's refresh.
+template<typename PixelType>
+template<typename Render>
+bool EspPlatform<PixelType>::render_and_present(Render &&render)
+{
+    const auto physical_width = physical_size().width;
+    const auto physical_height = physical_size().height;
+    const auto stride = physical_width;
+    bool waited_for_refresh = false;
+#if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+    // Only created for double buffering on an RGB panel; wait for the vsync
+    // event before rendering into the buffer the panel no longer scans out.
+    if (sem_gui_ready) {
+        xSemaphoreGive(sem_gui_ready);
+        xSemaphoreTake(sem_vsync_end, portMAX_DELAY);
+    }
+#endif
+    auto region = render(buffer1.value());
+
+    if (byte_swap) {
+        for (auto [o, s] : region.rectangles()) {
+            for (int y = o.y; y < o.y + s.height; y++) {
+                for (int x = o.x; x < o.x + s.width; x++) {
+                    byte_swap_color(&buffer1.value()[y * stride + x]);
+                }
+            }
+        }
+    }
+
+    if (buffer2) {
+        auto s = region.bounding_box_size();
+        if (s.width > 0 && s.height > 0) {
+            // Assuming that using double buffer means that the buffer comes from
+            // the driver and we need to pass the exact pointer.
+            // https://github.com/espressif/esp-idf/blob/53ff7d43dbff642d831a937b066ea0735a6aca24/components/esp_lcd/src/esp_lcd_panel_rgb.c#L681
+            draw_bitmap(0, 0, physical_width, physical_height, buffer1->data());
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+            // The DPI driver switches scanout to buffer1 at the next refresh, so
+            // buffer2 stays on screen until then.
+            if (sem_dpi_refresh) {
+                wait_for_dpi_refresh();
+                waited_for_refresh = true;
+            }
+#endif
+
+            std::swap(buffer1, buffer2);
+        }
+    } else {
+        for (auto [o, s] : region.rectangles()) {
+            for (int y = o.y; y < o.y + s.height; y++) {
+                draw_bitmap(o.x, y, o.x + s.width, y + 1, buffer1->data() + y * stride + o.x);
+            }
+        }
+    }
+    return waited_for_refresh;
 }
 
 template<typename PixelType>
@@ -232,17 +336,40 @@ void EspPlatform<PixelType>::run_event_loop()
     }
 #endif
 
-    // Issues esp_lcd_panel_draw_bitmap, first waiting for any previous asynchronous DPI
-    // transfer to complete so we never overrun the panel's single in-flight draw operation.
-    auto draw_bitmap = [this](int x_start, int y_start, int x_end, int y_end,
-                              const void *color_data) {
-#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
-        if (sem_dpi_draw_done) {
-            xSemaphoreTake(sem_dpi_draw_done, portMAX_DELAY);
+    using slint::platform::SoftwareRenderer;
+    const auto stride = physical_size().width;
+
+#ifdef SLINT_ESP_RASTERIZE_IN_SEPARATE_TASK
+    // A separate task rasterizes and presents each recorded frame, while the event loop
+    // records the next one.
+    std::optional<SoftwareRenderer::RecordedRasterCommands> recorded;
+    const auto num_lines = buffer1 ? buffer1->size() / stride : 0;
+    SemaphoreHandle_t frame_recorded = xSemaphoreCreateBinary();
+    SemaphoreHandle_t frame_presented = xSemaphoreCreateBinary();
+    xSemaphoreGive(frame_presented);
+    auto raster_task = [this, &recorded, frame_recorded, frame_presented] {
+        while (true) {
+            xSemaphoreTake(frame_recorded, portMAX_DELAY);
+            render_and_present([&recorded](std::span<PixelType> buffer) {
+                return recorded->rasterize(buffer);
+            });
+            xSemaphoreGive(frame_presented);
         }
-#endif
-        esp_lcd_panel_draw_bitmap(panel_handle, x_start, y_start, x_end, y_end, color_data);
     };
+    if (rasterize_in_separate_task && !(buffer1 && buffer2)) {
+        ESP_LOGW(TAG, "rasterize_in_separate_task needs two frame buffers, so it is ignored");
+    }
+    TaskHandle_t raster_task_handle = nullptr;
+    const bool pipeline = rasterize_in_separate_task && buffer1 && buffer2
+            && xTaskCreate([](void *task) { (*static_cast<decltype(raster_task) *>(task))(); },
+                           "slint_raster", raster_task_stack_size, &raster_task,
+                           uxTaskPriorityGet(nullptr), &raster_task_handle)
+                    == pdPASS;
+    if (rasterize_in_separate_task && buffer1 && buffer2 && !pipeline) {
+        ESP_LOGW(TAG,
+                 "Creating the raster task failed, so frames are rasterized in the event loop");
+    }
+#endif
 
     float last_touch_x = 0;
     float last_touch_y = 0;
@@ -306,50 +433,26 @@ void EspPlatform<PixelType>::run_event_loop()
                 }
             }
 
-            if (std::exchange(m_window->needs_redraw, false)) {
-                using slint::platform::SoftwareRenderer;
-                auto rotated = rotation == SoftwareRenderer::RenderingRotation::Rotate90
-                        || rotation == SoftwareRenderer::RenderingRotation::Rotate270;
-                auto stride = rotated ? size.height : size.width;
-                if (buffer1) {
-#if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
-                    // Only created for double buffering on an RGB panel; wait for the vsync
-                    // event before rendering into the buffer the panel no longer scans out.
-                    if (sem_gui_ready) {
-                        xSemaphoreGive(sem_gui_ready);
-                        xSemaphoreTake(sem_vsync_end, portMAX_DELAY);
-                    }
+            [[maybe_unused]] bool waited_for_refresh = false;
+            bool pipelined = false;
+#ifdef SLINT_ESP_RASTERIZE_IN_SEPARATE_TASK
+            if (pipeline) {
+                pipelined = true;
+                if (std::exchange(m_window->needs_redraw, false)) {
+                    auto frame = m_window->m_renderer.record_frame(stride, num_lines);
+                    xSemaphoreTake(frame_presented, portMAX_DELAY);
+                    recorded.emplace(std::move(frame));
+                    xSemaphoreGive(frame_recorded);
+                    // Presenting the previous frame waited for the refresh.
+                    waited_for_refresh = true;
+                }
+            }
 #endif
-                    auto region = m_window->m_renderer.render(buffer1.value(), stride);
-
-                    if (byte_swap) {
-                        for (auto [o, s] : region.rectangles()) {
-                            for (int y = o.y; y < o.y + s.height; y++) {
-                                for (int x = o.x; x < o.x + s.width; x++) {
-                                    byte_swap_color(&buffer1.value()[y * stride + x]);
-                                }
-                            }
-                        }
-                    }
-
-                    if (buffer2) {
-                        auto s = region.bounding_box_size();
-                        if (s.width > 0 && s.height > 0) {
-                            // Assuming that using double buffer means that the buffer comes from
-                            // the driver and we need to pass the exact pointer.
-                            // https://github.com/espressif/esp-idf/blob/53ff7d43dbff642d831a937b066ea0735a6aca24/components/esp_lcd/src/esp_lcd_panel_rgb.c#L681
-                            draw_bitmap(0, 0, size.width, size.height, buffer1->data());
-
-                            std::swap(buffer1, buffer2);
-                        }
-                    } else {
-                        for (auto [o, s] : region.rectangles()) {
-                            for (int y = o.y; y < o.y + s.height; y++) {
-                                draw_bitmap(o.x, y, o.x + s.width, y + 1,
-                                            buffer1->data() + y * stride + o.x);
-                            }
-                        }
-                    }
+            if (!pipelined && std::exchange(m_window->needs_redraw, false)) {
+                if (buffer1) {
+                    waited_for_refresh = render_and_present([&](std::span<PixelType> buffer) {
+                        return m_window->m_renderer.render(buffer, stride);
+                    });
                 } else {
                     // esp_lcd_panel_draw_bitmap is "async" so we have two buffers, one in which we
                     // render, and one which is being transmitted with a DMA transfer in parallel.
@@ -370,9 +473,8 @@ void EspPlatform<PixelType>::run_event_loop()
                     Uniq lb[2] = { alloc(), alloc() };
                     int idx = 0;
                     m_window->m_renderer.render_by_line<PixelType>(
-                            [this, &lb, &idx,
-                             &draw_bitmap](std::size_t line_y, std::size_t line_start,
-                                           std::size_t line_end, auto &&render_fn) {
+                            [this, &lb, &idx](std::size_t line_y, std::size_t line_start,
+                                              std::size_t line_end, auto &&render_fn) {
                                 std::span<PixelType> view { lb[idx].get(), line_end - line_start };
                                 render_fn(view);
                                 if (byte_swap) {
@@ -398,12 +500,14 @@ void EspPlatform<PixelType>::run_event_loop()
 #if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
                 // Pace continuous animations to the panel's refresh so the GUI task blocks
                 // (letting the idle task run) between frames instead of saturating the CPU and
-                // tripping the task watchdog. Drain a refresh that may have arrived while we were
-                // rendering, then wait for the next one. The timeout bounds the wait so a panel
-                // that stops signaling refresh degrades to a slow loop rather than hanging.
-                if (sem_dpi_refresh) {
-                    xSemaphoreTake(sem_dpi_refresh, 0);
-                    xSemaphoreTake(sem_dpi_refresh, pdMS_TO_TICKS(100));
+                // tripping the task watchdog.
+                if (sem_dpi_refresh && !waited_for_refresh) {
+#    ifdef SLINT_ESP_RASTERIZE_IN_SEPARATE_TASK
+                    // Don't take the refresh from the raster task.
+                    xSemaphoreTake(frame_presented, portMAX_DELAY);
+                    xSemaphoreGive(frame_presented);
+#    endif
+                    wait_for_dpi_refresh();
                 }
 #endif
                 continue;
@@ -417,6 +521,17 @@ void EspPlatform<PixelType>::run_event_loop()
 
         ulTaskNotifyTake(/*reset to zero*/ pdTRUE, ticks_to_wait);
     }
+
+#ifdef SLINT_ESP_RASTERIZE_IN_SEPARATE_TASK
+    if (pipeline) {
+        // The raster task uses data on this task's stack, so stop it after its current frame.
+        xSemaphoreTake(frame_presented, portMAX_DELAY);
+        vTaskDelete(raster_task_handle);
+    }
+    recorded.reset();
+    vSemaphoreDelete(frame_recorded);
+    vSemaphoreDelete(frame_presented);
+#endif
 
     vTaskDelete(NULL);
 }

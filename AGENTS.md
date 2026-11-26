@@ -8,7 +8,7 @@
 
 ## Testing
 
-- `examples/`, `demos/`, `tests/`, and `ui-libraries/material/` are separate Cargo workspaces.
+- `examples/`, `demos/`, `tests/`, `ui-libraries/material/`, and `editors/zed/` are separate Cargo workspaces.
   Use `--manifest-path <dir>/Cargo.toml` to target them.
 - Run `cargo test` directly; no preceding `cargo build` is needed.
   Use release builds for performance measurements.

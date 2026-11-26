@@ -164,6 +164,16 @@ export component EditorScrollView inherits Rectangle {
     horizontal-stretch: 1;
     vertical-stretch: 1;
 
+    function clamp-content-position() {
+        root.content-x = clamp(root.content-x, min(0px, root.visible-width - root.content-width), 0px);
+        root.content-y = clamp(root.content-y, min(0px, root.visible-height - root.content-height), 0px);
+    }
+
+    changed content-width => { root.clamp-content-position(); }
+    changed content-height => { root.clamp-content-position(); }
+    changed visible-width => { root.clamp-content-position(); }
+    changed visible-height => { root.clamp-content-position(); }
+
     view := ScrollView {
         width: parent.width;
         height: parent.height;

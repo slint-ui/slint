@@ -57,17 +57,21 @@ impl InspectorOverlay {
     ) {
         tracing::debug!("Updating highlight: {highlight:?}");
         let highlight = user_instance.zip(highlight).map(|(instance, (url, offset))| {
-            (instance.as_weak(), SourcePath::from_url(url), *offset)
+            let location = i_slint_compiler::object_tree::ElementLocation {
+                path: SourcePath::from_url(url),
+                offset: (*offset).into(),
+            };
+            (instance.as_weak(), location)
         });
         self.component
             .set_callback("highlight-positions", move |_| {
                 let highlights: Vec<Value> = highlight
                     .as_ref()
-                    .and_then(|(instance, path, offset)| {
-                        instance.upgrade().map(|instance| (instance, path, *offset))
+                    .and_then(|(instance, location)| {
+                        instance.upgrade().map(|instance| (instance, location))
                     })
                     .into_iter()
-                    .flat_map(|(instance, path, offset)| instance.component_positions(path, offset))
+                    .flat_map(|(instance, location)| instance.component_positions(location))
                     .map(|geometry| {
                         Value::Struct(Struct::from_iter([
                             ("x".into(), Value::Number(geometry.rect.origin.x.into())),

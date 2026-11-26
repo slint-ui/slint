@@ -493,7 +493,8 @@ fn expand(
         i_slint_compiler::source_path::SourcePath::new(source_path.clone()),
     );
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse_tokens(tokens.clone(), source_file, &mut diag);
+    let syntax_node =
+        parser::parse_tokens(tokens.clone(), source_file, compiler_config.edition, &mut diag);
     if diag.has_errors() {
         return diag.report_macro_diagnostic(&tokens);
     }
@@ -513,7 +514,7 @@ fn expand(
 
     //println!("{syntax_node:#?}");
     let (root_component, mut diag, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+        i_slint_compiler::poll_ready(compile_syntax_node(syntax_node, diag, compiler_config));
     diag.remove_infos();
     //println!("{tree:#?}");
     if diag.has_errors() {

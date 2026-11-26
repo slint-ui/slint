@@ -61,6 +61,10 @@ export global InspectorEnumOptions {
         { value: "word-wrap", label: @tr("Word wrap") },
         { value: "char-wrap", label: @tr("Character wrap") },
     ];
+    out property <[InspectorComboOption]> text-overflow-options: [
+        { value: "clip", label: @tr("Clip") },
+        { value: "elide", label: @tr("Elide") },
+    ];
     out property <[InspectorComboOption]> orientation-options: [
         { value: "horizontal", label: @tr("Horizontal") },
         { value: "vertical", label: @tr("Vertical") },
@@ -78,6 +82,12 @@ export global InspectorEnumOptions {
         { value: "space-between", label: @tr("Space between") },
         { value: "space-around", label: @tr("Space around") },
         { value: "space-evenly", label: @tr("Space evenly") },
+    ];
+    out property <[InspectorComboOption]> flex-direction-options: [
+        { value: "row", label: @tr("Row") },
+        { value: "row-reverse", label: @tr("Row reverse") },
+        { value: "column", label: @tr("Column") },
+        { value: "column-reverse", label: @tr("Column reverse") },
     ];
     out property <[InspectorComboOption]> input-type-options: [
         { value: "text", label: @tr("Text") },

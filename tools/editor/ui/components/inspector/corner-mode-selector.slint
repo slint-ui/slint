@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../../icons/index.slint";
 import { ButtonBase } from "../../../controls/src/headless.slint";
 import { Style, Theme, ThemeKind, Colors, Metrics, CornerModeStyle } from "../../style.slint";
 
@@ -57,7 +58,7 @@ component CornerModeSegment inherits ButtonBase {
         y: (root.height - self.height) / 2 + root.offset;
         width: 18px;
         height: 18px;
-        source: root.separate ? @image-url("../../assets/corners-separate.svg") : @image-url("../../assets/corners-all.svg");
+        source: root.separate ? Icons.corners-separate : Icons.corners-all;
         colorize: root.checked ? root.style.foreground : root.style.muted;
     }
 }

@@ -167,23 +167,6 @@ fn wait_for_input(max_timeout: Option<Duration>) {
 
 #[repr(transparent)]
 #[derive(Clone, Copy)]
-struct SlintBltPixel(BltPixel);
-
-impl software_renderer::TargetPixel for SlintBltPixel {
-    fn blend(&mut self, color: software_renderer::PremultipliedRgbaColor) {
-        let a = (u8::MAX - color.alpha) as u16;
-        self.0.red = (self.0.red as u16 * a / 255) as u8 + color.red;
-        self.0.green = (self.0.green as u16 * a / 255) as u8 + color.green;
-        self.0.blue = (self.0.blue as u16 * a / 255) as u8 + color.blue;
-    }
-
-    fn from_rgb(red: u8, green: u8, blue: u8) -> Self {
-        SlintBltPixel(BltPixel::new(red, green, blue))
-    }
-}
-
-#[repr(transparent)]
-#[derive(Clone, Copy)]
 /// RGBA-8-8-8-8
 struct PngRGBAPixel([u8; 4]);
 
@@ -264,7 +247,7 @@ impl slint::platform::Platform for Platform {
         };
 
         let info = gop.current_mode_info();
-        let mut fb = alloc::vec![SlintBltPixel(BltPixel::new(0, 0, 0)); info.resolution().0 * info.resolution().1];
+        let mut fb = alloc::vec![software_renderer::Argb8888Pixel::default(); info.resolution().0 * info.resolution().1];
 
         //mouse pixel
         let png: &[u8] = &include_bytes!("resource/cursor.png")[..];
@@ -362,7 +345,8 @@ impl slint::platform::Platform for Platform {
             self.window.draw_if_needed(|renderer| {
                 renderer.render(&mut fb, info.resolution().0);
 
-                // SAFETY: SlintBltPixel is a repr(transparent) BltPixel so it is safe to transform.
+                // SAFETY: Argb8888Pixel is a u32 0xAARRGGBB and BltPixel the bytes blue, green, red,
+                // reserved: the same in memory on UEFI, which is little-endian.
                 let blt_fb =
                     unsafe { slice::from_raw_parts(fb.as_ptr() as *const BltPixel, fb.len()) };
                 let blt_mfb = unsafe {

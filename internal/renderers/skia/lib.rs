@@ -61,7 +61,7 @@ pub use wgpu_renderer::SkiaWGPURenderer;
 #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
 pub use wgpu_renderer::SkiaWGPURendererGeneric;
 #[cfg(feature = "wgpu-30")]
-pub use wgpu_renderer::{SkiaWGPU30Renderer, SkiaWGPU30RendererExt};
+pub use wgpu_renderer::{SkiaWGPU30RenderTarget, SkiaWGPU30Renderer, SkiaWGPU30RendererExt};
 
 use itemrenderer::to_skia_rect;
 pub use skia_safe;
@@ -446,7 +446,8 @@ pub struct SkiaRenderer {
     pre_present_callback: RefCell<Option<Box<dyn FnMut()>>>,
     partial_rendering_state: Option<PartialRenderingState>,
     dirty_region_debug_mode: DirtyRegionDebugMode,
-    /// Tracking dirty regions indexed by buffer age - 1. More than 3 back buffers aren't supported, but also unlikely to happen.
+    /// The dirty regions of the last frames, most recent first.
+    /// A buffer of age n misses the first n - 1, so ages above 4 get a full repaint.
     dirty_region_history: RefCell<[DirtyRegion; 3]>,
     shared_context: SkiaSharedContext,
 }
@@ -779,7 +780,7 @@ impl SkiaRenderer {
         back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
-        invoke_rendering_notifier: bool,
+        for_display: bool,
     ) -> Result<Option<DirtyRegion>, PlatformError> {
         skia_canvas.rotate(rotation_angle_degrees, None);
         skia_canvas.translate(translation);
@@ -794,14 +795,14 @@ impl SkiaRenderer {
                     back_buffer_age,
                     surface,
                     window,
-                    invoke_rendering_notifier,
+                    for_display,
                     components,
                     post_render,
                 )
             })
             .unwrap_or(Ok(None));
 
-        if invoke_rendering_notifier && let Some(surface) = surface {
+        if for_display && let Some(surface) = surface {
             self.with_rendering_notifier(|callback| {
                 surface.with_graphics_api(&mut |api| {
                     callback.notify(RenderingState::AfterRendering, &api)
@@ -819,7 +820,7 @@ impl SkiaRenderer {
         back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
-        invoke_rendering_notifier: bool,
+        for_display: bool,
         components: &[(ItemTreeWeak, LogicalPoint)],
         post_render: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<Option<DirtyRegion>, PlatformError> {
@@ -853,14 +854,16 @@ impl SkiaRenderer {
             let mut partial_renderer;
             let mut dirty_region_to_visualize = None;
 
-            if let Some(partial_rendering_state) = self.partial_rendering_state() {
+            if let Some(partial_rendering_state) =
+                self.partial_rendering_state().filter(|_| for_display)
+            {
                 partial_renderer =
                     partial_rendering_state.create_partial_renderer(skia_item_renderer);
 
                 let mut dirty_region_history = self.dirty_region_history.borrow_mut();
 
                 let buffer_dirty_region = if back_buffer_age > 0
-                    && back_buffer_age as usize - 1 < dirty_region_history.len()
+                    && back_buffer_age as usize - 1 <= dirty_region_history.len()
                 {
                     // The dirty region is the union of all the previous dirty regions
                     Some(
@@ -878,6 +881,22 @@ impl SkiaRenderer {
                     logical_window_size,
                     buffer_dirty_region,
                 );
+
+                if let Some(overlay_rect) = self
+                    .rendering_metrics_collector
+                    .borrow()
+                    .as_ref()
+                    .and_then(|m| m.overlay_rect())
+                {
+                    partial_renderer.dirty_region.add_rect(overlay_rect);
+                }
+
+                // Skia's GPU backend clips to more than one rectangle with a stencil mask,
+                // which costs more than painting the gaps between them.
+                if gr_context.is_some() {
+                    partial_renderer.dirty_region =
+                        partial_renderer.dirty_region.bounding_rect().into();
+                }
 
                 if matches!(self.dirty_region_debug_mode, DirtyRegionDebugMode::Log) {
                     let area_to_repaint: f32 =
@@ -938,7 +957,7 @@ impl SkiaRenderer {
                 }
             }
 
-            if invoke_rendering_notifier && self.has_rendering_notifier.get() {
+            if for_display && self.has_rendering_notifier.get() {
                 // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                 // the back buffer, in order to allow the callback to provide its own rendering of the background.
                 // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
@@ -1253,6 +1272,9 @@ pub trait SkiaRendererExt {
         translation: (f32, f32),
         surface_size: PhysicalWindowSize,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError>;
+
+    /// Repaints only what changed in each frame, for a surface that reports its buffer age.
+    fn enable_partial_rendering(&mut self);
 }
 
 impl SkiaRendererExt for SkiaRenderer {
@@ -1263,5 +1285,9 @@ impl SkiaRendererExt for SkiaRenderer {
         surface_size: PhysicalWindowSize,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         self.internal_render_transformed(rotation_angle_degrees, translation, surface_size)
+    }
+
+    fn enable_partial_rendering(&mut self) {
+        self.partial_rendering_state = Some(Default::default());
     }
 }

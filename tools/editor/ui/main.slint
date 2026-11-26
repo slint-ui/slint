@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { EditorCursors } from "cursors/index.slint";
 import { Properties } from "properties.slint";
 
 import { Style, Metrics, Typography, Colors } from "style.slint";
@@ -15,7 +16,7 @@ import { Preview } from "preview.slint";
 import { Springboard } from "@springboard";
 import { FloatingSurface } from "components/floating-surface.slint";
 import { StartupWizard } from "startup-wizard.slint";
-import { AppState, EditorCursors, EditorWindow, SidebarToggleButton, VerticalResizeDivider } from "components/index.slint";
+import { AppState, EditorWindow, SidebarToggleButton, VerticalResizeDivider } from "components/index.slint";
 import { CanvasPanArea } from "components/canvas-pan-area.slint";
 import { CanvasView, ZoomLevel } from "components/canvas-view.slint";
 import { DragPreview } from "components/drag-preview.slint";
@@ -30,12 +31,13 @@ import { LeftPane } from "components/left-pane.slint";
 import { NewFileErrorPopup } from "components/new-file-error-popup.slint";
 import { EditorTopBar } from "components/top-bar.slint";
 import { ShellTitleBar } from "components/title-bar.slint";
+import { DebuggerUi } from "debugger/debugger-window.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export {
     Api, Properties, CanvasView, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
     FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, Hover, InlineTextEdit, InlineTextEditStart, Preview, Project, Snapping, Springboard,
-    Metrics
+    Metrics, DebuggerUi
 }
 
 export component EditorUi inherits Window {
@@ -111,6 +113,8 @@ export component EditorUi inherits Window {
         root.width-budget - root.displayed-left-width);
     callback perform-native-window-zoom() -> bool;
     callback quit-requested();
+    in property <bool> debugger-available;
+    callback show-debugger();
     private property <string> new-file-error;
     private property <bool> canvas-zoom-enabled: !Api.startup-wizard-visible
         && Api.editor-surface-mode == EditorSurfaceMode.component
@@ -256,6 +260,13 @@ export component EditorUi inherits Window {
                 shortcut: @keys(Control + Digit0);
                 enabled: root.canvas-zoom-enabled;
                 activated => { CanvasView.set-zoom(ZoomLevel.actual-size); }
+            }
+        }
+        if root.debugger-available: Menu {
+            title: @tr("Window");
+            MenuItem {
+                title: @tr("Slint Debugger");
+                activated => { root.show-debugger(); }
             }
         }
         Menu {

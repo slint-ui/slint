@@ -1,7 +1,33 @@
 [
   {
     "BoxShadow": {
-      "brush": {
+      "box_shape": {
+        "radii": {
+          "bottom_left": {
+            "x": 8.0,
+            "y": 8.0
+          },
+          "bottom_right": {
+            "x": 28.0,
+            "y": 28.0
+          },
+          "top_left": {
+            "x": 28.0,
+            "y": 28.0
+          },
+          "top_right": {
+            "x": 8.0,
+            "y": 8.0
+          }
+        },
+        "rect": {
+          "x0": 0.0,
+          "x1": 130.0,
+          "y0": 0.0,
+          "y1": 58.0
+        }
+      },
+      "color": {
         "components": [
           1.0,
           0.0,
@@ -9,13 +35,12 @@
           0.8
         ]
       },
-      "radius": 18.0,
-      "rect": {
-        "x0": 18.0,
-        "x1": 148.0,
-        "y0": 18.0,
-        "y1": 76.0
+      "kind": "OutsetUnclipped",
+      "offset": {
+        "x": 18.0,
+        "y": 18.0
       },
+      "spread": 0.0,
       "std_dev": 5.0,
       "transform": [
         1.0,

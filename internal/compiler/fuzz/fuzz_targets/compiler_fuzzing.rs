@@ -11,6 +11,7 @@ pub fn process_file_source(path: &std::path::Path, source: String) {
     let syntax_node = i_slint_compiler::parser::parse(
         source.clone(),
         Some(i_slint_compiler::source_path::SourcePath::new(path)),
+        None,
         &mut parse_diagnostics,
     );
     // Fuzz the native lowering pipeline. The interpreter is not usable here: it has
@@ -36,11 +37,9 @@ pub fn process_file_source(path: &std::path::Path, source: String) {
             // Otherwise we'd have lots of warnings about not inheriting Window
             ComponentSelection::LastExported
         };
-    let (doc, diagnostics, loader) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
-        syntax_node,
-        parse_diagnostics,
-        compiler_config,
-    ));
+    let (doc, diagnostics, loader) = i_slint_compiler::poll_ready(
+        i_slint_compiler::compile_syntax_node(syntax_node, parse_diagnostics, compiler_config),
+    );
 
     // On a clean compile, run the back-end generator too, so the whole compiler
     // pipeline is fuzzed: parsing, the middle-end passes (run by compile_syntax_node
