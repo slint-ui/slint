@@ -8,10 +8,12 @@
 //! and replaces the other properties of the set by the master.
 //! See [`remove_aliases`] for the steps.
 
-use crate::diagnostics::BuildDiagnostics;
+use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
+use crate::element_type::ElementType;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference, TwoWayBinding};
 use crate::langtype::Type;
 use crate::object_tree::*;
+use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -107,6 +109,8 @@ impl PropertySets {
 /// The links that [`collect_links`] finds in the two-way bindings of a document.
 #[derive(Default)]
 struct Links {
+    /// Whether a two-way binding has a field access, which [`check_field_links`] checks.
+    has_field_links: bool,
     property_sets: PropertySets,
     /// For each callback, the callbacks that are bound two ways to it.
     callback_aliases: HashMap<NamedReference, Vec<NamedReference>>,
@@ -115,16 +119,20 @@ struct Links {
 /// Removes the properties that two-way bindings make redundant, in these steps:
 /// 1. [`collect_links`] groups the properties that two-way bindings link into sets.
 /// 2. [`check_callback_aliases`] warns about callbacks that alias one callback without a handler.
-/// 3. [`choose_masters`] picks the master of each set, and maps the properties to remove to it.
-/// 4. Every reference to a property to remove is replaced by its master.
-/// 5. [`remove_alias`] moves the binding and `changed` handlers of each property to remove
+/// 3. [`check_field_links`] reports a property linked to different fields of one struct.
+/// 4. [`choose_masters`] picks the master of each set, and maps the properties to remove to it.
+/// 5. Every reference to a property to remove is replaced by its master.
+/// 6. [`remove_alias`] moves the binding and `changed` handlers of each property to remove
 ///    onto its master, and removes its declaration.
 ///
 /// A link that [`PropertySets::can_merge`] rejects, and a property that [`choose_masters`] doesn't map,
 /// stay two-way bindings.
 pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
-    let Links { property_sets, callback_aliases } = collect_links(doc, diag);
+    let Links { property_sets, callback_aliases, has_field_links } = collect_links(doc, diag);
     check_callback_aliases(&property_sets, &callback_aliases, diag);
+    if has_field_links {
+        check_field_links(doc, diag);
+    }
     let aliases_to_remove = choose_masters(property_sets, diag);
 
     doc.visit_all_used_components(|component| {
@@ -157,6 +165,7 @@ fn collect_links(doc: &Document, diag: &mut BuildDiagnostics) -> Links {
                 if let TwoWayBinding::Property { property, field_access } = twb {
                     if !field_access.is_empty() {
                         // Don't optimize two way bindings to fields for now
+                        links.has_field_links = true;
                         continue;
                     }
                     let other_e = property.element();
@@ -185,6 +194,118 @@ fn collect_links(doc: &Document, diag: &mut BuildDiagnostics) -> Links {
     });
 
     links
+}
+
+/// Reports a property that two-way bindings link to different fields of one struct property.
+/// A mapped link can only follow one field, until #12461.
+fn check_field_links(doc: &Document, diag: &mut BuildDiagnostics) {
+    struct FieldLink {
+        target: NamedReference,
+        field_access: Vec<SmolStr>,
+        location: SourceLocation,
+        /// Whether the root element of a base component declares the link.
+        in_base: bool,
+    }
+
+    fn find(
+        linked: &HashMap<NamedReference, NamedReference>,
+        mut p: NamedReference,
+    ) -> NamedReference {
+        while let Some(next) = linked.get(&p) {
+            p = next.clone();
+        }
+        p
+    }
+
+    let mut linked = HashMap::<NamedReference, NamedReference>::new();
+    let mut field_links = Vec::<(NamedReference, FieldLink)>::new();
+
+    doc.visit_all_used_components(|component| {
+        recurse_elem_including_sub_components(component, &(), &mut |e, &()| {
+            let mut base_roots = Vec::new();
+            let mut base = e.borrow().base_type.clone();
+            while let ElementType::Component(c) | ElementType::Interface(Some(c)) = base {
+                base = c.root_element.borrow().base_type.clone();
+                base_roots.push(c.root_element.clone());
+            }
+            let elements = base_roots.iter().rev().map(|r| (true, r)).chain([(false, e)]);
+            for (in_base, element) in elements {
+                for (name, binding) in element.borrow().real_bindings() {
+                    let binding = binding.borrow();
+                    for twb in &binding.two_way_bindings {
+                        let TwoWayBinding::Property { property, field_access } = twb else {
+                            continue;
+                        };
+                        let target = if !in_base || is_in_global(property) {
+                            property.clone()
+                        } else if Rc::ptr_eq(&property.element(), element) {
+                            NamedReference::new(e, property.name().clone())
+                        } else {
+                            continue;
+                        };
+                        let source = NamedReference::new(e, name.clone());
+                        if field_access.is_empty() {
+                            let (source, target) = (find(&linked, source), find(&linked, target));
+                            if source != target {
+                                linked.insert(source, target);
+                            }
+                        } else {
+                            let location = binding.to_source_location();
+                            let field_access = field_access.clone();
+                            field_links.push((
+                                source,
+                                FieldLink { target, field_access, location, in_base },
+                            ));
+                        }
+                    }
+                }
+            }
+        })
+    });
+
+    let mut groups = Vec::<Vec<FieldLink>>::new();
+    let mut group_of_link = HashMap::new();
+    for (source, link) in field_links {
+        let key = (find(&linked, source), find(&linked, link.target.clone()));
+        let index = *group_of_link.entry(key).or_insert_with(|| {
+            groups.push(Vec::new());
+            groups.len() - 1
+        });
+        groups[index].push(link);
+    }
+
+    let path = |link: &FieldLink| {
+        let (element, name) = (link.target.element(), link.target.name());
+        let element = element.borrow();
+        let declaration = element.property_declarations.get(name);
+        let declared_name = declaration
+            .and_then(|d| d.shadowed_name.clone().or_else(|| d.moved_from.clone()))
+            .unwrap_or_else(|| name.clone());
+        format!("{declared_name}.{}", link.field_access.join("."))
+    };
+    for mut group in groups {
+        group.sort_by_key(|link| !link.in_base);
+        let Some((first, others)) = group.split_first() else { continue };
+        for error in others.iter().filter(|l| !l.in_base && l.field_access != first.field_access) {
+            diag.push_error_with_span(
+                format!(
+                    "This property is already two-way bound to '{}'. It can't also be two-way bound to '{}'. Bind it to one field only",
+                    path(first),
+                    path(error)
+                ),
+                error.location.clone(),
+            );
+            let same_binding = first.location.span == error.location.span
+                && first.location.source_file.as_ref().map(|f| f.path())
+                    == error.location.source_file.as_ref().map(|f| f.path());
+            if !same_binding {
+                diag.push_note_with_span(
+                    format!("'{}' is two-way bound here", path(first)),
+                    first.location.clone(),
+                );
+            }
+        }
+    }
 }
 
 /// Warns about callbacks bound two ways to the same callback when none of their set has a handler:
