@@ -66,10 +66,16 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
         VRc::into_dyn(parent_instance.clone()),
         parent_flat as u32,
     );
-    // The owner may itself be a popup without its own window adapter; walk
-    // the parent chain so a popup-in-popup registers with the root window's
-    // adapter instead of creating a fresh, headless one.
-    let Some(adapter) = find_window_adapter(ctx) else {
+    // The window of the declaring component, so a popup opened from a native popup
+    // is registered with that popup's window, as in the generated code.
+    // A non-native popup has no adapter of its own, so `window_adapter_or_default`
+    // takes the nearest ancestor's adapter instead of creating a new headless one.
+    let Some(adapter) = owner
+        .root
+        .get()
+        .and_then(|w| w.upgrade())
+        .and_then(|root| root.window_adapter_or_default())
+    else {
         return Value::Void;
     };
 
