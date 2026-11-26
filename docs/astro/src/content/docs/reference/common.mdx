@@ -416,6 +416,34 @@ for i in 5: Rectangle {
 The label for an interactive element. (default value: empty for most elements, or the value of the `text` property for Text elements)
 </SlintProperty>
 
+### accessible-modal
+<SlintProperty typeName="bool" propName="accessible-modal" defaultValue="false">
+Marks the element as a modal surface, such as a sheet or an overlay that covers the rest of the window.
+Assistive technologies can then only reach the modal element and what is on top of it.
+The elements that the modal element is stacked above are hidden from them for as long as it is shown.
+These are its earlier siblings and the earlier siblings of its ancestors.
+They stay visible on screen, so this does not replace `visible`.
+What the modal element covers still responds to input unless you stop it.
+This only works with the AccessKit-based backends, not with the Qt backend.
+
+```slint
+Window {
+    property <bool> sheet-open;
+
+    Rectangle {
+        accessible-role: button;
+        accessible-label: "Open the sheet";
+    }
+
+    if sheet-open: Rectangle {
+        accessible-role: region;
+        accessible-label: "Sheet";
+        accessible-modal: true;
+    }
+}
+```
+</SlintProperty>
+
 ### accessible-orientation
 <SlintProperty typeName="enum" enumName="Orientation">
 The orientation of the element when it makes sense, such as a `Slider` or a `ScrollBar`. Assistive

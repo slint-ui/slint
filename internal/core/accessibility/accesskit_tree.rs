@@ -23,7 +23,7 @@ use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::pin::Pin;
 use core::ptr::NonNull;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use accesskit::{
     Action, ActionRequest, Live, Node, NodeId, Orientation, Role, Toggled, TreeId, TreeInfo,
@@ -195,6 +195,10 @@ pub struct AccessKitTree {
     all_nodes: Vec<CachedNode>,
     root_node_id: NodeId,
     global_property_tracker: Pin<Rc<AccessibilityPropertyTracker>>,
+    /// Tracks the properties that decide which nodes are behind a modal item.
+    modal_tracker: Pin<Rc<AccessibilityPropertyTracker>>,
+    /// The nodes that a modal item covers.
+    behind_modal: HashSet<NodeId>,
     focused_node_tracker: Pin<Box<PropertyTracker<false, DelegateFocusPropertyTracker>>>,
     /// Emission state, keyed by the inner `TextInput`'s `ItemRc`. Its per-entry property tracker
     /// stays empty on purpose: the state has to outlive the edits it describes, so that NodeIds
@@ -212,6 +216,10 @@ impl AccessKitTree {
             global_property_tracker: Rc::pin(PropertyTracker::new_with_dirty_handler(
                 AccessibilityPropertyDirtyHandler { host: host.clone() },
             )),
+            modal_tracker: Rc::pin(PropertyTracker::new_with_dirty_handler(
+                AccessibilityPropertyDirtyHandler { host: host.clone() },
+            )),
+            behind_modal: Default::default(),
             focused_node_tracker: Box::pin(PropertyTracker::new_with_dirty_handler(
                 DelegateFocusPropertyTracker { host: host.clone() },
             )),
@@ -326,7 +334,9 @@ impl AccessKitTree {
     /// This is `false` when a notification arrives after a tree structure change emptied the
     /// tree: the pending [`Self::build_new_tree`] sends everything anyway.
     pub fn has_dirty_nodes(&self) -> bool {
-        (self.global_property_tracker.is_dirty() || self.focused_node_tracker.is_dirty())
+        (self.global_property_tracker.is_dirty()
+            || self.modal_tracker.is_dirty()
+            || self.focused_node_tracker.is_dirty())
             && !self.all_nodes.is_empty()
     }
 
@@ -340,45 +350,54 @@ impl AccessKitTree {
         };
         let window = window_adapter.window();
 
+        let modal_changed = if self.modal_tracker.is_dirty() {
+            self.update_behind_modal(window)
+        } else {
+            HashSet::new()
+        };
+
         let tracker = self.global_property_tracker.clone();
         tracker.as_ref().evaluate_as_dependency_root(|| {
             let nodes_vec: Vec<(NodeId, Node)> = self
                 .all_nodes
                 .iter()
                 .flat_map(|cached_node| {
-                    cached_node
-                        .tracker
-                        .as_ref()
-                        .evaluate_if_dirty(|| {
-                            let scale_factor = ScaleFactor::new(window.scale_factor());
-                            let Some(item) = self.item_rc_for_node_id(cached_node.id) else {
-                                return Vec::new();
-                            };
+                    let build = || {
+                        let scale_factor = ScaleFactor::new(window.scale_factor());
+                        let Some(item) = self.item_rc_for_node_id(cached_node.id) else {
+                            return Vec::new();
+                        };
 
-                            let mut node = self.build_node_without_children(
-                                &item,
-                                scale_factor,
-                                Default::default(),
-                            );
-                            node.set_children(cached_node.children.clone());
+                        let mut node = self.build_node_without_children(
+                            &item,
+                            scale_factor,
+                            Default::default(),
+                            self.behind_modal.contains(&cached_node.id),
+                        );
+                        node.set_children(cached_node.children.clone());
 
-                            let mut emitted: Vec<(NodeId, Node)> = Vec::new();
-                            self.try_emit_text_input_accessibility(
-                                &item,
-                                &mut node,
-                                cached_node.id,
-                                scale_factor,
-                                Default::default(),
-                                &mut emitted,
-                                &window_adapter,
-                            );
+                        let mut emitted: Vec<(NodeId, Node)> = Vec::new();
+                        self.try_emit_text_input_accessibility(
+                            &item,
+                            &mut node,
+                            cached_node.id,
+                            scale_factor,
+                            Default::default(),
+                            &mut emitted,
+                            &window_adapter,
+                        );
 
-                            let mut out = Vec::with_capacity(1 + emitted.len());
-                            out.push((cached_node.id, node));
-                            out.extend(emitted);
-                            out
-                        })
-                        .unwrap_or_default()
+                        let mut out = Vec::with_capacity(1 + emitted.len());
+                        out.push((cached_node.id, node));
+                        out.extend(emitted);
+                        out
+                    };
+                    let tracker = cached_node.tracker.as_ref();
+                    if modal_changed.contains(&cached_node.id) {
+                        tracker.evaluate(build)
+                    } else {
+                        tracker.evaluate_if_dirty(build).unwrap_or_default()
+                    }
                 })
                 .collect();
 
@@ -543,8 +562,14 @@ impl AccessKitTree {
         // going dirty rebuilds the node.
         let (node, text_run_nodes) = {
             let mut text_run_nodes: Vec<(NodeId, Node)> = Vec::new();
+            let behind_modal = self.behind_modal.contains(&id);
             let node = tracker.as_ref().evaluate(|| {
-                let mut n = self.build_node_without_children(&item, scale_factor, window_position);
+                let mut n = self.build_node_without_children(
+                    &item,
+                    scale_factor,
+                    window_position,
+                    behind_modal,
+                );
                 n.set_children(descendant_children.clone());
                 self.try_emit_text_input_accessibility(
                     &item,
@@ -665,6 +690,8 @@ impl AccessKitTree {
             })
             .collect::<Vec<_>>();
 
+        self.update_behind_modal(window);
+
         self.all_nodes.clear();
         let mut nodes = Vec::new();
 
@@ -690,11 +717,62 @@ impl AccessKitTree {
         }
     }
 
+    /// Finds the nodes that a modal item covers, and returns the ones that changed since the last
+    /// call. A modal item is stacked on top of the later siblings of its earlier siblings and
+    /// their descendants, so the state is passed down from the parent while visiting the children.
+    fn update_behind_modal(&mut self, window: &Window) -> HashSet<NodeId> {
+        let window_inner = WindowInner::from_pub(window);
+        let Some(component) = window_inner.try_component() else {
+            return core::mem::take(&mut self.behind_modal);
+        };
+        let roots = core::iter::once(ItemRc::new_root(component))
+            .chain(
+                window_inner
+                    .active_popups()
+                    .iter()
+                    .filter(|popup| matches!(popup.location, PopupWindowLocation::ChildWindow(_)))
+                    .map(|popup| ItemRc::new_root(popup.component.clone())),
+            )
+            .collect::<Vec<_>>();
+
+        let tracker = self.modal_tracker.clone();
+        let behind_modal = tracker.as_ref().evaluate_as_dependency_root(|| {
+            let mut behind_modal = HashSet::new();
+            for root in &roots {
+                self.collect_behind_modal(root, false, &mut behind_modal);
+            }
+            behind_modal
+        });
+        let changed = behind_modal.symmetric_difference(&self.behind_modal).copied().collect();
+        self.behind_modal = behind_modal;
+        changed
+    }
+
+    fn collect_behind_modal(&mut self, item: &ItemRc, behind: bool, out: &mut HashSet<NodeId>) {
+        let mut children = Vec::new();
+        let mut child = item.first_child();
+        while let Some(c) = child {
+            child = c.next_sibling();
+            children.push(c);
+        }
+        // Later siblings are painted on top.
+        let mut modal_above = false;
+        for child in children.iter().rev() {
+            let child_behind = behind || modal_above;
+            if child_behind && child.is_accessible() {
+                out.insert(self.encode_item_node_id(child));
+            }
+            self.collect_behind_modal(child, child_behind, out);
+            modal_above = modal_above || is_or_wraps_modal(child);
+        }
+    }
+
     fn build_node_without_children(
         &self,
         item: &ItemRc,
         scale_factor: ScaleFactor,
         window_position: LogicalPoint,
+        behind_modal: bool,
     ) -> Node {
         let is_checkable = item
             .accessible_string_property(AccessibleStringProperty::Checkable)
@@ -776,8 +854,12 @@ impl AccessKitTree {
             node.set_disabled();
         }
 
-        if !item.is_visible() {
+        if !item.is_visible() || behind_modal {
             node.set_hidden();
+        }
+
+        if is_modal(item) {
+            node.set_modal();
         }
 
         if item.borrow().as_ref().clips_children() {
@@ -975,6 +1057,22 @@ struct DelegateFocusPropertyTracker {
 impl crate::properties::PropertyDirtyHandler for DelegateFocusPropertyTracker {
     fn notify(self: Pin<&Self>) {
         self.host.focus_dirty();
+    }
+}
+
+/// Whether `item` is shown and has `accessible-modal` set.
+fn is_modal(item: &ItemRc) -> bool {
+    item.accessible_string_property(AccessibleStringProperty::Modal).is_some_and(|x| x == "true")
+        && item.is_visible()
+}
+
+/// Whether `item` is a modal accessible item, or only wraps some, as an element with a `visible`
+/// binding does.
+fn is_or_wraps_modal(item: &ItemRc) -> bool {
+    if item.is_accessible() {
+        is_modal(item)
+    } else {
+        crate::accessibility::accessible_descendents(item).any(|x| is_modal(&x))
     }
 }
 
