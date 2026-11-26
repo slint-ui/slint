@@ -697,6 +697,7 @@ fn duplicate_element_with_mapping(
         is_tooltip: elem.is_tooltip,
         z_order: elem.z_order.clone(),
         is_legacy_syntax: elem.is_legacy_syntax,
+        has_anchors: elem.has_anchors,
         inline_depth: elem.inline_depth + priority_delta,
         slot_target: elem.slot_target.clone(),
         slot_default: elem.slot_default.clone(),

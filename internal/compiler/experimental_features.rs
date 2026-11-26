@@ -46,6 +46,9 @@ pub enum ExperimentalFeature {
     /// The internal builtin types, such as the `SlintInternal` namespace,
     /// to preview the sources of the builtin styles
     InternalTypes,
+    /// The anchor properties: `left`, `horizontal-center`, `right`, `top`, `vertical-center`,
+    /// and `bottom`
+    Anchors,
 }
 
 /// A set of [`ExperimentalFeature`]s.
@@ -64,6 +67,10 @@ impl ExperimentalFeatures {
 
     fn insert(&mut self, feature: ExperimentalFeature) {
         self.0 |= Self::bit(feature);
+    }
+
+    pub fn remove(&mut self, feature: ExperimentalFeature) {
+        self.0 &= !Self::bit(feature);
     }
 
     pub fn is_empty(self) -> bool {

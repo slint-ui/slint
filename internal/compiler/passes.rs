@@ -34,6 +34,7 @@ mod key_bindings;
 mod listview;
 mod lower_absolute_coordinates;
 mod lower_accessibility;
+pub(crate) mod lower_anchors;
 mod lower_component_container;
 pub(crate) mod lower_layout;
 mod lower_menus;
@@ -432,9 +433,17 @@ pub fn run_import_passes(
     type_loader: &crate::typeloader::TypeLoader,
     diag: &mut crate::diagnostics::BuildDiagnostics,
 ) {
+    let anchors = type_loader
+        .compiler_config
+        .experimental_features
+        .contains(crate::ExperimentalFeature::Anchors);
+    let found_anchors = anchors.then(|| lower_anchors::remove_auto(doc));
     infer_aliases_types::resolve_aliases(doc, diag, &type_loader.symbol_counters);
     validate_interfaces::validate_interfaces(doc, diag);
     resolving::resolve_expressions(doc, type_loader, diag);
+    if let Some(found) = found_anchors {
+        lower_anchors::lower_anchors(doc, found, diag);
+    }
     check_slot_defaults::check_slot_defaults(doc, diag);
     purity_check::purity_check(doc, diag);
     focus_handling::replace_forward_focus_bindings_with_focus_functions(doc, diag);

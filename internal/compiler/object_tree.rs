@@ -1406,6 +1406,9 @@ pub struct Element {
     /// True when this element is in a component was declared with the `:=` symbol instead of the `component` keyword
     pub is_legacy_syntax: bool,
 
+    /// Whether the element has the anchor properties of the `anchors` experimental feature.
+    pub has_anchors: bool,
+
     /// How deep the element was inlined. Its own bindings have a
     /// [`BindingExpression::priority`] of `1 + inline_depth`.
     pub inline_depth: i32,
@@ -1915,6 +1918,8 @@ impl Element {
                 element_boundary: false,
             }],
             is_legacy_syntax,
+            has_anchors: !is_legacy_syntax
+                && tr.experimental_features.contains(ExperimentalFeature::Anchors),
             ..Default::default()
         };
 
@@ -2353,7 +2358,15 @@ impl Element {
             PropertyLookupMode::InternalName => PropertyLookupMode::InternalName,
             _ => PropertyLookupMode::FromOutside,
         };
-        from_base(self.base_type.lookup_property(name, base_mode))
+        let result = from_base(self.base_type.lookup_property(name, base_mode));
+        if !result.is_valid()
+            && self.has_anchors
+            && self.builtin_type().is_some_and(|b| !b.is_non_item_type && !b.is_global)
+            && let Some(anchor) = crate::passes::lower_anchors::anchor_property(name)
+        {
+            return anchor;
+        }
+        result
     }
 
     /// The declaration for a member written as `name` in `.slint` source, with its internal key.
@@ -2414,9 +2427,12 @@ impl Element {
             };
         }
         let origin = if declared_in.is_some() { "inherited" } else { "builtin" };
+        // Existing code declares these names often, so shadowing an anchor is silent.
+        let is_anchor =
+            declared_in.is_none() && crate::passes::lower_anchors::anchor_property(name).is_some();
         MemberDeclaration::Shadow {
             internal_name: self.unique_member_name(name),
-            warning: (!private).then(|| {
+            warning: (!private && !is_anchor).then(|| {
                 let kind = member_kind(&existing.property_type);
                 format!("'{name}' shadows the {origin} {kind} of the same name")
             }),

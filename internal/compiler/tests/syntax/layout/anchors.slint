@@ -1,0 +1,135 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Declares {
+    // Declaring a property with the name of an anchor shadows it, without a warning.
+    in property <length> left;
+    out property <length> twice-left: left * 2;
+}
+
+component Frame {
+    Rectangle {
+        @children
+    }
+}
+
+export component RootAnchor {
+    left: self.right;
+//        >         <error{Anchors can't be set on the root element of a component}
+}
+
+export component Foo {
+    other := Rectangle { }
+
+    Rectangle {
+        left: 10px;
+//            >   <error{'left' must be bound to an anchor. Use 'parent.left + <length>' to set a margin}
+        width: 10px;
+    }
+    Rectangle {
+        left: other.top;
+//            >        <error{'left' is a horizontal anchor and can't be bound to a vertical anchor}
+    }
+    Rectangle {
+        left: parent.left;
+        right: parent.right;
+        width: 10px;
+//             >   <error{Set at most two of 'left', 'horizontal-center', 'right', and 'width'. 'x' counts as 'left'}
+    }
+    Rectangle {
+        x: 5px;
+//         >  <error{'left' and 'x' both set the same edge}
+        left: parent.left;
+    }
+    Rectangle {
+        left: other.left + other.right;
+//            >                       <error{Can't add two anchors. Subtract them to get the distance between them}
+    }
+    Rectangle {
+        // Fine: anchors to an element that isn't the parent or a sibling
+        Rectangle {
+            left: other.left;
+        }
+    }
+    outer := Rectangle {
+        inner := Rectangle {
+            width: 10px;
+        }
+        left: inner.right;
+//            >          <error{An element can't anchor to itself or to its children}
+    }
+    Rectangle {
+        // Fine: a distance between the anchors of a child
+        left: parent.left;
+        right: parent.right - (measured.right - measured.left);
+        measured := Rectangle {
+            width: 10px;
+        }
+    }
+    VerticalLayout {
+        Rectangle {
+//      >        <error{A layout positions its children, so they can't set anchors}
+            states [
+                moved when true: {
+                    left: parent.left;
+                }
+            ]
+        }
+    }
+    Rectangle {
+        left: self.right;
+//            >         <error{An element can't anchor to itself or to its children}
+    }
+    Frame {
+        Rectangle {
+            left: parent.left;
+//                >          <error{The parent places its children with '@children', so they can't set anchors}
+        }
+    }
+    Rectangle {
+        width: other.right;
+//             >          <error{An anchor isn't a length. Subtract two anchors to get the distance between them}
+    }
+    Rectangle {
+        left <=> other.left;
+//      >                  <error{An anchor can't have a two-way binding}
+    }
+    Rectangle {
+        left: parent.left;
+//            >          <error{An anchor can't be animated. Animate 'x' and 'width' instead}
+        animate left { duration: 100ms; }
+    }
+    HorizontalLayout {
+        Rectangle {
+            left: parent.left;
+//                >          <error{A layout positions its children, so they can't set anchors}
+        }
+    }
+    Rectangle {
+        // Fine: a length between two anchors, and a shadowed anchor
+        width: other.right - other.left;
+        left: parent.left;
+    }
+    Rectangle {
+        left: parent.left;
+        right: parent.right;
+        states [
+            fixed when true: {
+                width: 10px;
+//                     >   <error{Set at most two of 'left', 'horizontal-center', 'right', and 'width'. 'x' counts as 'left'}
+            }
+        ]
+    }
+    HorizontalLayout {
+        Rectangle {
+            states [
+                fixed when true: {
+                    width: 10px;
+                }
+            ]
+        }
+    }
+    Declares {
+        left: 5px;
+    }
+}

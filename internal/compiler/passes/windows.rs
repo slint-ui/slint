@@ -80,6 +80,7 @@ pub fn ensure_window(
 
         inline_depth: 0,
         is_legacy_syntax: false,
+        has_anchors: false,
         slot_target: None,
         slot_default: None,
         empty_slot_assignments: Vec::new(),
