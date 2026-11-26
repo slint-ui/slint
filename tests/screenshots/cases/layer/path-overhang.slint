@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Paths that draw outside their geometry, each in a cached layer, which is sized by the
+// bounding rect of its children.
+
+// SKIP_LINE_BY_LINE  - Path not implemented in line-by-line mode
+// ROTATION_THRESHOLD=30  - Zeno anti-aliasing is slightly different in different rotation
+
+// SIZE=64x28
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 28px;
+    background: white;
+
+    // `fit: preserve` draws the path at its own coordinates.
+    Rectangle {
+        x: 2px;
+        y: 4px;
+        width: 10px;
+        height: 10px;
+        cache-rendering-hint: true;
+        Path {
+            width: 10px;
+            height: 10px;
+            fit: preserve;
+            fill: blue;
+            commands: "M 0 0 L 28 0 L 28 16 Z";
+        }
+    }
+
+    // The miter join reaches past half the stroke width that the fit reserves.
+    Rectangle {
+        x: 50px;
+        y: 2px;
+        width: 12px;
+        height: 24px;
+        cache-rendering-hint: true;
+        Path {
+            width: 12px;
+            height: 24px;
+            stroke: green;
+            stroke-width: 6px;
+            stroke-line-join: miter;
+            stroke-miter-limit: 10;
+            commands: "M 30 0 L 0 12 L 30 24";
+        }
+    }
+}

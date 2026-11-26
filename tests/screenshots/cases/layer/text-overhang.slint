@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Elided text isn't clipped: the italic overhang and the outside stroke reach past the
+// geometry, into the cached layer, which is sized by the bounding rect of its children.
+
+// The embed-assets pipeline renders pre-rasterized bitmap glyphs, which have no outline to stroke.
+//ignore:software-embed-assets
+
+// Skia font rendering is not consistent across platforms (see text.slint).
+//ignore:skia
+
+// SIZE=40x28
+
+export component TestCase inherits Window {
+    width: 40px;
+    height: 28px;
+    background: white;
+
+    Rectangle {
+        x: 6px;
+        y: 4px;
+        width: 30px;
+        height: 20px;
+        cache-rendering-hint: true;
+        Text {
+            text: "ff";
+            font-size: 18px;
+            font-italic: true;
+            color: black;
+            stroke: red;
+            stroke-width: 2px;
+            stroke-style: outside;
+            overflow: elide;
+        }
+    }
+}
