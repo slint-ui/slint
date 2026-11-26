@@ -2,7 +2,7 @@
 title: Android
 description: Android Platform Guide
 ---
-{/* cSpell: ignore xbuild textfields abifilters gradlew logcat armeabi androideabi myproject libapp */}
+{/* cSpell: ignore xbuild textfields abifilters gradlew logcat armeabi androideabi myproject libapp uiautomator */}
 
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
@@ -501,3 +501,12 @@ Common causes:
 
 </TabItem>
 </Tabs>
+
+## Accessibility
+
+With the `accessibility` feature of the `slint` crate, which is on by default, Slint exposes the elements of your user interface to Android accessibility services such as TalkBack.
+Describe your elements with the `accessible-role` and `accessible-label` properties, as on the other platforms.
+
+To try it, enable TalkBack in **Settings → Accessibility**, or dump the accessibility tree of the running app with `adb shell uiautomator dump`.
+
+A `NativeActivity` renders to the surface of the activity window, where Android can't draw the frame around the element that has accessibility focus, so Slint draws it itself.
