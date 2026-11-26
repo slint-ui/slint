@@ -18,6 +18,7 @@
 //! `WindowAdapterInternal::handle_focus_change`).
 
 use alloc::boxed::Box;
+use alloc::collections::VecDeque;
 use alloc::rc::{Rc, Weak};
 use alloc::string::ToString;
 use alloc::vec::Vec;
@@ -134,6 +135,9 @@ const NODE_ID_INDEX_BITS: u32 = 16;
 const NODE_ID_INDEX_MASK: u64 = (1 << NODE_ID_INDEX_BITS) - 1; // 0xFFFF
 const NODE_ID_COMPONENT_BITS: u32 = 22;
 const NODE_ID_COMPONENT_MASK: u64 = (1 << NODE_ID_COMPONENT_BITS) - 1; // 0x3FFFFF
+/// How many freed component ids queue up before the oldest one is handed out again.
+/// It bounds the memory of the queue and the time before an id comes back.
+const MIN_FREE_COMPONENT_IDS_TO_REUSE: usize = 100_000;
 
 // NodeIds for the TextRun children of a text input:
 //
@@ -189,7 +193,7 @@ pub struct AccessKitTree {
     window_adapter_weak: Weak<dyn WindowAdapter>,
     host: Rc<dyn AccessKitHost>,
     next_component_id: u32,
-    free_component_ids: Vec<u32>,
+    free_component_ids: VecDeque<u32>,
     components_by_id: HashMap<u32, ItemTreeWeak>,
     component_ids: HashMap<NonNull<u8>, u32>,
     all_nodes: Vec<CachedNode>,
@@ -443,17 +447,24 @@ impl AccessKitTree {
     }
 
     fn alloc_component_id(&mut self) -> u32 {
-        self.free_component_ids.pop().unwrap_or_else(|| {
-            let id = self.next_component_id;
-            self.next_component_id += 1;
-            id
-        })
+        // A screen reader can still hold the id of a node of a destroyed component (its focus,
+        // say). Handing that id to a new component at once would put the focus on an unrelated
+        // node, so freed ids are reused oldest first and only once enough of them are queued.
+        let exhausted = u64::from(self.next_component_id) > NODE_ID_COMPONENT_MASK;
+        if (self.free_component_ids.len() >= MIN_FREE_COMPONENT_IDS_TO_REUSE || exhausted)
+            && let Some(id) = self.free_component_ids.pop_front()
+        {
+            return id;
+        }
+        let id = self.next_component_id;
+        self.next_component_id += 1;
+        id
     }
 
     fn forget_component(&mut self, component_ptr: NonNull<u8>) {
         if let Some(component_id) = self.component_ids.remove(&component_ptr) {
             self.components_by_id.remove(&component_id);
-            self.free_component_ids.push(component_id);
+            self.free_component_ids.push_back(component_id);
         }
         self.text_state.component_destroyed_at(component_ptr);
     }

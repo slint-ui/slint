@@ -109,9 +109,13 @@ struct Fixture {
 
 impl Fixture {
     fn new() -> Self {
+        Self::with_source(SOURCE)
+    }
+
+    fn with_source(source: &str) -> Self {
         i_slint_backend_testing::init_no_event_loop();
         let result = i_slint_compiler::poll_ready(
-            Compiler::default().build_from_source(SOURCE.into(), Default::default()),
+            Compiler::default().build_from_source(source.into(), Default::default()),
         );
         assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
         let instance = result.component("TestCase").unwrap().create().unwrap();
@@ -220,6 +224,40 @@ fn node_ids_survive_a_rebuild() {
     assert_eq!(ids(&first), ids(&second));
     assert_eq!(node_by_label(&first, "Play").0, node_by_label(&second, "Pause").0);
     assert_eq!(first.tree.as_ref().unwrap().root, second.tree.as_ref().unwrap().root);
+}
+
+const REPEATED_SOURCE: &str = r#"
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+    in-out property <bool> show: true;
+
+    VerticalLayout {
+        if root.show: Rectangle {
+            height: 40px;
+            accessible-role: button;
+            accessible-label: "Shown";
+        }
+        Rectangle {
+            height: 40px;
+            accessible-role: button;
+            accessible-label: "Always";
+        }
+    }
+}
+"#;
+
+#[test]
+fn a_destroyed_component_does_not_hand_its_node_ids_to_the_next_one() {
+    let mut f = Fixture::with_source(REPEATED_SOURCE);
+    let first = node_by_label(&f.tree.build_new_tree(), "Shown").0;
+
+    f.instance.set_property("show", Value::Bool(false)).unwrap();
+    f.tree.build_new_tree();
+    f.instance.set_property("show", Value::Bool(true)).unwrap();
+    let second = node_by_label(&f.tree.build_new_tree(), "Shown").0;
+
+    assert_ne!(first, second);
 }
 
 #[test]
