@@ -1,4 +1,5 @@
 {
     "edition": "1.20",
-    "main": "printerdemo.slint"
+    "main": "printerdemo.slint",
+    "fonts": ["fonts/Inter-24pt-Regular.ttf", "fonts/Inter-24pt-Medium.ttf"]
 }

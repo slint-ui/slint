@@ -1022,6 +1022,38 @@ fn output_path_compilation_tracks_project_file_dependency() {
 }
 
 #[test]
+fn output_path_compilation_tracks_project_file_fonts() {
+    use std::fs;
+
+    with_temp_test_dir("font-deps", |test_root| {
+        let project_file = project_file_path_in(test_root);
+        let output_file = test_root.join("main.rs");
+        let font = test_root.join("Font.ttf");
+
+        fs::write(
+            &project_file,
+            r#"{"edition": "1.20", "main":"main.slint","fonts":["Font.ttf"]}"#,
+        )
+        .unwrap();
+        fs::write(test_root.join("main.slint"), "export component Test inherits Window {}")
+            .unwrap();
+        fs::write(&font, "").unwrap();
+
+        let dependencies =
+            compile_with_output_path(test_root, &output_file, CompilerConfiguration::new())
+                .unwrap();
+
+        let font = i_slint_compiler::source_path::clean_path(&font);
+        assert!(
+            dependencies
+                .iter()
+                .any(|dependency| i_slint_compiler::source_path::clean_path(dependency) == font),
+            "expected: {font:?}\ndeps: {dependencies:#?}"
+        );
+    });
+}
+
+#[test]
 fn output_path_compilation_does_not_track_missing_project_file() {
     use std::fs;
 

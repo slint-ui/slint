@@ -184,6 +184,11 @@ pub struct CompilerConfiguration {
     pub use_sdf_fonts: bool,
     /// The compiler will look in these paths for components used in the file to compile.
     pub include_paths: Vec<std::path::PathBuf>,
+    /// Font files to register, in addition to the fonts that `.slint` files import.
+    /// A path that starts with `@` names a file in a library of `library_paths`.
+    pub fonts: Vec<std::path::PathBuf>,
+    /// Where each of `fonts` is set, such as in a project file, for an error about it.
+    pub font_locations: HashMap<std::path::PathBuf, diagnostics::SourceLocation>,
     /// The compiler will look in these paths for library imports.
     pub library_paths: HashMap<String, std::path::PathBuf>,
     /// the name of the style. (eg: "native")
@@ -236,6 +241,10 @@ pub struct CompilerConfiguration {
     /// such as a library's example.
     /// When it's empty, compiling a root file uses the directory of that file.
     pub project_roots: Vec<source_path::SourcePath>,
+
+    /// The `slint-project.json` files of the application, empty when it has none,
+    /// such as for the `slint!` macro.
+    pub project_files: Vec<source_path::SourcePath>,
 
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
@@ -386,6 +395,8 @@ impl CompilerConfiguration {
         Self {
             embed_resources,
             include_paths: Default::default(),
+            fonts: Default::default(),
+            font_locations: Default::default(),
             library_paths: Default::default(),
             style,
             open_import_callback: None,
@@ -399,6 +410,7 @@ impl CompilerConfiguration {
             edition: None,
             edition_location: None,
             project_roots: Vec::new(),
+            project_files: Vec::new(),
             translation_domain: None,
             default_translation_context: DefaultTranslationContext::ComponentName,
             no_native_menu: false,

@@ -409,6 +409,7 @@ impl EditorSession {
         let ProjectFileData {
             mut include_paths,
             library_paths,
+            mut fonts,
             experimental_features,
             edition,
             schema: _,
@@ -467,6 +468,7 @@ impl EditorSession {
                 let ProjectFileData {
                     include_paths: project_include_paths,
                     library_paths: project_library_paths,
+                    fonts: project_fonts,
                     experimental_features: project_experimental_features,
                     edition: project_edition,
                     schema: _,
@@ -486,10 +488,13 @@ impl EditorSession {
                     });
                 };
                 if let Some(project_include_paths) = project_include_paths {
-                    project_file::append_include_paths(
+                    project_file::append_paths(
                         include_paths.get_or_insert_default(),
                         project_include_paths,
                     );
+                }
+                if let Some(project_fonts) = project_fonts {
+                    project_file::append_paths(fonts.get_or_insert_default(), project_fonts);
                 }
                 merge_project_library_paths(
                     &mut library_paths,
@@ -529,6 +534,7 @@ impl EditorSession {
                 include_paths,
                 library_paths: library_paths
                     .map(|paths| paths.into_iter().map(|(name, (path, _))| (name, path)).collect()),
+                fonts,
                 experimental_features: experimental_features.map(|(features, _)| features),
                 edition: edition.map(|(version, _)| version),
                 schema: None,
@@ -554,6 +560,7 @@ impl EditorSession {
             .iter()
             .map(|path| i_slint_compiler::project_file::normalize_project_root(path.clone()))
             .collect();
+        config.compiler_config.project_files = self.project_file_paths.clone();
         if config.compiler_config.project_roots.is_empty() {
             config.compiler_config.project_roots = self.workspace_roots.clone();
         }
@@ -931,7 +938,7 @@ impl EditorSession {
         Ok((None, contents))
     }
 
-    /// Read each font file imported by the `.slint` at `doc_url` and push it
+    /// Read each font file that the `.slint` at `doc_url` registers and push it
     /// to the remote viewer via `SetContents`. Only the remote viewer needs
     /// font bytes pushed: local previews read fonts from disk. Fonts in `sent`
     /// are skipped: callers seed it with fonts that were already transferred
@@ -945,10 +952,7 @@ impl EditorSession {
         sent: &mut HashSet<SourcePath>,
     ) {
         let Some(remote) = preview.to_preview.remote() else { return };
-        let Some(doc) = self.document_cache.get_document(doc_url) else { return };
-        // `custom_fonts` holds the resolved path of every font import that
-        // passed the compiler's existence check, plus remote URLs.
-        for (font_path, _) in &doc.custom_fonts {
+        for font_path in &self.document_cache.font_files(doc_url) {
             if font_path.as_native_path().is_none() || !sent.insert(font_path.clone()) {
                 continue;
             }
@@ -1043,11 +1047,8 @@ impl EditorSession {
                 // already; seed the sent set with them so only fonts added by this
                 // edit are transferred.
                 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-                let fonts_sent: HashSet<SourcePath> = self
-                    .document_cache
-                    .get_document(&url)
-                    .map(|doc| doc.custom_fonts.iter().map(|(p, _)| p.clone()).collect())
-                    .unwrap_or_default();
+                let fonts_sent: HashSet<SourcePath> =
+                    self.document_cache.font_files(&url).into_iter().collect();
                 let dependencies: HashSet<Url> = self.document_cache.invalidate_url(&url);
                 let _ = self.document_cache.load_url(&url, version, content, &mut diag).await;
                 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
@@ -3318,12 +3319,12 @@ mod tests {
         let document_b = project_b.join("main.slint");
         std::fs::write(
             project_a.join(FILE_NAME),
-            r#"{ "edition": "1.20", "$schema": "schema-a", "main": "main.slint", "include-paths": ["include-a"] }"#,
+            r#"{ "edition": "1.20", "$schema": "schema-a", "main": "main.slint", "include-paths": ["include-a"], "fonts": ["a.ttf", "@fonts/shared.ttf"] }"#,
         )
         .unwrap();
         std::fs::write(
             project_b.join(FILE_NAME),
-            r#"{ "edition": "1.20", "include-paths": ["include-b"], "library-paths": {"widgets": "lib.slint"} }"#,
+            r#"{ "edition": "1.20", "include-paths": ["include-b"], "library-paths": {"widgets": "lib.slint"}, "fonts": ["b.ttf", "@fonts/shared.ttf"] }"#,
         )
         .unwrap();
         write_document(&document_a);
@@ -3347,6 +3348,14 @@ mod tests {
             HashMap::from([("widgets".to_string(), project_b.join("lib.slint"))])
         );
         let (merged, _) = session.merged_project_data(Default::default());
+        assert_eq!(
+            merged.fonts,
+            Some(vec![
+                project_a.join("a.ttf"),
+                PathBuf::from("@fonts/shared.ttf"),
+                project_b.join("b.ttf"),
+            ])
+        );
         assert_eq!(merged.schema, None);
         assert_eq!(merged.main, None);
         assert_eq!(merged.experimental_features, None);

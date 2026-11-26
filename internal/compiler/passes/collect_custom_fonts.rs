@@ -13,14 +13,10 @@ use std::collections::{BTreeSet, HashMap};
 
 pub fn collect_custom_fonts<'a>(
     doc: &Document,
-    all_docs: impl Iterator<Item = &'a Document> + 'a,
+    font_files: impl Iterator<Item = &'a SourcePath>,
     embed_fonts: bool,
 ) {
-    let mut all_fonts = BTreeSet::new();
-
-    for doc in all_docs {
-        all_fonts.extend(doc.custom_fonts.iter().map(|(path, _)| path))
-    }
+    let all_fonts: BTreeSet<_> = font_files.collect();
 
     let registration_function = if embed_fonts {
         BuiltinFunction::RegisterCustomFontByMemory

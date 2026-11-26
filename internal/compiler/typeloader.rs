@@ -1006,6 +1006,7 @@ struct LibraryProject {
     edition: crate::project_file::SlintEdition,
     include_paths: Vec<PathBuf>,
     library_paths: HashMap<String, PathBuf>,
+    fonts: Vec<(PathBuf, crate::diagnostics::SourceLocation)>,
 }
 
 impl LibraryProject {
@@ -1317,6 +1318,13 @@ impl TypeLoader {
                     };
                     import.resolved = Some(path);
                 }
+                if crate::fileaccess::is_font_file(&import.file) {
+                    let importing_file = import.import_uri_token.source_file.path();
+                    let warning = state.borrow().tl.font_import_warning(importing_file, &import);
+                    if let Some(warning) = warning {
+                        state.borrow_mut().diag.push_warning(warning, &import.import_uri_token);
+                    }
+                }
                 imports.push(import);
                 continue;
             }
@@ -1541,6 +1549,123 @@ impl TypeLoader {
         }
     }
 
+    /// The deprecation warning for `import`, a font import in `importing_file`,
+    /// if a project file applies to that file.
+    fn font_import_warning(
+        &self,
+        importing_file: &SourcePath,
+        import: &ImportedTypes,
+    ) -> Option<String> {
+        use crate::project_file::normalize_project_file_path as absolute;
+        let importing_file = absolute(importing_file.clone());
+        let project_directory = match self.library_project_of(&importing_file) {
+            Some(library) => library.root.clone(),
+            None => self
+                .compiler_config
+                .project_files
+                .iter()
+                .map(SourcePath::parent)
+                .filter(|directory| is_within(directory, &importing_file))
+                .max_by_key(|directory| directory.to_string().len())?,
+        };
+        let suggestion = import
+            .resolved
+            .clone()
+            .map(absolute)
+            .and_then(|font| font.relative_to(&project_directory))
+            .map_or_else(|| import.file.clone(), |font| font.to_string().replace('\\', "/"));
+        Some(format!(
+            "Importing a font is deprecated. Add \"{suggestion}\" to 'fonts' in {} instead",
+            crate::project_file::FILE_NAME
+        ))
+    }
+
+    /// The font files to register: the fonts of the compiler configuration and of the library
+    /// projects that `documents` belong to, then the fonts that `documents` import,
+    /// each with where to report a problem with it.
+    /// A configured font that doesn't exist is reported to `diag` and left out.
+    pub fn font_files<'a>(
+        &self,
+        documents: impl Iterator<Item = &'a Document>,
+        diag: &mut BuildDiagnostics,
+    ) -> Vec<(SourcePath, crate::diagnostics::SourceLocation)> {
+        let documents: Vec<_> = documents.collect();
+        let mut fonts = self.configured_fonts(&documents, diag);
+        for document in documents {
+            for (path, import_token) in &document.custom_fonts {
+                fonts.push((path.clone(), import_token.to_source_location()));
+            }
+        }
+        let mut seen = HashSet::new();
+        fonts.retain(|(path, _)| seen.insert(path.clone()));
+        fonts
+    }
+
+    fn configured_fonts(
+        &self,
+        documents: &[&Document],
+        diag: &mut BuildDiagnostics,
+    ) -> Vec<(SourcePath, crate::diagnostics::SourceLocation)> {
+        let application_fonts: Vec<_> = self
+            .compiler_config
+            .fonts
+            .iter()
+            .map(|font| {
+                let location = self.compiler_config.font_locations.get(font);
+                (font.clone(), location.cloned().unwrap_or_default())
+            })
+            .collect();
+        let mut fonts = self.resolve_fonts(&application_fonts, None, diag);
+        let mut libraries: Vec<&LibraryProject> = Vec::new();
+        for document in documents {
+            let Some(path) = document.node.as_ref().map(|node| node.source_file.path()) else {
+                continue;
+            };
+            if let Some(library) = self.library_project_of(path)
+                && !libraries.iter().any(|known| known.source_path == library.source_path)
+            {
+                libraries.push(library);
+            }
+        }
+        for library in libraries {
+            fonts.extend(self.resolve_fonts(&library.fonts, Some(&library.source_path), diag));
+        }
+        fonts
+    }
+
+    /// Resolves the `fonts` of a project file, an `@library` path in the project of
+    /// `referencing_file`.
+    fn resolve_fonts(
+        &self,
+        fonts: &[(PathBuf, crate::diagnostics::SourceLocation)],
+        referencing_file: Option<&SourcePath>,
+        diag: &mut BuildDiagnostics,
+    ) -> Vec<(SourcePath, crate::diagnostics::SourceLocation)> {
+        let mut resolved = Vec::new();
+        for (font, location) in fonts {
+            let font = font.to_string_lossy();
+            let path = match font.strip_prefix('@') {
+                Some(library_import) => {
+                    self.find_file_in_library_path(referencing_file, library_import)
+                }
+                None => Some(SourcePath::new(&*font)),
+            };
+            let path = path.filter(|path| {
+                self.compiler_config.resource_url_mapper.is_some()
+                    || matches!(path, SourcePath::Url(_))
+                    || crate::fileaccess::find_file(path).is_some()
+            });
+            match path {
+                Some(path) => resolved.push((path, location.clone())),
+                None => diag.push_error(
+                    format!("Font file '{font}' not found. Correct its path in 'fonts'"),
+                    location,
+                ),
+            }
+        }
+        resolved
+    }
+
     /// Returns whether the file was successfully loaded.
     /// If not, the path that was attempted to be loaded is returned (if any).
     #[allow(clippy::await_holding_refcell_ref)] // false positive: explicit drop() before await
@@ -1715,6 +1840,12 @@ impl TypeLoader {
                         edition: project.edition(),
                         include_paths: data.include_paths.unwrap_or_default(),
                         library_paths: data.library_paths.unwrap_or_default(),
+                        fonts: data
+                            .fonts
+                            .unwrap_or_default()
+                            .into_iter()
+                            .zip(project.font_locations())
+                            .collect(),
                     })
                 });
                 state.borrow_mut().tl.library_projects.insert(path, project);
@@ -2331,6 +2462,14 @@ impl TypeLoader {
             })
             .chain(self.all_documents.dependencies.keys().cloned())
             .chain(self.library_projects.keys().cloned())
+            .chain(
+                self.configured_fonts(
+                    &self.all_documents().collect::<Vec<_>>(),
+                    &mut BuildDiagnostics::discarded(),
+                )
+                .into_iter()
+                .map(|(path, _)| path),
+            )
             .collect()
     }
 
@@ -3258,6 +3397,214 @@ export component Test inherits Window { }
         errors.iter().any(|e| e.contains("no-such-font.ttf") && e.contains("not found")),
         "{errors:?}"
     );
+}
+
+#[test]
+fn configured_fonts_are_registered_with_the_imported_ones() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fonts_dir = manifest_dir.join("../common/sharedfontique");
+    let project_file = SourcePath::new(manifest_dir.join(crate::project_file::FILE_NAME));
+
+    let compile = |fonts: Vec<PathBuf>| {
+        let mut compiler_config =
+            CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        compiler_config.library_paths = HashMap::from([("fonts".into(), fonts_dir.clone())]);
+        compiler_config.style = Some("fluent".into());
+        compiler_config.embed_resources = crate::EmbedResourcesKind::EmbedAllResources;
+        let location = crate::diagnostics::SourceLocation {
+            source_file: Some(crate::diagnostics::SourceFileInner::from_path_only(
+                project_file.clone(),
+            )),
+            span: Default::default(),
+        };
+        compiler_config.font_locations =
+            fonts.iter().map(|font| (font.clone(), location.clone())).collect();
+        compiler_config.fonts = fonts;
+
+        let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+        let doc_node = crate::parser::parse(
+            r#"
+import "@fonts/Inter-VariableFont.ttf";
+export component Test inherits Window { }
+"#
+            .into(),
+            Some(SourcePath::new(manifest_dir.join("test.slint"))),
+            None,
+            &mut test_diags,
+        );
+        crate::poll_ready(crate::compile_syntax_node(doc_node, test_diags, compiler_config))
+    };
+
+    let configured = manifest_dir.join("../../demos/printerdemo/ui/fonts/Inter-24pt-Regular.ttf");
+    let (document, diagnostics, loader) =
+        compile(vec![configured.clone(), "@fonts/Inter-VariableFont.ttf".into()]);
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+    let font_files = loader.font_files(
+        std::iter::once(&document).chain(loader.all_documents()),
+        &mut BuildDiagnostics::discarded(),
+    );
+    let file_names: Vec<_> = font_files
+        .iter()
+        .map(|(path, _)| path.as_native_path().unwrap().file_name().unwrap().to_owned())
+        .collect();
+    assert_eq!(file_names, ["Inter-24pt-Regular.ttf", "Inter-VariableFont.ttf"]);
+    let embedded: Vec<_> = document
+        .embedded_file_resources
+        .borrow()
+        .iter()
+        .filter_map(|resource| resource.path.clone())
+        .collect();
+    assert_eq!(embedded.len(), 2, "{embedded:?}");
+    assert!(embedded.contains(&SourcePath::new(&configured)), "{embedded:?}");
+    assert!(loader.all_files_to_watch().contains(&SourcePath::new(&configured)));
+
+    let (_, diagnostics, _) = compile(vec![fonts_dir.join("no-such-font.ttf")]);
+    let error = diagnostics
+        .iter()
+        .find(|d| d.message().contains("no-such-font.ttf"))
+        .expect("the missing font is reported");
+    assert!(error.message().contains("not found"), "{}", error.message());
+    assert_eq!(error.source_file(), project_file.as_native_path());
+}
+
+#[test]
+fn the_fonts_of_a_used_library_project_are_registered() {
+    let root = std::env::temp_dir().join(format!(
+        "slint-library-fonts-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    let write = |path: &str, contents: &str| {
+        let path = root.join(path);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, contents).unwrap();
+        path
+    };
+    write(
+        "lib/slint-project.json",
+        r#"{ "edition": "1.20", "main": "lib.slint", "fonts": ["Lib.ttf", "Missing.ttf"] }"#,
+    );
+    write("lib/lib.slint", "export component Button { }");
+    let library_font = write("lib/Lib.ttf", "");
+    write(
+        "unused/slint-project.json",
+        r#"{ "edition": "1.20", "main": "unused.slint", "fonts": ["Unused.ttf"] }"#,
+    );
+    write("unused/unused.slint", "export component Unused { }");
+    write("unused/Unused.ttf", "");
+    let main = write(
+        "app/main.slint",
+        r#"import { Button } from "@lib"; export component Main inherits Window { Button { } }"#,
+    );
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.project_roots = vec![SourcePath::new(root.join("app"))];
+    compiler_config.library_paths = HashMap::from([
+        ("lib".into(), root.join("lib/slint-project.json")),
+        ("unused".into(), root.join("unused/slint-project.json")),
+    ]);
+    let main = SourcePath::new(&main);
+    let source = std::fs::read_to_string(main.as_native_path().unwrap()).unwrap();
+    let (diagnostics, loader, _) = crate::poll_ready(crate::load_root_file(
+        &main,
+        source,
+        BuildDiagnostics::default(),
+        compiler_config,
+        false,
+    ));
+
+    let errors: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| d.level() == crate::diagnostics::DiagnosticLevel::Error)
+        .collect();
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].message().contains("Missing.ttf"), "{errors:?}");
+    assert_eq!(errors[0].source_file(), Some(root.join("lib/slint-project.json").as_path()));
+    assert_eq!(errors[0].line_column(), (1, 64));
+
+    let font_files: Vec<_> = loader
+        .font_files(loader.all_documents(), &mut BuildDiagnostics::discarded())
+        .into_iter()
+        .map(|(path, _)| path)
+        .collect();
+    assert_eq!(font_files, [SourcePath::new(&library_font)]);
+
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+#[test]
+fn font_imports_are_deprecated_where_a_project_file_applies() {
+    let root = std::env::temp_dir().join(format!(
+        "slint-font-import-warning-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    let write = |path: &str, contents: &str| {
+        let path = root.join(path);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, contents).unwrap();
+        path
+    };
+    write("app/slint-project.json", r#"{ "edition": "1.20", "main": "main.slint" }"#);
+    write("app/fonts/App.ttf", "");
+    let main = write(
+        "app/main.slint",
+        r#"import "fonts/App.ttf";
+import { Button } from "@lib";
+export component Main inherits Window { Button { } }"#,
+    );
+    write("lib/slint-project.json", r#"{ "edition": "1.20", "main": "lib.slint" }"#);
+    write("lib/lib.slint", r#"import "../shared/Shared.ttf"; export component Button { }"#);
+    write("shared/Shared.ttf", "");
+
+    let warnings = |project_files: bool, main: &SourcePath| {
+        let mut compiler_config =
+            CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        compiler_config.style = Some("fluent".into());
+        let library = if project_files { "lib/slint-project.json" } else { "lib/lib.slint" };
+        compiler_config.library_paths = HashMap::from([("lib".into(), root.join(library))]);
+        if project_files {
+            compiler_config.project_roots = vec![SourcePath::new(root.join("app"))];
+            compiler_config.project_files =
+                vec![SourcePath::new(root.join("app/slint-project.json"))];
+        }
+        let source = std::fs::read_to_string(main.as_native_path().unwrap()).unwrap();
+        let (diagnostics, _, _) = crate::poll_ready(crate::load_root_file(
+            main,
+            source,
+            BuildDiagnostics::default(),
+            compiler_config,
+            false,
+        ));
+        assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+        diagnostics
+            .iter()
+            .filter(|d| d.message().contains("deprecated"))
+            .map(|d| d.message().to_owned())
+            .collect::<Vec<_>>()
+    };
+
+    let main = SourcePath::new(&main);
+    // A tool may pass the root file relative to the working directory.
+    let relative_main =
+        main.relative_to(&SourcePath::new(std::env::current_dir().unwrap())).unwrap();
+    for main in [&main, &relative_main] {
+        let mut with_project_files = warnings(true, main);
+        with_project_files.sort();
+        assert_eq!(
+            with_project_files,
+            [
+                r#"Importing a font is deprecated. Add "../shared/Shared.ttf" to 'fonts' in slint-project.json instead"#,
+                r#"Importing a font is deprecated. Add "fonts/App.ttf" to 'fonts' in slint-project.json instead"#,
+            ],
+            "{main}"
+        );
+        assert_eq!(warnings(false, main), Vec::<String>::new());
+    }
+
+    std::fs::remove_dir_all(&root).unwrap();
 }
 
 #[test]

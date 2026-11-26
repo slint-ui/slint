@@ -200,6 +200,17 @@ impl DocumentCache {
         self.type_loader.get_document(&SourcePath::from_url(url))
     }
 
+    /// The font files that the document at `url` registers: the configured fonts,
+    /// then the fonts it imports.
+    pub fn font_files(&self, url: &Url) -> Vec<SourcePath> {
+        let Some(document) = self.get_document(url) else { return Vec::new() };
+        self.type_loader
+            .font_files(std::iter::once(document), &mut BuildDiagnostics::discarded())
+            .into_iter()
+            .map(|(path, _)| path)
+            .collect()
+    }
+
     /// Iterator over every fully-loaded `object_tree::Document` in the cache.
     pub fn all_documents(&self) -> impl Iterator<Item = &Document> + '_ {
         self.type_loader.all_documents()
@@ -681,6 +692,30 @@ export component Foo2 inherits 🔺Window  {
         ));
         assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
         assert_eq!(edition(&cache), Some((1, 19).into()));
+    }
+
+    #[test]
+    fn font_files_include_the_configured_fonts() {
+        let fonts_dir =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../common/sharedfontique");
+        let mut config = CompilerConfiguration::default();
+        config.compiler_config.fonts =
+            vec![fonts_dir.join("Inter-VariableFont.ttf"), fonts_dir.join("Missing.ttf")];
+        let mut cache = DocumentCache::new(config);
+        let url = crate::test::test_file_name("fonts.slint").to_url().unwrap();
+        let mut diag = BuildDiagnostics::default();
+        i_slint_compiler::poll_ready(cache.load_url(
+            &url,
+            None,
+            "export component Main {}".into(),
+            &mut diag,
+        ))
+        .unwrap();
+
+        assert_eq!(
+            cache.font_files(&url),
+            [SourcePath::new(fonts_dir.join("Inter-VariableFont.ttf"))]
+        );
     }
 
     #[test]

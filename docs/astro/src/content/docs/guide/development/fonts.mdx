@@ -12,17 +12,22 @@ different properties. The properties prefixed with `font-`, such as `font-family
 affect the choice of font used for rendering to the screen. If any of these properties isn't specified, the `default-font-`
 values in the surrounding `Window` element apply, such as `default-font-family`.
 
-The fonts chosen for rendering are automatically picked up from the system running the application. It's also possible to include custom
-fonts in your design. A custom font must be a TrueType font (`.ttf`), a TrueType font collection (`.ttc`) or an OpenType font (`.otf`).
-You can select a custom font with the `import` statement: `import "./my_custom_font.ttf"` in a .slint file. This
-instructs the Slint compiler to include the font and makes the font families globally available for use with
-`font-family` properties.
+Slint automatically uses the fonts installed on the system that runs your application.
+A custom font must be a TrueType font (`.ttf`), a TrueType font collection (`.ttc`), or an OpenType font (`.otf`).
+To include custom fonts in your design, list their files in the `fonts` setting of your [project file](../../tooling/project-file/):
 
-For example:
+```json
+{
+    "edition": "1.20",
+    "main": "ui/main.slint",
+    "fonts": ["ui/fonts/NotoSans-Regular.ttf"]
+}
+```
+
+The Slint compiler includes the fonts and makes their families available everywhere.
+To use one, set a `font-family` property, such as `default-font-family`:
 
 ```slint no-test
-import "./NotoSans-Regular.ttf";
-
 export component Example inherits Window {
     default-font-family: "Noto Sans";
 
@@ -32,12 +37,26 @@ export component Example inherits Window {
 }
 ```
 
+To add fonts to a library, list them in the library's own project file.
+For more details, see [Libraries](../../tooling/project-file/#libraries).
+
+Without a project file, import the font in a `.slint` file instead, with a path relative to that file:
+
+```slint no-test
+import "./NotoSans-Regular.ttf";
+```
+
+:::note
+In a project with a project file, importing a font is deprecated.
+The compiler warns about it and suggests the entry to add to `fonts`.
+:::
+
 ## Fonts on embedded and bare-metal targets
 
 The fonts used for rendering are automatically picked up from the operating system running
 the application. On embedded or bare-metal targets that use the software renderer and have no
-operating system, no system fonts are available. On these targets you must embed every font
-your application uses by importing it as shown above.
+operating system, no system fonts are available. On these targets, you must embed every font
+your application uses by listing it in `fonts`, as shown above.
 
 Embedding the fonts (and pre-rendering their glyphs) is enabled through the compiler's
 resource-embedding setting:

@@ -394,9 +394,9 @@ fn make_static(compilation_unit: &mut CompilationUnit) {
     }
 }
 
-/// Loads the imported fonts through `resource_loader`, or in the browser,
+/// Loads the font files through `resource_loader`, or in the browser,
 /// which can't read them when a component is created, through `fetch`.
-/// Fonts that fail to load get a warning on their `import`.
+/// Fonts that fail to load get a warning on their `import` or project file.
 #[cfg(feature = "std")]
 #[cfg_attr(not(all(target_arch = "wasm32", target_os = "unknown")), allow(unused_variables))]
 async fn load_font_files(
@@ -405,15 +405,13 @@ async fn load_font_files(
     resource_loader: Option<&ResourceLoader>,
     diag: &mut i_slint_compiler::diagnostics::BuildDiagnostics,
 ) -> FontFiles {
-    let mut imports = std::collections::BTreeMap::new();
-    for doc in type_loader.all_documents() {
-        for (path, token) in &doc.custom_fonts {
-            imports.entry(path.clone()).or_insert_with(|| token.clone());
-        }
-    }
+    let font_files = type_loader.font_files(
+        type_loader.all_documents(),
+        &mut i_slint_compiler::diagnostics::BuildDiagnostics::discarded(),
+    );
     // Start every load before awaiting the first, so that they run in parallel.
     let mut loads = Vec::new();
-    for (path, token) in imports {
+    for (path, location) in font_files {
         let load = match resource_loader {
             Some(loader) => loader(path.clone()),
             #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -421,15 +419,15 @@ async fn load_font_files(
             #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
             None => return Default::default(),
         };
-        loads.push((path, token, load));
+        loads.push((path, location, load));
     }
     let mut files = HashMap::new();
-    for (path, token, load) in loads {
+    for (path, location, load) in loads {
         match load.await {
             Ok(data) => {
                 files.insert(path.to_string(), alloc::sync::Arc::new(data));
             }
-            Err(e) => diag.push_warning(format!("Cannot load the font: {e}"), &token),
+            Err(e) => diag.push_warning(format!("Cannot load the font: {e}"), &location),
         }
     }
     files
