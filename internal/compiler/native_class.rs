@@ -88,6 +88,9 @@ pub struct BuiltinPropertyInfo {
     /// the `pure` qualifier of the builtin element declaration, or from [`BuiltinFunction::is_pure`] when the
     /// declaration names one.
     pub pure: bool,
+    /// True when a binding on this property of an `Image` changes how the renderer draws it, so the
+    /// compiler can't embed the image at the size it's drawn at (`@blocks_prebake` modifier).
+    pub blocks_prebake: bool,
 }
 
 impl BuiltinPropertyInfo {
@@ -100,6 +103,7 @@ impl BuiltinPropertyInfo {
             shadowable: false,
             pure: false,
             slint_sc: false,
+            blocks_prebake: false,
         }
     }
 
@@ -123,6 +127,7 @@ impl From<BuiltinFunction> for BuiltinPropertyInfo {
             pure: function.is_pure(),
             default_value: BuiltinPropertyDefault::BuiltinFunction(function),
             slint_sc: false,
+            blocks_prebake: false,
         }
     }
 }

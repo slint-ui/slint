@@ -334,6 +334,9 @@ pub struct BuiltinElement {
     pub can_be_declared_without_children_slot: bool,
     /// When true this element is part of the Slint SC (safety-critical) subset.
     pub slint_sc: bool,
+    /// When true the compiler may embed the image of this element at the size it's drawn at,
+    /// unless a property marked `@blocks_prebake` is set.
+    pub prerenderable: bool,
     /// The experimental feature that must be enabled to use this element
     pub experimental_feature: Option<crate::ExperimentalFeature>,
 }

@@ -56,7 +56,9 @@
 //! whatever item it lowers to.
 //! Member modifiers `@shadowable`, `@deprecated` (aliases only) and `@pure` keep their Slint
 //! meaning; `@constexpr` marks a property whose value is known at compile time, `@fake` one
-//! that exists only at compile time and `@sc` one of the Slint SC subset.
+//! that exists only at compile time, `@sc` one of the Slint SC subset and `@blocks_prebake` an
+//! `Image` property that, once bound, keeps the compiler from embedding the image at its drawn size.
+//! The element flag `prerenderable` lets the compiler embed the images of that element at that size.
 //! A default value of `computed` gives `BuiltinPropertyDefault::Computed`. Any other default value is a
 //! literal (`true`, `4`, `8px`, `500ms`, `"text"`, `#00f`) or an enum value
 //! (`ImageFit.contain`); the compiler sets it as the property's binding.
@@ -262,6 +264,7 @@ impl Builder {
     fn add(&mut self, name: &str, mut info: BuiltinPropertyInfo, mods: &[&str], docs: &[&str]) {
         info.shadowable = mods.contains(&"shadowable");
         info.slint_sc = mods.contains(&"sc");
+        info.blocks_prebake = mods.contains(&"blocks_prebake");
         info.docs = join_docs(docs);
         let name = kebab(name);
         self.member_doc(name.clone());
@@ -877,7 +880,7 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         /// \default `contain` when the `Image` element is part of a layout, `fill` otherwise
-        in property <ImageFit> image-fit: computed;
+        @blocks_prebake in property <ImageFit> image-fit: computed;
         /// ```slint imageAlt="image smooth example" width="300" height="300"
         /// Image {
         ///     width: 800px;
@@ -893,19 +896,19 @@ fn build(l: &mut Loader) {
         ///     image-rendering: pixelated;
         /// }
         /// ```
-        in property <ImageRendering> image-rendering;
+        @blocks_prebake in property <ImageRendering> image-rendering;
 
         @deprecated in property <angle> rotation-angle <=> transform-rotation;
     } }
 
     item! { ClippedImage: ImageItem {
         /// The horizontal alignment of the image within the element.
-        in property <ImageHorizontalAlignment> horizontal-alignment;
+        @blocks_prebake in property <ImageHorizontalAlignment> horizontal-alignment;
         /// The vertical alignment of the image within the element.
-        in property <ImageVerticalAlignment> vertical-alignment;
+        @blocks_prebake in property <ImageVerticalAlignment> vertical-alignment;
         //! ## Image Tiling
         /// How the image is tiled horizontally.
-        in property <ImageTiling> horizontal-tiling;
+        @blocks_prebake in property <ImageTiling> horizontal-tiling;
         /// ```slint imageAlt="image horizontal tiling repeat example" width="400" height="400"
         /// Image {
         ///     width: 400px;
@@ -950,18 +953,18 @@ fn build(l: &mut Loader) {
         ///     horizontal-tiling: round;
         /// }
         /// ```
-        in property <ImageTiling> vertical-tiling;
+        @blocks_prebake in property <ImageTiling> vertical-tiling;
         // TODO: sets both horizontal-tiling and vertical-tiling at the same time.
         // in property <ImageTiling> tiling;
         //! ## Source Clip
         ///
-        in property <int> source-clip-x: computed;
+        @blocks_prebake in property <int> source-clip-x: computed;
         ///
-        in property <int> source-clip-y: computed;
+        @blocks_prebake in property <int> source-clip-y: computed;
         /// \default source.width - source-clip-x
-        in property <int> source-clip-width: computed;
+        @blocks_prebake in property <int> source-clip-width: computed;
         /// \default source.height - source-clip-y
-        in property <int> source-clip-height: computed;
+        @blocks_prebake in property <int> source-clip-height: computed;
         //! Properties in source image coordinates that define the region of the source image that is rendered.
         //! By default the entire source image is visible:
     } }
@@ -1032,7 +1035,7 @@ fn build(l: &mut Loader) {
         /// ```
         /// </NotInSC>
         /// \group:elements
-        @sc @implicit_size
+        @sc @implicit_size @prerenderable
         Image: ClippedImage
     }
 
