@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Content that grows while the user isn't touching the scrollbar must not start animations:
+// the window would be redrawn at the frame rate of the display for as long as it keeps growing,
+// e.g. in a chat or a log that follows new lines.
+
+import { ListView, ScrollView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+
+    in-out property <int> count: 20;
+    in-out property <length> extra: 0px;
+
+    ListView {
+        width: 100px;
+        height: parent.height;
+        for i in root.count: Rectangle {
+            height: 20px;
+        }
+    }
+
+    ScrollView {
+        x: 100px;
+        width: 100px;
+        height: parent.height;
+        viewport-height: 400px + root.extra;
+        viewport-width: 300px;
+        Rectangle { }
+    }
+}
+
+/*
+```rust
+use slint_testing::ElementHandle;
+
+let instance = TestCase::new().unwrap();
+let thumbs = || -> Vec<_> {
+    ["ScrollBar::thumb", "ScrollBar::handle"]
+        .into_iter()
+        .flat_map(|id| ElementHandle::find_by_element_id(&instance, id))
+        .collect()
+};
+// Looking at a thumb is what evaluates (and so animates) its size, as drawing would.
+let sizes = || thumbs().iter().map(|t| t.size()).collect::<Vec<_>>();
+slint_testing::mock_elapsed_time(1000);
+let before = sizes();
+if before.is_empty() {
+    return Ok(()); // The Qt style draws its scrollbars natively.
+}
+assert!(!instance.window().has_active_animations());
+
+// Growing content changes the length of the thumbs, but not what is worth animating.
+for step in 1..=5 {
+    instance.set_count(20 + step);
+    instance.set_extra(step as f32 * 0.5);
+    let _ = sizes();
+    assert!(
+        !instance.window().has_active_animations(),
+        "growing the content by {step} step(s) started an animation"
+    );
+    slint_testing::mock_elapsed_time(16);
+}
+assert_ne!(sizes(), before, "the thumbs did not follow the content");
+```
+*/
