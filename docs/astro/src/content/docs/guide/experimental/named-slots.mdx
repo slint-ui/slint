@@ -350,7 +350,7 @@ The child and optional index variables are available only inside the expansion.
 `entries.length` tracks the number of supplied components.
 Collection lengths and indexes are read-only.
 
-Property bindings follow the same priorities as scalar typed slots; more local bindings take precedence.
+Property bindings on a supplied component take precedence over bindings from the expansion.
 Property change handlers from both sides are combined.
 Defining handlers for the same callback in both the expansion and supplied component is an error.
 
