@@ -17,8 +17,9 @@ use tokio::sync::{mpsc, oneshot};
 use crate::REBUILD_DEBOUNCE;
 use crate::debug_agent::{DebugAgent, PreviewUpdate};
 use crate::protocol::{
-    DebuggerToPreviewMessage, LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLsp,
-    PreviewToLspMessage, SourceFileVersion,
+    DebuggerToPreviewMessage, DebuggerToPreviewNotification, LspToPreviewMessage, PreviewComponent,
+    PreviewConfig, PreviewToDebuggerNotification, PreviewToLsp, PreviewToLspMessage,
+    SourceFileVersion,
 };
 
 /// Small wrapper around tokio::spawn_local to silence the clippy warning that
@@ -52,6 +53,7 @@ pub enum PreviewSessionEvent {
     HighlightFromEditor { url: Option<Url>, offset: u32 },
     RegisterFont { url: Url, contents: Arc<[u8]> },
     Debugger { id: u64, message: DebuggerToPreviewMessage },
+    DebuggerNotification(DebuggerToPreviewNotification),
 }
 
 pub enum PreviewCompilation {
@@ -286,6 +288,9 @@ impl PreviewSession {
             LspToPreviewMessage::Debugger { id, message } => {
                 event_handler(PreviewSessionEvent::Debugger { id, message });
             }
+            LspToPreviewMessage::DebuggerNotification(notification) => {
+                event_handler(PreviewSessionEvent::DebuggerNotification(notification));
+            }
         }
         true
     }
@@ -448,7 +453,7 @@ impl PreviewSession {
             .collect();
 
         if compilation_result.has_errors() {
-            self.send_diagnostics(&compilation_result);
+            self.send_diagnostics(&compilation_result, false);
             let message = compilation_result
                 .diagnostics()
                 .inspect(|diagnostic| tracing::warn!("Compiler diagnostic: {diagnostic}"))
@@ -471,7 +476,7 @@ impl PreviewSession {
             return PreviewCompilation::ComponentNotFound;
         };
 
-        self.send_diagnostics(&compilation_result);
+        self.send_diagnostics(&compilation_result, true);
         PreviewCompilation::Ready(CompiledPreview {
             compilation: Box::new(compilation_result.into_send()),
             component_name,
@@ -489,7 +494,11 @@ impl PreviewSession {
         self.to_editor.send(message)
     }
 
-    fn send_diagnostics(&self, compilation_result: &slint_interpreter::CompilationResult) {
+    fn send_diagnostics(
+        &self,
+        compilation_result: &slint_interpreter::CompilationResult,
+        success: bool,
+    ) {
         use i_slint_compiler::diagnostics::ByteFormat;
         let format = if self.configuration.borrow().as_ref().is_none_or(|config| config.format_utf8)
         {
@@ -506,6 +515,11 @@ impl PreviewSession {
             }),
             format,
         );
+        self.to_editor
+            .send(&PreviewToLspMessage::DebuggerNotification(
+                PreviewToDebuggerNotification::Reloaded { success },
+            ))
+            .ok();
         self.to_editor.notify_diagnostics(diagnostics).ok();
     }
 }
@@ -631,6 +645,7 @@ async fn show_component(
 mod tests {
     use super::*;
     use crate::protocol::VersionedUrl;
+    use std::collections::BTreeMap;
     use std::path::PathBuf;
 
     #[derive(Default)]
@@ -645,7 +660,7 @@ mod tests {
 
     fn take_diagnostics(
         editor: &CaptureToEditor,
-    ) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
+    ) -> BTreeMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
         editor
             .0
             .take()
@@ -765,6 +780,68 @@ mod tests {
                     PreviewCompilation::Ready(_)
                 ));
                 assert_eq!(take_diagnostics(&editor)[&imported], (Some(7), Vec::new()));
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn each_compilation_with_diagnostics_is_marked_as_reloaded() {
+        i_slint_backend_testing::init_no_event_loop();
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let editor = Rc::new(CaptureToEditor::default());
+                let (session, _handle) = PreviewSession::start(editor.clone(), |_| {});
+                let main = Url::from_file_path(std::env::temp_dir().join("main.slint")).unwrap();
+                let set_contents = |contents: &str| {
+                    session.process_message(
+                        LspToPreviewMessage::SetContents {
+                            url: VersionedUrl::new(main.clone(), Some(1)),
+                            contents: contents.into(),
+                        },
+                        &|_| {},
+                        &mut None,
+                    );
+                };
+                let assert_reloaded_then_diagnostics = |success: bool| {
+                    let sent = editor.0.take();
+                    let Some((PreviewToLspMessage::DebuggerNotification(reloaded), diagnostics)) =
+                        sent.split_first()
+                    else {
+                        panic!("{sent:?}")
+                    };
+                    assert_eq!(*reloaded, PreviewToDebuggerNotification::Reloaded { success });
+                    assert!(!diagnostics.is_empty());
+                    assert!(
+                        diagnostics.iter().all(|message| matches!(
+                            message,
+                            PreviewToLspMessage::Diagnostics { .. }
+                        )),
+                        "{sent:?}"
+                    );
+                };
+                let component = PreviewComponent { url: main.clone(), component: None };
+
+                set_contents("export component App inherits Window { foo: 1; }");
+                assert!(matches!(
+                    session.compile_component(&component).await,
+                    PreviewCompilation::CompilationError { .. }
+                ));
+                assert_reloaded_then_diagnostics(false);
+
+                set_contents("export component App inherits Window {}");
+                assert!(matches!(
+                    session.compile_component(&component).await,
+                    PreviewCompilation::Ready(_)
+                ));
+                assert_reloaded_then_diagnostics(true);
+
+                let missing =
+                    PreviewComponent { url: main.clone(), component: Some("Missing".into()) };
+                assert!(matches!(
+                    session.compile_component(&missing).await,
+                    PreviewCompilation::ComponentNotFound
+                ));
+                assert!(editor.0.borrow().is_empty(), "{:?}", editor.0.borrow());
             })
             .await;
     }

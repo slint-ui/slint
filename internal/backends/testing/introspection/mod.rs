@@ -10,7 +10,7 @@ use i_slint_core::window::WindowAdapter;
 use i_slint_core::window::WindowInner;
 use slotmap::{Key, KeyData, SlotMap};
 use std::cell::{Cell, RefCell};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::rc::{Rc, Weak};
 
 use crate::{ElementHandle, ElementRoot, LayoutKind};
@@ -21,11 +21,14 @@ slotmap::new_key_type! {
 
 #[allow(dead_code, non_snake_case, unused_imports, non_camel_case_types, clippy::all)]
 pub(crate) mod proto;
+#[cfg(feature = "system-testing")]
+pub(crate) mod subscriptions;
 
 /// Maximum number of element handles kept in the arena before evicting the least recently used.
 const ELEMENT_HANDLE_CAP: usize = 10_000;
-/// How far under the cap one eviction takes the arena, so the next new handle doesn't evict again.
-const ELEMENT_HANDLE_EVICTION_SLACK: usize = ELEMENT_HANDLE_CAP / 8;
+/// How many handles one eviction leaves,
+/// under the cap so the next new handle doesn't evict again.
+const ELEMENT_HANDLE_EVICTION_TARGET: usize = ELEMENT_HANDLE_CAP - ELEMENT_HANDLE_CAP / 8;
 const EVENT_LOG_CAP: usize = 1024;
 
 fn bump(counter: &Cell<u64>) {
@@ -162,16 +165,40 @@ impl ElementRoot for RootWrapper<'_> {
 
 impl super::Sealed for RootWrapper<'_> {}
 
-/// A tracked window with its adapter and cached root element handle.
 pub(crate) struct TrackedWindow {
     pub window_adapter: Weak<dyn WindowAdapter>,
-    pub root_element_handle: ArenaIndex,
 }
 
 /// A tracked element, and the tick of the last reply or request that used its handle.
 pub(crate) struct TrackedElement {
-    pub element: ElementHandle,
+    element: ElementHandle,
+    pin: RefCell<Weak<ElementPin>>,
     last_used: Cell<u64>,
+}
+
+impl TrackedElement {
+    fn is_pinned(&self) -> bool {
+        self.pin.borrow().strong_count() > 0
+    }
+}
+
+/// Spares the handle of an element from eviction while it lives.
+pub(crate) struct ElementPin {
+    element: ElementHandle,
+    pinned_count: Rc<Cell<usize>>,
+}
+
+impl core::ops::Deref for ElementPin {
+    type Target = ElementHandle;
+    fn deref(&self) -> &ElementHandle {
+        &self.element
+    }
+}
+
+impl Drop for ElementPin {
+    fn drop(&mut self) {
+        self.pinned_count.set(self.pinned_count.get() - 1);
+    }
 }
 
 /// Shared introspection state: window and element handle arenas.
@@ -189,6 +216,12 @@ pub(crate) struct IntrospectionState {
     unknown_event_count: Cell<u64>,
     unknown_event_warned: Cell<bool>,
     recording_enabled: Cell<bool>,
+    /// How many tracked elements have a live [`ElementPin`].
+    pinned_count: Rc<Cell<usize>>,
+    #[cfg(feature = "system-testing")]
+    windows_generation: core::pin::Pin<Box<i_slint_core::Property<u32>>>,
+    #[cfg(feature = "system-testing")]
+    pub subscriptions: subscriptions::Subscriptions,
 }
 
 impl IntrospectionState {
@@ -204,23 +237,52 @@ impl IntrospectionState {
             unknown_event_count: Default::default(),
             unknown_event_warned: Cell::new(false),
             recording_enabled: Cell::new(false),
+            pinned_count: Default::default(),
+            #[cfg(feature = "system-testing")]
+            windows_generation: Box::pin(Default::default()),
+            #[cfg(feature = "system-testing")]
+            subscriptions: Default::default(),
         }
     }
 
     pub fn add_window(&self, adapter: &Rc<dyn WindowAdapter>) {
-        let root_element_handle = {
-            let window = adapter.window();
-            let item_tree = WindowInner::from_pub(window).component();
-            let root_wrapper = RootWrapper(&item_tree);
-            self.element_to_handle(root_wrapper.root_element())
-        };
-        self.windows
-            .borrow_mut()
-            .insert(TrackedWindow { window_adapter: Rc::downgrade(adapter), root_element_handle });
+        // A window shows again with a new component when the live preview recompiles.
+        if self.window_handle_for_adapter(adapter).is_none() {
+            self.windows
+                .borrow_mut()
+                .insert(TrackedWindow { window_adapter: Rc::downgrade(adapter) });
+        }
+        #[cfg(feature = "system-testing")]
+        {
+            let generation = self.windows_generation.as_ref();
+            generation.set(generation.get_untracked().wrapping_add(1));
+        }
+    }
+
+    /// Makes the calling binding re-evaluate when a window shows, or shows a new component.
+    #[cfg(feature = "system-testing")]
+    fn track_windows(&self) {
+        self.windows_generation.as_ref().get();
+    }
+
+    /// Returns the root elements of the tracked windows that still show a component.
+    fn window_root_elements(&self) -> Vec<ElementHandle> {
+        let adapters: Vec<_> =
+            self.windows.borrow().values().filter_map(|w| w.window_adapter.upgrade()).collect();
+        adapters
+            .iter()
+            .filter_map(|adapter| WindowInner::from_pub(adapter.window()).try_component())
+            .map(|item_tree| RootWrapper(&item_tree).root_element())
+            .collect()
     }
 
     pub fn window_handles(&self) -> Vec<ArenaIndex> {
-        self.windows.borrow().iter().map(|(index, _)| index).collect()
+        self.windows
+            .borrow()
+            .iter()
+            .filter(|(_, window)| window.window_adapter.strong_count() > 0)
+            .map(|(index, _)| index)
+            .collect()
     }
 
     fn window_handle_for_adapter(&self, adapter: &Rc<dyn WindowAdapter>) -> Option<ArenaIndex> {
@@ -252,7 +314,7 @@ impl IntrospectionState {
     /// Introspection reads the item tree between events, where nothing else runs the pass.
     /// A model changed since the last event would otherwise report its old instances (#13223).
     /// Call this from a transport entry point, never from within a property evaluation.
-    #[cfg(feature = "mcp")]
+    #[cfg(any(feature = "mcp", feature = "system-testing"))]
     pub fn ensure_windows_instantiated(&self) {
         // Collect first: the pass runs change handlers, which may re-enter `add_window`.
         let adapters: Vec<_> =
@@ -263,12 +325,11 @@ impl IntrospectionState {
     }
 
     pub fn root_element_handle(&self, window_index: ArenaIndex) -> Result<ArenaIndex, String> {
-        Ok(self
-            .windows
-            .borrow()
-            .get(window_index)
-            .ok_or_else(|| "Invalid window handle".to_string())?
-            .root_element_handle)
+        let adapter = self.window_adapter(window_index)?;
+        let item_tree = WindowInner::from_pub(adapter.window())
+            .try_component()
+            .ok_or_else(|| "Window shows no component".to_string())?;
+        Ok(self.element_to_handle(RootWrapper(&item_tree).root_element()))
     }
 
     /// Returns the handle for `element`, minting one only if the element isn't
@@ -286,20 +347,26 @@ impl IntrospectionState {
         }
 
         let mut arena = self.element_handles.borrow_mut();
-        let index = arena.insert(TrackedElement { element, last_used: Cell::new(self.tick()) });
+        let index = arena.insert(TrackedElement {
+            element,
+            pin: Default::default(),
+            last_used: Cell::new(self.tick()),
+        });
         if let Some(hint) = hint {
             self.element_handle_lookup.borrow_mut().entry(hint).or_default().push(index);
         }
-        if arena.len() > ELEMENT_HANDLE_CAP {
-            let root_indices: HashSet<ArenaIndex> =
-                self.windows.borrow().iter().map(|(_, w)| w.root_element_handle).collect();
+        let unpinned = arena.len().saturating_sub(self.pinned_count.get());
+        if unpinned > ELEMENT_HANDLE_CAP {
+            let roots = self.window_root_elements();
             let mut candidates: Vec<(u64, ArenaIndex)> = arena
                 .iter()
-                .filter(|(index, _)| !root_indices.contains(index))
+                .filter(|(_, tracked)| {
+                    !tracked.is_pinned()
+                        && !roots.iter().any(|root| root.is_same_element(&tracked.element))
+                })
                 .map(|(index, tracked)| (tracked.last_used.get(), index))
                 .collect();
-            let excess = (arena.len() + ELEMENT_HANDLE_EVICTION_SLACK - ELEMENT_HANDLE_CAP)
-                .min(candidates.len());
+            let excess = (unpinned - ELEMENT_HANDLE_EVICTION_TARGET).min(candidates.len());
             if excess > 0 {
                 candidates.select_nth_unstable_by_key(excess - 1, |(last_used, _)| *last_used);
             }
@@ -316,6 +383,33 @@ impl IntrospectionState {
             }
         }
         index
+    }
+
+    /// Like [`Self::element_to_handle`], but eviction spares the handle
+    /// for as long as the returned pin lives.
+    /// Pinned handles don't count toward the cap.
+    #[cfg_attr(not(feature = "system-testing"), allow(dead_code))]
+    fn pin_element(&self, element: ElementHandle) -> (ArenaIndex, Rc<ElementPin>) {
+        let index = self.element_to_handle(element);
+        let arena = self.element_handles.borrow();
+        let tracked = &arena[index];
+        if let Some(pin) = tracked.pin.borrow().upgrade() {
+            return (index, pin);
+        }
+        self.pinned_count.set(self.pinned_count.get() + 1);
+        let pin = Rc::new(ElementPin {
+            element: tracked.element.clone(),
+            pinned_count: self.pinned_count.clone(),
+        });
+        *tracked.pin.borrow_mut() = Rc::downgrade(&pin);
+        (index, pin)
+    }
+
+    /// How many handles one response can return before
+    /// [`Self::element_to_handle`] evicts the earliest of them.
+    #[cfg(feature = "system-testing")]
+    fn handles_per_response(&self) -> usize {
+        ELEMENT_HANDLE_EVICTION_TARGET.saturating_sub(self.window_root_elements().len())
     }
 
     fn tick(&self) -> u64 {
@@ -510,7 +604,8 @@ impl IntrospectionState {
             .last()
             .map(|event| event.sequence.saturating_add(1))
             .unwrap_or_else(|| self.next_event_sequence.get());
-        let returned_sequences: HashSet<u64> = events.iter().map(|event| event.sequence).collect();
+        let returned_sequences: std::collections::HashSet<u64> =
+            events.iter().map(|event| event.sequence).collect();
         let response = proto::EventLogResponse {
             events,
             // Pass the next unread sequence number directly so callers can use
@@ -681,30 +776,23 @@ fn convert_event_dispatch_result(
 // Shared proto ↔ core conversion functions
 // ============================================================================
 
-pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPropertiesResponse {
-    let declared = element.testable_properties();
-    let testable_properties_available = declared.is_some();
-    let testable_properties = declared
-        .unwrap_or_default()
-        .into_iter()
-        .map(|(name, type_name)| proto::TestableProperty {
-            value: element.testable_property_value(&name).map(|v| v.to_string()),
-            name: name.to_string(),
-            type_name: type_name.to_string(),
-        })
-        .collect();
-
-    let type_names_and_ids = core::iter::once(proto::ElementTypeNameAndId {
+fn type_names_and_ids(element: &ElementHandle) -> Vec<proto::ElementTypeNameAndId> {
+    core::iter::once(proto::ElementTypeNameAndId {
         type_name: element.type_name().unwrap_or_default().into(),
         id: element.id().unwrap_or_default().into(),
     })
     .chain(element.bases().into_iter().flatten().map(|base_type_name| {
         proto::ElementTypeNameAndId { type_name: base_type_name.into(), id: "root".into() }
     }))
-    .collect();
+    .collect()
+}
+
+pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPropertiesResponse {
+    let testable_properties = testable_properties(element);
+    let testable_properties_available = testable_properties.is_some();
 
     proto::ElementPropertiesResponse {
-        type_names_and_ids,
+        type_names_and_ids: type_names_and_ids(element),
         accessible_label: element.accessible_label().map(|s| s.to_string()).unwrap_or_default(),
         accessible_value: element.accessible_value().unwrap_or_default().to_string(),
         accessible_value_maximum: element.accessible_value_maximum().unwrap_or_default(),
@@ -753,9 +841,24 @@ pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPrope
         )
         .unwrap_or_default()
         .into(),
-        testable_properties,
+        testable_properties: testable_properties.unwrap_or_default(),
         testable_properties_available,
     }
+}
+
+/// `None` when the application carries no testable-property debug info.
+fn testable_properties(element: &ElementHandle) -> Option<Vec<proto::TestableProperty>> {
+    Some(
+        element
+            .testable_properties()?
+            .into_iter()
+            .map(|(name, type_name)| proto::TestableProperty {
+                value: element.testable_property_value(&name).map(|v| v.to_string()),
+                name: name.to_string(),
+                type_name: type_name.to_string(),
+            })
+            .collect(),
+    )
 }
 
 pub(crate) fn query_element_descendants(
@@ -1160,13 +1263,15 @@ fn test_element_handle_is_interned() {
     let adapter = window_adapter_for_test(&app);
     let state = IntrospectionState::new();
 
-    // Both calls mention the same root element.
     state.add_window(&adapter);
-    state.add_window(&adapter);
+    let root = state.root_element_handle(state.window_handles()[0]).unwrap();
+    let item_tree = WindowInner::from_pub(adapter.window()).component();
 
-    let roots: Vec<_> =
-        state.windows.borrow().values().map(|window| window.root_element_handle).collect();
-    assert_eq!(roots[0], roots[1], "the same element was given two handles");
+    assert_eq!(
+        state.element_to_handle(RootWrapper(&item_tree).root_element()),
+        root,
+        "the same element was given two handles"
+    );
     assert_eq!(state.element_handles.borrow().len(), 1);
 }
 
@@ -1195,6 +1300,37 @@ fn test_query_element_descendants_by_accessible_label() {
 }
 
 #[test]
+fn test_window_shown_again_has_the_new_root() {
+    crate::init_no_event_loop();
+    slint::slint! {
+        #[edition = "1.20"]
+        export component App inherits Window { width: 100px; height: 50px; }
+    }
+    let first = App::new().unwrap();
+    let second = App::new().unwrap();
+    let adapter = window_adapter_for_test(&first);
+    let state = IntrospectionState::new();
+    state.add_window(&adapter);
+    let window = state.window_handles()[0];
+    let old_root = state.root_element_handle(window).unwrap();
+
+    let new_tree = WindowInner::from_pub(second.window()).component();
+    WindowInner::from_pub(adapter.window()).set_component(&new_tree);
+    state.add_window(&adapter);
+
+    assert_eq!(state.windows.borrow().len(), 1);
+    assert_eq!(state.window_handles(), [window]);
+    let new_root = state.root_element_handle(window).unwrap();
+    assert_ne!(new_root, old_root);
+    assert!(
+        state
+            .element("test", new_root)
+            .unwrap()
+            .is_same_element(&RootWrapper(&new_tree).root_element())
+    );
+}
+
+#[test]
 fn test_element_handle_differs_per_element() {
     crate::init_no_event_loop();
     slint::slint! {
@@ -1208,8 +1344,11 @@ fn test_element_handle_differs_per_element() {
     state.add_window(&window_adapter_for_test(&first));
     state.add_window(&window_adapter_for_test(&second));
 
-    let roots: Vec<_> =
-        state.windows.borrow().values().map(|window| window.root_element_handle).collect();
+    let roots: Vec<_> = state
+        .window_handles()
+        .into_iter()
+        .map(|window| state.root_element_handle(window).unwrap())
+        .collect();
     assert_ne!(roots[0], roots[1]);
     assert_eq!(state.element_handles.borrow().len(), 2);
 }
@@ -1225,7 +1364,7 @@ fn test_element_handle_is_recreated_after_eviction() {
     let adapter = window_adapter_for_test(&app);
     let state = IntrospectionState::new();
     state.add_window(&adapter);
-    let evicted = state.windows.borrow().values().next().unwrap().root_element_handle;
+    let evicted = state.root_element_handle(state.window_handles()[0]).unwrap();
 
     state.element_handles.borrow_mut().remove(evicted);
     let item_tree = WindowInner::from_pub(adapter.window()).component();
@@ -1323,6 +1462,228 @@ mod hundred_rectangles {
             kept := Rectangle { background: blue; }
             for _ in 100: Rectangle { background: red; }
         }
+    }
+}
+
+#[cfg(all(test, feature = "system-testing"))]
+mod element_children_tests {
+    use super::*;
+
+    slint::slint! {
+        #[edition = "1.20"]
+        component Card inherits Rectangle {
+            label := Text { text: "card"; }
+        }
+        export component App inherits Window {
+            width: 100px;
+            height: 100px;
+            in property <int> row-count: 2;
+            card := Card {
+                for i in row-count: row := Text { text: i; }
+            }
+            hidden := Rectangle {
+                x: 200px;
+                hidden-child := Rectangle { background: red; }
+            }
+            wrapped := Rectangle {
+                clip: true;
+                opacity: 0.5;
+                visible: row-count > 0;
+                wrapped-child := Rectangle { }
+            }
+            popup := PopupWindow {
+                popup-text := Text { text: "popup"; }
+            }
+            public function show-popup() { popup.show(); }
+        }
+    }
+
+    fn app_with_state() -> (App, Rc<IntrospectionState>) {
+        crate::init_no_event_loop();
+        let app = App::new().unwrap();
+        let state = Rc::new(IntrospectionState::new());
+        state.add_window(&window_adapter_for_test(&app));
+        (app, state)
+    }
+
+    fn children(
+        state: &Rc<IntrospectionState>,
+        parent: Option<ArenaIndex>,
+    ) -> proto::GetElementChildrenResponse {
+        let response = subscriptions::element_children(state, parent, None).unwrap();
+        assert!(response.debug_info_available);
+        assert_eq!(response.subscription_id, 0);
+        response
+    }
+
+    /// Returns the qualified id of each child, or its type name when it has no id.
+    fn names(response: &proto::GetElementChildrenResponse) -> Vec<String> {
+        response
+            .children
+            .iter()
+            .map(|child| {
+                let name = &child.type_names_and_ids[0];
+                if name.id.is_empty() { name.type_name.clone() } else { name.id.clone() }
+            })
+            .collect()
+    }
+
+    /// Returns the handle of the child with the qualified `id`.
+    fn child(response: &proto::GetElementChildrenResponse, id: &str) -> ArenaIndex {
+        let child = response.children.iter().find(|child| child.type_names_and_ids[0].id == id);
+        handle_to_index(child.unwrap().handle.unwrap()).unwrap()
+    }
+
+    #[test]
+    fn lists_window_roots_without_a_handle() {
+        let (_app, state) = app_with_state();
+        let roots = children(&state, None);
+        assert_eq!(names(&roots), ["App::root"]);
+        assert!(roots.children[0].has_children);
+    }
+
+    #[test]
+    fn lists_one_level_with_clipped_away_elements() {
+        let (_app, state) = app_with_state();
+        let root = child(&children(&state, None), "App::root");
+        let root_children = children(&state, Some(root));
+        assert_eq!(names(&root_children), ["App::card", "App::hidden", "App::wrapped"]);
+        assert!(!root_children.truncated);
+
+        let hidden = children(&state, Some(child(&root_children, "App::hidden")));
+        assert_eq!(names(&hidden), ["App::hidden-child"]);
+        assert!(!hidden.children[0].has_children);
+
+        let card = children(&state, Some(child(&root_children, "App::card")));
+        assert_eq!(names(&card), ["Card::label", "App::row", "App::row"]);
+    }
+
+    #[test]
+    fn skips_items_the_compiler_synthesized() {
+        let (_app, state) = app_with_state();
+        let root = child(&children(&state, None), "App::root");
+        let wrapped = children(&state, Some(child(&children(&state, Some(root)), "App::wrapped")));
+        assert_eq!(names(&wrapped), ["App::wrapped-child"]);
+    }
+
+    #[test]
+    fn lists_popup_under_its_parent() {
+        let (app, state) = app_with_state();
+        app.invoke_show_popup();
+        let root = child(&children(&state, None), "App::root");
+        let root_children = children(&state, Some(root));
+        assert!(names(&root_children).contains(&"App::popup".into()));
+        let popup = children(&state, Some(child(&root_children, "App::popup")));
+        assert_eq!(names(&popup), ["App::popup-text"]);
+    }
+
+    #[test]
+    fn leaves_out_windows_whose_component_was_dropped() {
+        crate::init_no_event_loop();
+        let state = Rc::new(IntrospectionState::new());
+        let first = App::new().unwrap();
+        state.add_window(&window_adapter_for_test(&first));
+        let first_window = state.window_handles()[0];
+        drop(first);
+        let second = App::new().unwrap();
+        state.add_window(&window_adapter_for_test(&second));
+
+        assert_eq!(state.window_handles().len(), 1);
+        assert_eq!(names(&children(&state, None)), ["App::root"]);
+        assert_eq!(
+            state.window_adapter(first_window).err().unwrap(),
+            "Attempting to access deleted window"
+        );
+    }
+
+    #[test]
+    fn returns_no_handle_it_evicted() {
+        crate::init_no_event_loop();
+        let state = Rc::new(IntrospectionState::new());
+        // Older handles, so that minting the response's handles evicts.
+        let elsewhere: Vec<_> = (0..30).map(|_| hundred_rectangles::App::new().unwrap()).collect();
+        for app in &elsewhere {
+            mention_window(&state, app);
+        }
+        let app = App::new().unwrap();
+        app.set_row_count(ELEMENT_HANDLE_CAP as i32);
+        state.add_window(&window_adapter_for_test(&app));
+        let root = child(&children(&state, None), "App::root");
+        let card = child(&children(&state, Some(root)), "App::card");
+
+        let response = children(&state, Some(card));
+        for child in &response.children {
+            state.element("test", handle_to_index(child.handle.unwrap()).unwrap()).unwrap();
+        }
+        assert!(response.truncated);
+        assert_eq!(response.children.len(), state.handles_per_response());
+        drop(elsewhere);
+    }
+}
+
+/// Elements that the compiler lowers to no item of their own are missing from the tree.
+/// These tests pin that gap.
+#[cfg(all(test, feature = "system-testing"))]
+mod element_children_without_items_tests {
+    use super::*;
+
+    slint::slint! {
+        #[edition = "1.20"]
+        export component App inherits Window {
+            width: 100px;
+            height: 100px;
+            grid := GridLayout {
+                Row { g1 := Text { text: "1"; } g2 := Text { text: "2"; } }
+                Row { g3 := Text { text: "3"; } }
+            }
+            path := Path {
+                width: 50px;
+                height: 50px;
+                stroke: red;
+                stroke-width: 1px;
+                MoveTo { x: 0; y: 0; }
+                LineTo { x: 10; y: 10; }
+            }
+            Timer { interval: 1s; }
+        }
+    }
+
+    /// Returns the ids of the children of the element with the id `parent`,
+    /// or of the window root without one.
+    fn child_ids(parent: Option<&str>) -> Vec<String> {
+        crate::init_no_event_loop();
+        let app = App::new().unwrap();
+        let state = Rc::new(IntrospectionState::new());
+        state.add_window(&window_adapter_for_test(&app));
+        let level = |parent| {
+            subscriptions::element_children(&state, parent, None)
+                .unwrap()
+                .children
+                .into_iter()
+                .map(|child| (child.type_names_and_ids[0].id.clone(), child.handle.unwrap()))
+                .collect::<Vec<_>>()
+        };
+        let mut children = level(None);
+        for id in ["App::root"].into_iter().chain(parent) {
+            let (_, handle) = children.into_iter().find(|(child_id, _)| child_id == id).unwrap();
+            children = level(Some(handle_to_index(handle).unwrap()));
+        }
+        children.into_iter().map(|(id, _)| id).collect()
+    }
+
+    #[test]
+    fn leaves_out_timers() {
+        assert_eq!(child_ids(None), ["App::grid", "App::path"]);
+    }
+
+    #[test]
+    fn lists_grid_cells_without_their_rows() {
+        assert_eq!(child_ids(Some("App::grid")), ["App::g1", "App::g2", "App::g3"]);
+    }
+
+    #[test]
+    fn lists_no_path_commands() {
+        assert!(child_ids(Some("App::path")).is_empty());
     }
 }
 

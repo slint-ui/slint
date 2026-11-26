@@ -110,17 +110,18 @@ pub fn ensure_context() -> Result<i_slint_core::SlintContext, crate::PlatformErr
 }
 
 /// Create a repeated component or a popup of the generated code:
-/// register the items of `item_tree` with `window_adapter` and run `init`.
+/// register the items of `self_rc` with `window_adapter` and run `init`.
+///
+/// Panics if `init` fails.
 pub fn new_item_tree<T: vtable::HasStaticVTable<ItemTreeVTable> + 'static, Globals>(
-    item_tree: T,
+    self_rc: VRc<ItemTreeVTable, T>,
     window_adapter: Option<WindowAdapterRc>,
     globals: Globals,
     init: fn(VRcMapped<ItemTreeVTable, T>, Globals, u32, u32) -> Result<(), crate::PlatformError>,
-) -> Result<VRc<ItemTreeVTable, T>, crate::PlatformError> {
-    let self_rc = VRc::new(item_tree);
+) -> VRc<ItemTreeVTable, T> {
     register_item_tree(&VRc::into_dyn(self_rc.clone()), window_adapter);
-    init(VRc::map(self_rc.clone(), |x| x), globals, 0, 1)?;
-    Ok(self_rc)
+    init(VRc::map(self_rc.clone(), |x| x), globals, 0, 1).unwrap();
+    self_rc
 }
 
 /// The `visit_dynamic` argument of `visit_item_tree` for an item tree without repeaters.
@@ -185,6 +186,14 @@ pub fn unwrap<T>(option: Option<T>) -> T {
     option.unwrap()
 }
 
+/// Returns the entry at `index` of `cache`, a layout cache of the generated code.
+#[inline]
+pub fn layout_cache_entry<T: Copy>(cache: &[T], index: usize) -> T {
+    // Indexing here, rather than in the generated code,
+    // gives all reads one panic location in the binary.
+    cache[index]
+}
+
 /// Panics because `dyn_index` doesn't refer to a repeater of the item tree.
 #[cold]
 #[inline(never)]
@@ -194,7 +203,7 @@ pub fn invalid_dyn_index(dyn_index: u32) -> ! {
 
 /// internal re_exports used by the macro generated
 pub mod re_exports {
-    pub use super::{invalid_dyn_index, unwrap};
+    pub use super::{invalid_dyn_index, layout_cache_entry, unwrap};
     pub use alloc::boxed::Box;
     pub use alloc::rc::{Rc, Weak};
     pub use alloc::string::String;

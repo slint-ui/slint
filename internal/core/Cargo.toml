@@ -50,7 +50,7 @@ unicode = ["unicode-script", "unicode-linebreak"]
 
 # Decode encoded images with the image crate. On Wasm, omit this feature to use
 # the browser's image decoders.
-image-decoders = ["dep:image", "dep:clru"]
+image-decoders = ["dep:image"]
 image-default-formats = ["image?/default-formats"]
 svg = ["dep:resvg", "i-slint-common/svg-text"]
 
@@ -147,7 +147,6 @@ sys-locale = { version = "0.3.2", optional = true, features = ["js"] }
 accesskit = { version = "0.25", optional = true }
 
 image = { workspace = true, optional = true, default-features = false }
-clru = { workspace = true, optional = true }
 
 resvg = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
@@ -194,7 +193,6 @@ web-time = { version = "1.0", optional = true }
 [target.'cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))'.dependencies]
 wasm-bindgen = { version = "0.2" }
 js-sys = { version = "0.3", default-features = false, features = ["std"] }
-clru = { workspace = true }
 web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator", "Blob", "BlobPropertyBag", "Url", "DomParser", "SupportedType", "Document", "Element", "WebGlTexture"] }
 
 

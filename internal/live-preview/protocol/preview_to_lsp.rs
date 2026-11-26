@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use lsp_types::Url;
 
@@ -119,6 +119,9 @@ pub enum PreviewToLspMessage {
     /// The Springboard passes it on, the LSP drops it.
     /// It carries the `id` of the [`super::LspToPreviewMessage::Debugger`] it answers.
     Debugger { id: u64, message: super::PreviewToDebuggerMessage },
+    /// A message for the debugger that answers no request.
+    /// The Springboard passes it on, the LSP drops it.
+    DebuggerNotification(super::PreviewToDebuggerNotification),
 }
 
 impl PreviewToLspMessage {
@@ -163,9 +166,11 @@ pub trait PreviewToLsp {
     fn send(&self, message: &PreviewToLspMessage) -> Result<()>;
 
     /// Tell the editor about diagnostics
+    ///
+    /// Sends the files in URL order, so every receiver sees a compilation's diagnostics in the same order.
     fn notify_diagnostics(
         &self,
-        diagnostics: HashMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
+        diagnostics: BTreeMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
     ) -> Result<()> {
         for (uri, (version, diagnostics)) in diagnostics {
             self.send(&PreviewToLspMessage::Diagnostics { uri, version, diagnostics })?;

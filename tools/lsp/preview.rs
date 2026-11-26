@@ -31,7 +31,7 @@ use slint::{PlatformError, SharedString, ToSharedString};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 use user_settings::{PREVIEW_SETTINGS_FILE, PreviewUserSettings};
 
@@ -149,6 +149,13 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         Message::Debugger { message, .. } => {
             debug_assert!(false, "The LSP sent its preview a debugger message: {message:?}");
             tracing::warn!("Ignoring debugger message {message:?}");
+        }
+        Message::DebuggerNotification(notification) => {
+            debug_assert!(
+                false,
+                "The LSP sent its preview a debugger notification: {notification:?}"
+            );
+            tracing::warn!("Ignoring debugger notification {notification:?}");
         }
     }
 }
@@ -1835,7 +1842,7 @@ pub fn get_component_info(component_type: &str) -> Option<ComponentInformation> 
 fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
     file_versions: &editor_preview::document_cache::SourceFileVersionMap,
-) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
+) -> BTreeMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
     PREVIEW_STATE.with_borrow(|preview_state| {
         let mut result = i_slint_live_preview::protocol::diagnostics_by_url(
             diagnostics,

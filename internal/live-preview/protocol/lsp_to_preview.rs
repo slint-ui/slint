@@ -100,6 +100,8 @@ pub enum LspToPreviewMessage {
         id: u64,
         message: super::DebuggerToPreviewMessage,
     },
+    /// A message from the debugger that expects no answer, passed on by the Springboard.
+    DebuggerNotification(super::DebuggerToPreviewNotification),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
