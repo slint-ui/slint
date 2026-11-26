@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // The current row is the topmost row, even when it's only partly visible.
-// The item offset is that row's top relative to the list's top.
+// The item offset is that row's top relative to the list's top edge.
+// Some styles inset the visible area, so the expected offsets add `visible-y`.
+// Rows from 10 on have differing heights, which changes the ListView's estimated row height.
 
 import { ListView } from "std-widgets.slint";
 
@@ -13,8 +15,12 @@ export component TestCase inherits Window {
     in-out property <length> content-y <=> list.content-y;
     out property <int> current-row: list.current-row;
     out property <length> item-offset: list.item-offset;
+    out property <length> visible-y: list.visible-y;
     out property <int> changed-row: -2;
     out property <int> changes;
+    // The row hit by the last click, and its top relative to the list
+    out property <int> clicked-row: -1;
+    out property <length> clicked-row-y;
 
     list := ListView {
         changed current-row => {
@@ -23,7 +29,13 @@ export component TestCase inherits Window {
         }
 
         for i in 100: Rectangle {
-            height: 50px;
+            height: i < 10 ? 50px : (i.mod(3) + 1) * 30px;
+            TouchArea {
+                clicked => {
+                    root.clicked-row = i;
+                    root.clicked-row-y = parent.absolute-position.y - list.absolute-position.y;
+                }
+            }
         }
     }
 }
@@ -36,7 +48,7 @@ let instance = TestCase::new().unwrap();
 slint_testing::send_mouse_click(&instance, 5., 5.);
 slint_testing::mock_elapsed_time(1);
 assert_eq!(instance.get_current_row(), 0);
-assert_eq!(instance.get_item_offset(), 0.);
+assert_eq!(instance.get_item_offset(), instance.get_visible_y());
 assert_eq!(instance.get_changed_row(), 0);
 assert_eq!(instance.get_changes(), 1);
 
@@ -45,7 +57,7 @@ instance.set_content_y(-125.);
 slint_testing::send_mouse_click(&instance, 5., 5.);
 slint_testing::mock_elapsed_time(1);
 assert_eq!(instance.get_current_row(), 2);
-assert_eq!(instance.get_item_offset(), -25.);
+assert_eq!(instance.get_item_offset(), instance.get_visible_y() - 25.);
 assert_eq!(instance.get_changed_row(), 2);
 assert_eq!(instance.get_changes(), 2);
 
@@ -54,8 +66,28 @@ instance.set_content_y(-140.);
 slint_testing::send_mouse_click(&instance, 5., 5.);
 slint_testing::mock_elapsed_time(1);
 assert_eq!(instance.get_current_row(), 2);
-assert_eq!(instance.get_item_offset(), -40.);
+assert_eq!(instance.get_item_offset(), instance.get_visible_y() - 40.);
 assert_eq!(instance.get_changes(), 2);
+
+// Scroll with the wheel across the rows with differing heights.
+// After each step, the current row is the row at the top edge, and the item offset is its top.
+let mut partly_visible = false;
+for _ in 0..40 {
+    instance.window().dispatch_event(slint::platform::WindowEvent::PointerScrolled {
+        position: slint::LogicalPosition::new(5., 100.),
+        delta_x: 0.,
+        delta_y: -37.,
+    });
+    slint_testing::mock_elapsed_time(500);
+    slint_testing::send_mouse_click(&instance, 5., instance.get_visible_y() + 0.5);
+    slint_testing::mock_elapsed_time(1);
+    assert_eq!(instance.get_current_row(), instance.get_clicked_row());
+    assert_eq!(instance.get_item_offset(), instance.get_clicked_row_y());
+    assert!(instance.get_item_offset() <= instance.get_visible_y());
+    partly_visible |= instance.get_item_offset() < instance.get_visible_y();
+}
+assert!(partly_visible);
+assert!(instance.get_current_row() > 15, "{}", instance.get_current_row());
 ```
 
 ```cpp
@@ -65,7 +97,7 @@ const TestCase &instance = *handle;
 slint_testing::send_mouse_click(&instance, 5., 5.);
 slint_testing::mock_elapsed_time(1);
 assert_eq(instance.get_current_row(), 0);
-assert_eq(instance.get_item_offset(), 0.);
+assert_eq(instance.get_item_offset(), instance.get_visible_y());
 assert_eq(instance.get_changed_row(), 0);
 assert_eq(instance.get_changes(), 1);
 
@@ -73,7 +105,7 @@ instance.set_content_y(-125.);
 slint_testing::send_mouse_click(&instance, 5., 5.);
 slint_testing::mock_elapsed_time(1);
 assert_eq(instance.get_current_row(), 2);
-assert_eq(instance.get_item_offset(), -25.);
+assert_eq(instance.get_item_offset(), instance.get_visible_y() - 25.);
 assert_eq(instance.get_changed_row(), 2);
 assert_eq(instance.get_changes(), 2);
 
@@ -81,7 +113,7 @@ instance.set_content_y(-140.);
 slint_testing::send_mouse_click(&instance, 5., 5.);
 slint_testing::mock_elapsed_time(1);
 assert_eq(instance.get_current_row(), 2);
-assert_eq(instance.get_item_offset(), -40.);
+assert_eq(instance.get_item_offset(), instance.get_visible_y() - 40.);
 assert_eq(instance.get_changes(), 2);
 ```
 
@@ -91,7 +123,7 @@ var instance = new slint.TestCase({});
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
 slintlib.private_api.mock_elapsed_time(1);
 assert.equal(instance.current_row, 0);
-assert.equal(instance.item_offset, 0);
+assert.equal(instance.item_offset, instance.visible_y);
 assert.equal(instance.changed_row, 0);
 assert.equal(instance.changes, 1);
 
@@ -99,7 +131,7 @@ instance.content_y = -125;
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
 slintlib.private_api.mock_elapsed_time(1);
 assert.equal(instance.current_row, 2);
-assert.equal(instance.item_offset, -25);
+assert.equal(instance.item_offset, instance.visible_y - 25);
 assert.equal(instance.changed_row, 2);
 assert.equal(instance.changes, 2);
 
@@ -107,7 +139,7 @@ instance.content_y = -140;
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
 slintlib.private_api.mock_elapsed_time(1);
 assert.equal(instance.current_row, 2);
-assert.equal(instance.item_offset, -40);
+assert.equal(instance.item_offset, instance.visible_y - 40);
 assert.equal(instance.changes, 2);
 ```
 */

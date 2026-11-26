@@ -132,6 +132,8 @@ export component StandardTableView {
     in property <bool> enabled <=> scroll-view.enabled;
     out property <length> visible-width <=> scroll-view.visible-width;
     out property <length> visible-height <=> scroll-view.visible-height;
+    out property <length> visible-x: scroll-view.absolute-position.x - root.absolute-position.x + scroll-view.visible-x;
+    out property <length> visible-y: scroll-view.absolute-position.y - root.absolute-position.y + scroll-view.visible-y;
     in-out property <bool> has-focus <=> scroll-view.has-focus;
     @shadowable in-out property <length> content-width <=> scroll-view.content-width;
     @shadowable in-out property <length> content-height <=> scroll-view.content-height;

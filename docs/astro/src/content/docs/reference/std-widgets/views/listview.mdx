@@ -52,7 +52,7 @@ export component Example inherits Window {
 Same as <Link type="ScrollView"/>, and:
 
 ### current-row
-<SlintProperty propName="current-row" typeName="int" propertyVisibility="out" defaultValue="-1">
+<SlintProperty propName="current-row" typeName="int" propertyVisibility="out">
 The index of the row the list is scrolled to: the topmost visible row, even if it's only partly visible.
 It's -1 while the list has no rows.
 The list updates it when it lays out its rows.
@@ -61,8 +61,8 @@ The list updates it when it lays out its rows.
 ### item-offset
 <SlintProperty propName="item-offset" typeName="length" propertyVisibility="out">
 The position of the current row's top, see [`current-row`](#current-row), relative to the list's top edge.
-A negative value means the row is partly scrolled out at the top.
-It's 0 while the list has no rows.
+A value less than [`visible-y`](/reference/std-widgets/views/scrollview/#visible-y) means the row is partly scrolled out at the top.
+It's `visible-y` while the list has no rows.
 </SlintProperty>
 
 

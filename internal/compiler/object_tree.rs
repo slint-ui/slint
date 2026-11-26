@@ -1569,7 +1569,8 @@ pub struct ListViewInfo {
     pub ensure_row_visible: Option<NamedReference>,
     /// The property the layout sets to the ListView's current row, if it declares one
     pub current_row: Option<NamedReference>,
-    /// The property the layout sets to the ListView's item offset, if it declares one
+    /// The property the layout sets to the current row's offset within the ListView's viewport,
+    /// if the ListView declares one
     pub item_offset: Option<NamedReference>,
     /// The row's `height`. Unlike the root's geometry, a wrapper such as the
     /// zero-size Clip of the `visible` pass doesn't replace it.
@@ -2182,7 +2183,7 @@ impl Element {
                 .property_type
                 == Type::Int32;
             let declares_item_offset = parent_elem
-                .lookup_property("item-offset", PropertyLookupMode::InternalName)
+                .lookup_property("viewport-item-offset", PropertyLookupMode::InternalName)
                 .property_type
                 == Type::LogicalLength;
             drop(parent_elem); // Drop the borrow before creating NamedReference
@@ -2200,8 +2201,9 @@ impl Element {
                 }),
                 current_row: declares_current_row
                     .then(|| NamedReference::new(parent, SmolStr::new_static("current-row"))),
-                item_offset: declares_item_offset
-                    .then(|| NamedReference::new(parent, SmolStr::new_static("item-offset"))),
+                item_offset: declares_item_offset.then(|| {
+                    NamedReference::new(parent, SmolStr::new_static("viewport-item-offset"))
+                }),
                 row_height: geometry_props.height.clone(),
             };
             // these properties are set by the ListView layouting code

@@ -22,8 +22,6 @@ component StickyList inherits Rectangle {
     in property <[StickySection]> sections;
     property <length> row-height: 30px;
     property <length> section-height: 50px;
-    // Hides the header while the next one pushes it above the list
-    clip: true;
 
     list := ListView {
         width: root.width;
@@ -50,23 +48,30 @@ component StickyList inherits Rectangle {
     // Only the topmost row can be a header, the current section's own.
     property <length> to-next-header: (root.sections[root.section + 1].first-row - list.current-row) * root.row-height
         + (root.rows[max(0, list.current-row)].header ? root.section-height - root.row-height : 0px);
-    // Position of the next section's header row, relative to the list
-    property <length> next-header-y: list.item-offset + root.to-next-header;
+    // Position of the next section's header row, relative to the list's visible area
+    property <length> next-header-y: list.item-offset - list.visible-y + root.to-next-header;
 
+    // Hides the header while the next one pushes it out of the visible area
     Rectangle {
-        x: list.x;
+        x: list.x + list.visible-x;
+        y: list.y + list.visible-y;
         width: list.visible-width;
         height: root.section-height;
-        y: list.y + (root.has-next ? min(0px, root.next-header-y - root.section-height) : 0px);
-        background: #0a2b31;
-        accessible-role: none;
-        Text {
-            x: 10px;
-            height: parent.height;
-            vertical-alignment: TextVerticalAlignment.center;
-            text: root.sections[root.section].title;
-            font-weight: 700;
-            color: #2fa4b5;
+        clip: true;
+
+        Rectangle {
+            y: root.has-next ? min(0px, root.next-header-y - root.section-height) : 0px;
+            height: root.section-height;
+            background: #0a2b31;
+            accessible-role: none;
+            Text {
+                x: 10px;
+                height: parent.height;
+                vertical-alignment: TextVerticalAlignment.center;
+                text: root.sections[root.section].title;
+                font-weight: 700;
+                color: #2fa4b5;
+            }
         }
     }
 }

@@ -8,9 +8,10 @@ import { ListViewInterface, StandardListViewInterface } from "std-widget-interfa
 export component ListView inherits ScrollView {
     implement ListViewInterface <=> self;
 
-    // The ListView's layout sets these.
+    // The ListView's layout sets `current-row` and `viewport-item-offset`.
     out property <int> current-row: -1;
-    out property <length> item-offset;
+    private property <length> viewport-item-offset;
+    out property <length> item-offset: self.viewport-item-offset + self.visible-y;
 
     @children
     accessible-role: list;

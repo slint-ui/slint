@@ -106,6 +106,8 @@ export component ScrollView {
     in property <bool> enabled: true;
     out property <length> visible-width <=> flickable.width;
     out property <length> visible-height <=> flickable.height;
+    out property <length> visible-x: flickable.x;
+    out property <length> visible-y: flickable.y;
     in-out property <bool> has-focus;
     @shadowable in-out property <length> content-width <=> flickable.content-width;
     @shadowable in-out property <length> content-height <=> flickable.content-height;
