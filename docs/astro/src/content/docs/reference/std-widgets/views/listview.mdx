@@ -4,6 +4,7 @@ description: ListView api.
 ---
 
 import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
 
 A ListView is like a <Link type="ScrollView"/> but it should have a `for` element, and the contents are
@@ -48,12 +49,40 @@ export component Example inherits Window {
 
 ## Properties
 
-Same as <Link type="ScrollView"/>.
+Same as <Link type="ScrollView"/>, and:
+
+### current-row
+<SlintProperty propName="current-row" typeName="int" propertyVisibility="out" defaultValue="-1">
+The index of the row the list is scrolled to: the topmost visible row, even if it's only partly visible.
+It's -1 while the list has no rows.
+The list updates it when it lays out its rows.
+</SlintProperty>
+
+### item-offset
+<SlintProperty propName="item-offset" typeName="length" propertyVisibility="out">
+The position of the current row's top, see [`current-row`](#current-row), relative to the list's top edge.
+A negative value means the row is partly scrolled out at the top.
+It's 0 while the list has no rows.
+</SlintProperty>
 
 
 ## Callbacks
 
-Same as <Link type="ScrollView"/>.
+Same as <Link type="ScrollView"/>, and:
+
+### current-row-changed(row: int)
+
+Invoked after the current row changes, see [`current-row`](#current-row).
+The first layout of the list reports its first current row.
+
+```slint {3-5}
+ListView {
+    for i in 100 : Text { text: "Row \{i}"; }
+    current-row-changed(row) => {
+        debug("Current row: ", row);
+    }
+}
+```
 
 ## Functions
 
