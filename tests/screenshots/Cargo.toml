@@ -69,7 +69,7 @@ interpreter-embed-assets = [
 slint = { workspace = true, features = ["std", "compat-1-2"], optional = true }
 i-slint-core = { workspace = true, features = ["unicode", "std"] }
 
-i-slint-renderer-skia = { workspace = true, optional = true }
+i-slint-renderer-skia = { workspace = true, features = ["svg"], optional = true }
 # For the recorded frames that the software driver checks.
 i-slint-renderer-software = { workspace = true, optional = true, features = ["experimental"] }
 i-slint-renderer-femtovg = { workspace = true, optional = true, features = ["unstable-wgpu-30"] }

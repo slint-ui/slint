@@ -779,6 +779,15 @@ impl ImageInner {
                 )));
             }
 
+            #[cfg(not(feature = "svg"))]
+            if format.as_slice() == b"svg"
+                || format.as_slice() == b"svgz"
+                || (format.is_empty() && (data.starts_with(b"<?xml") || data.starts_with(b"<svg")))
+            {
+                crate::debug_log!("Error loading SVG: {SVG_DISABLED_MESSAGE}");
+                return None;
+            }
+
             let format = std::str::from_utf8(format.as_slice())
                 .ok()
                 .and_then(image::ImageFormat::from_extension);
@@ -817,6 +826,10 @@ impl ImageInner {
         })
     }
 }
+
+/// Explains why an SVG cannot be loaded when the `svg` feature is compiled out.
+#[cfg(all(not(feature = "svg"), feature = "image-decoders"))]
+pub(crate) const SVG_DISABLED_MESSAGE: &str = "SVG support is not enabled. Enable the `svg` feature of the `slint` crate (or of `slint-interpreter`) to render SVG images";
 
 /// Convert `image::DynamicImage` to `SharedImageBuffer`
 #[cfg(feature = "image-decoders")]

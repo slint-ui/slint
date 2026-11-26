@@ -75,6 +75,7 @@ renderer-software = [
   "dep:swash",
   "dep:skrifa",
   "i-slint-common/shared-fontique",
+  "i-slint-common/system-fonts",
   "i-slint-common/svg-text",
   "dep:rayon",
 ]
