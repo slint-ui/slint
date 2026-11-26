@@ -49,6 +49,8 @@ The text that is displayed at the top of the picker.
 ### date
 <SlintProperty propName="date" typeName="struct" structName="Date">
 Set the initial displayed date.
+The year selection offers the years 1900 to 2100, plus the year of `date` and the current year when they're outside that range,
+and opens scrolled to the selected year.
 ```slint "date: { year: 2024, month: 11 };"
 DatePickerPopup {
     date: { year: 2024, month: 11 };
