@@ -151,10 +151,7 @@ pub use draw::{GlyphRenderer, RectangleBorder};
 use cache::cached_paragraphs;
 use layout::{Layout, LayoutOptions, layout};
 use selection::{SelectionRendering, SelectionSpans};
-use shaping::{
-    Brush, LayoutWithoutLineBreaksBuilder, create_text_paragraphs, shape_paragraphs,
-    shaping_builder,
-};
+use shaping::{Brush, LayoutWithoutLineBreaksBuilder, shape_paragraphs, shaping_builder};
 
 /// Lays out the shaped text of an item and runs `f` over the result.
 ///
@@ -191,7 +188,9 @@ fn with_text_layout<R>(
         layout_builder.line_height_factor,
         text.measures_width_only(),
         window,
-        &|| shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context),
+        &|previous| {
+            shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context, previous)
+        },
     );
 
     let line_breaking = guard.take_line_breaking();
@@ -637,40 +636,38 @@ fn text_content_widths_impl(
     // Reads the text, the font request and the line limit, so the cache entry depends on all
     // three. Nothing else feeds the widths: the wrap mode, the width and the color don't.
     // Reads them before borrowing the font context; see `shape_paragraphs`.
-    let compute = || {
+    let compute = |previous| {
         let layout_builder =
             shaping::content_widths_builder(text_item.font_request(item_rc), scale_factor);
         let text = text_item.text();
         let line_limit = text_item.line_limit();
 
-        let paragraphs_without_linebreaks = create_text_paragraphs(
+        let paragraphs = shaping::paragraph_widths(
             &layout_builder,
             &mut ctx.font_context().borrow_mut(),
             text,
-            Color::default(),
+            previous,
         );
 
         // No line breaking needed: parley derives the content widths from the break
         // opportunities. Paragraphs stack vertically, so both widths are the widest.
         // Without wrapping each paragraph is one line, so a line limit drops the paragraphs
         // that are not drawn, from both widths.
-        let (min, max) = paragraphs_without_linebreaks
+        let (min, max) = paragraphs
             .iter()
             .take(line_limit.unwrap_or(usize::MAX))
-            .fold((0., 0.), |(min, max), p| {
-                let w = p.layout.calculate_content_widths();
-                (f32::max(min, w.min), f32::max(max, w.max))
-            });
-        crate::renderer::ContentWidths {
+            .fold((0., 0.), |(min, max), p| (f32::max(min, p.min), f32::max(max, p.max)));
+        let widths = crate::renderer::ContentWidths {
             min: PhysicalLength::new(min) / scale_factor,
             max: PhysicalLength::new(max) / scale_factor,
-        }
+        };
+        (widths, paragraphs)
     };
 
     // Without a window there is no way to notice a scale factor change, and the shaped
     // advances are in physical pixels, so an entry kept across one would be wrong.
     let Some((cache, window_adapter)) = cache.zip(window_adapter) else {
-        return Some(compute());
+        return Some(compute(Vec::new()).0);
     };
     cache.clear_if_scale_factor_changed(window_adapter.window());
     Some(cache.content_widths(item_rc, compute))
