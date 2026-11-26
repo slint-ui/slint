@@ -12,15 +12,34 @@ use std::rc::Rc;
 pub fn lower_text_input_interface(component: &Rc<Component>) {
     visit_all_expressions(component, |e, _| {
         e.visit_recursive_mut(&mut |e| match e {
-            Expression::PropertyReference(nr) if is_input_text_focused_prop(nr) => {
-                *e = Expression::FunctionCall {
-                    function: BuiltinFunction::TextInputFocused.into(),
-                    arguments: Vec::new(),
-                    source_location: None,
-                };
-            }
-            Expression::SelfAssignment{ lhs, rhs, .. } => {
-                if matches!(&**lhs, Expression::PropertyReference(nr)  if is_input_text_focused_prop(nr) ) {
+            Expression::PropertyReference(nr) => match prop_name(nr) {
+                Some("text-input-focused") => {
+                    *e = Expression::FunctionCall {
+                        function: BuiltinFunction::TextInputFocused.into(),
+                        arguments: Vec::new(),
+                        source_location: None,
+                    };
+                }
+                Some("text-input-type") => {
+                    *e = Expression::FunctionCall {
+                        function: BuiltinFunction::TextInputType.into(),
+                        arguments: Vec::new(),
+                        source_location: None,
+                    };
+                }
+                Some("text-input-method-hints") => {
+                    *e = Expression::FunctionCall {
+                        function: BuiltinFunction::TextInputMethodHints.into(),
+                        arguments: Vec::new(),
+                        source_location: None,
+                    };
+                }
+                _ => {}
+            },
+            Expression::SelfAssignment { lhs, rhs, .. } => {
+                if let Expression::PropertyReference(nr) = &**lhs
+                    && let Some("text-input-focused") = prop_name(nr)
+                {
                     let rhs = std::mem::take(&mut **rhs);
                     *e = Expression::FunctionCall {
                         function: BuiltinFunction::SetTextInputFocused.into(),
@@ -28,17 +47,15 @@ pub fn lower_text_input_interface(component: &Rc<Component>) {
                         source_location: None,
                     };
                 }
-
             }
             _ => {}
         })
     })
 }
 
-fn is_input_text_focused_prop(nr: &NamedReference) -> bool {
+fn prop_name(nr: &NamedReference) -> Option<&str> {
     if nr.element().borrow().builtin_type().is_none_or(|bt| bt.name != "TextInputInterface") {
-        return false;
+        return None;
     }
-    assert_eq!(nr.name(), "text-input-focused");
-    true
+    Some(nr.name())
 }
