@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore readback Texel unpadded
-use std::{cell::RefCell, pin::Pin, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    pin::Pin,
+    rc::Rc,
+};
 
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
@@ -33,6 +37,7 @@ pub struct WGPUBackend {
     device: RefCell<Option<wgpu::Device>>,
     queue: RefCell<Option<wgpu::Queue>>,
     surface_config: RefCell<Option<wgpu::SurfaceConfiguration>>,
+    surface_config_dirty: Cell<bool>,
     surface: RefCell<Option<wgpu::Surface<'static>>>,
     alpha_modes: RefCell<Vec<wgpu::CompositeAlphaMode>>,
     snapshot_output: RefCell<Option<femtovg::renderer::WGPURenderOutput>>,
@@ -168,19 +173,26 @@ fn wgpu_take_snapshot_pixels(
 }
 
 impl WGPUBackend {
-    /// Runs `f` with the live surface and the configuration it was last given, or does nothing
-    /// while the renderer is suspended and there is no surface to reconfigure.
-    fn with_surface(
-        &self,
-        f: impl FnOnce(&wgpu::Surface<'static>, &wgpu::Device, &mut wgpu::SurfaceConfiguration),
-    ) {
+    fn set_transparent(&self, transparent: bool) {
+        let Some(mode) = composite_alpha_mode(transparent, &self.alpha_modes.borrow()) else {
+            return;
+        };
         let mut surface_config = self.surface_config.borrow_mut();
-        let Some(surface_config) = surface_config.as_mut() else { return };
-        let device = self.device.borrow();
-        let Some(device) = device.as_ref() else { return };
-        let surface = self.surface.borrow();
-        let Some(surface) = surface.as_ref() else { return };
-        f(surface, device, surface_config);
+        if let Some(surface_config) = surface_config.as_mut()
+            && surface_config.alpha_mode != mode
+        {
+            surface_config.alpha_mode = mode;
+            self.surface_config_dirty.set(true);
+        }
+    }
+
+    fn take_pending_reconfigure(&self) -> bool {
+        let has_area = self
+            .surface_config
+            .borrow()
+            .as_ref()
+            .is_some_and(|cfg| cfg.width > 0 && cfg.height > 0);
+        has_area && self.surface_config_dirty.take()
     }
 }
 
@@ -195,6 +207,7 @@ impl GraphicsBackend for WGPUBackend {
             device: Default::default(),
             queue: Default::default(),
             surface_config: Default::default(),
+            surface_config_dirty: Cell::new(false),
             surface: Default::default(),
             alpha_modes: Default::default(),
             snapshot_output: Default::default(),
@@ -204,6 +217,7 @@ impl GraphicsBackend for WGPUBackend {
 
     fn clear_graphics_context(&self) {
         self.surface_config.borrow_mut().take();
+        self.surface_config_dirty.set(false);
         self.alpha_modes.borrow_mut().clear();
         self.surface.borrow_mut().take();
         self.queue.borrow_mut().take();
@@ -224,15 +238,19 @@ impl GraphicsBackend for WGPUBackend {
             // winit event loop).
             return Ok(BeginRendering::Skipped(DrawOutcome::Skipped));
         };
-        // The surface may have been stored without an initial
-        // `surface.configure()` call when the canvas had zero area at the
-        // time the async wgpu init future resolved (see
-        // `configure_surface_from_init_result`). On WebGPU,
-        // get_current_texture() panics in that state; skip the frame here and
-        // wait for the first non-zero resize to configure the surface.
-        if !self.surface_config.borrow().as_ref().is_some_and(|cfg| cfg.width > 0 && cfg.height > 0)
-        {
+        // Skip zero-sized surfaces (e.g. a WASM canvas before layout or a minimized
+        // window) so wgpu never configures or acquires a 0x0 swapchain.
+        let surface_config = self.surface_config.borrow();
+        let Some(surface_config) =
+            surface_config.as_ref().filter(|cfg| cfg.width > 0 && cfg.height > 0)
+        else {
             return Ok(BeginRendering::Skipped(DrawOutcome::Skipped));
+        };
+        // Defer swapchain configuration to right before frame acquisition.
+        // Interactive resizes arrive faster than frames, and wgpu's
+        // `configure` drains the GPU queue (blocking on DX12/Vulkan).
+        if self.take_pending_reconfigure() {
+            surface.configure(self.device.borrow().as_ref().unwrap(), surface_config);
         }
         let frame = match surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(t) => t,
@@ -256,9 +274,9 @@ impl GraphicsBackend for WGPUBackend {
                 // Drop it first. This is the common FIRST-frame status on Wayland, so without the
                 // drop the renderer panics on startup. (`Outdated`/`Lost` carry nothing → no-op.)
                 drop(stale);
-                let mut device = self.device.borrow_mut();
-                let device = device.as_mut().unwrap();
-                surface.configure(device, self.surface_config.borrow().as_ref().unwrap());
+                let device = self.device.borrow();
+                let device = device.as_ref().unwrap();
+                surface.configure(device, surface_config);
                 match surface.get_current_texture() {
                     wgpu::CurrentSurfaceTexture::Success(t) => t,
                     _ => return Ok(BeginRendering::Skipped(DrawOutcome::Occluded)),
@@ -339,14 +357,16 @@ impl GraphicsBackend for WGPUBackend {
         width: std::num::NonZeroU32,
         height: std::num::NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.with_surface(|surface, device, surface_config| {
-            // Prefer FIFO modes over possible Mailbox setting for frame pacing and better energy efficiency.
-            surface_config.present_mode = wgpu::PresentMode::AutoVsync;
-            surface_config.width = width.get();
-            surface_config.height = height.get();
-
-            surface.configure(device, surface_config);
-        });
+        let mut surface_config = self.surface_config.borrow_mut();
+        let Some(surface_config) = surface_config.as_mut() else {
+            return Ok(());
+        };
+        if surface_config.width == width.get() && surface_config.height == height.get() {
+            return Ok(());
+        }
+        surface_config.width = width.get();
+        surface_config.height = height.get();
+        self.surface_config_dirty.set(true);
         Ok(())
     }
 }
@@ -372,6 +392,9 @@ impl FemtoVGRenderer<WGPUBackend> {
         requested_graphics_api: Option<RequestedGraphicsAPI>,
         transparent: bool,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let present_mode = i_slint_core::graphics::wgpu_30::present_mode_for_request(
+            requested_graphics_api.as_ref(),
+        );
         let (instance, adapter, device, queue, surface) =
             i_slint_core::graphics::wgpu_30::init_instance_adapter_device_queue_surface(
                 surface_target,
@@ -388,6 +411,7 @@ impl FemtoVGRenderer<WGPUBackend> {
             surface,
             size,
             transparent,
+            present_mode,
         );
         Ok(())
     }
@@ -395,17 +419,7 @@ impl FemtoVGRenderer<WGPUBackend> {
     /// Adjusts the surface for a window that became transparent or opaque after it was created,
     /// so that the scene's alpha is kept or discarded to match.
     pub fn set_transparent(&self, transparent: bool) {
-        let Some(mode) =
-            composite_alpha_mode(transparent, &self.graphics_backend.alpha_modes.borrow())
-        else {
-            return;
-        };
-        self.graphics_backend.with_surface(|surface, device, surface_config| {
-            if surface_config.alpha_mode != mode {
-                surface_config.alpha_mode = mode;
-                surface.configure(device, surface_config);
-            }
-        });
+        self.graphics_backend.set_transparent(transparent);
     }
 
     /// Set the callback invoked right before a frame is presented, used by
@@ -416,6 +430,7 @@ impl FemtoVGRenderer<WGPUBackend> {
 
     /// Configure the renderer with pre-initialized WGPU objects. This is used by both the
     /// synchronous `set_surface` path and the async WASM initialization path.
+    #[allow(clippy::too_many_arguments)]
     pub fn configure_surface_from_init_result(
         &self,
         instance: wgpu::Instance,
@@ -425,6 +440,7 @@ impl FemtoVGRenderer<WGPUBackend> {
         surface: wgpu::Surface<'static>,
         size: PhysicalWindowSize,
         transparent: bool,
+        present_mode: wgpu::PresentMode,
     ) {
         let mut surface_config =
             surface.get_default_config(&adapter, size.width, size.height).unwrap();
@@ -448,19 +464,16 @@ impl FemtoVGRenderer<WGPUBackend> {
             surface_config.alpha_mode = mode;
         }
 
-        // Skip the initial surface.configure() when the window has zero
-        // area — wgpu requires both dimensions to be non-zero. This happens
-        // on WASM when the async wgpu init future resolves before the
-        // browser has laid out the canvas. The subsequent resize event will
-        // re-configure with the real size.
-        if size.width > 0 && size.height > 0 {
-            surface.configure(&device, &surface_config);
-        }
+        surface_config.present_mode = i_slint_core::graphics::wgpu_30::select_present_mode(
+            present_mode,
+            &swapchain_capabilities.present_modes,
+        );
 
         *self.graphics_backend.instance.borrow_mut() = Some(instance.clone());
         *self.graphics_backend.device.borrow_mut() = Some(device.clone());
         *self.graphics_backend.queue.borrow_mut() = Some(queue.clone());
         *self.graphics_backend.surface_config.borrow_mut() = Some(surface_config);
+        self.graphics_backend.surface_config_dirty.set(true);
         *self.graphics_backend.alpha_modes.borrow_mut() = swapchain_capabilities.alpha_modes;
         *self.graphics_backend.surface.borrow_mut() = Some(surface);
 
@@ -769,5 +782,115 @@ impl RendererSealed for FemtoVGWGPURenderer {
 
     fn supports_transformations(&self) -> bool {
         self.0.supports_transformations()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::num::NonZeroU32;
+
+    fn test_surface_config(
+        width: u32,
+        height: u32,
+        present_mode: wgpu::PresentMode,
+    ) -> wgpu::SurfaceConfiguration {
+        wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: wgpu::TextureFormat::Bgra8Unorm,
+            width,
+            height,
+            present_mode,
+            desired_maximum_frame_latency: 2,
+            alpha_mode: wgpu::CompositeAlphaMode::Opaque,
+            view_formats: Vec::new(),
+            color_space: Default::default(),
+        }
+    }
+
+    fn backend_with_config(
+        width: u32,
+        height: u32,
+        present_mode: wgpu::PresentMode,
+    ) -> WGPUBackend {
+        let backend = WGPUBackend::new_suspended();
+        *backend.surface_config.borrow_mut() =
+            Some(test_surface_config(width, height, present_mode));
+        backend.surface_config_dirty.set(true);
+        *backend.alpha_modes.borrow_mut() =
+            vec![wgpu::CompositeAlphaMode::Opaque, wgpu::CompositeAlphaMode::PreMultiplied];
+        backend
+    }
+
+    #[test]
+    fn resize_coalesces_until_frame_and_preserves_present_mode() {
+        let backend = backend_with_config(800, 600, wgpu::PresentMode::Mailbox);
+
+        // Initial configuration is deferred until the first frame.
+        assert!(backend.take_pending_reconfigure());
+        assert!(!backend.take_pending_reconfigure());
+
+        // A burst of resizes updates the target dimensions without reconfiguring per event.
+        for step in 1..=16u32 {
+            let w = NonZeroU32::new(600 + step * 100).unwrap();
+            let h = NonZeroU32::new(400 + step * 60).unwrap();
+            backend.resize(w, h).unwrap();
+            assert!(backend.surface_config_dirty.get());
+        }
+
+        {
+            let cfg = backend.surface_config.borrow();
+            let cfg = cfg.as_ref().unwrap();
+            assert_eq!((cfg.width, cfg.height), (2200, 1360));
+            assert_eq!(cfg.present_mode, wgpu::PresentMode::Mailbox);
+        }
+
+        // The next frame consumes the coalesced reconfigure once.
+        assert!(backend.take_pending_reconfigure());
+        assert!(!backend.take_pending_reconfigure());
+    }
+
+    #[test]
+    fn resize_with_same_size_does_not_mark_dirty() {
+        let backend = backend_with_config(800, 600, wgpu::PresentMode::AutoVsync);
+        assert!(backend.take_pending_reconfigure());
+
+        backend.resize(NonZeroU32::new(800).unwrap(), NonZeroU32::new(600).unwrap()).unwrap();
+        assert!(!backend.surface_config_dirty.get());
+        assert!(!backend.take_pending_reconfigure());
+    }
+
+    #[test]
+    fn zero_sized_surface_stays_dirty_until_non_zero_resize() {
+        let backend = backend_with_config(0, 0, wgpu::PresentMode::AutoVsync);
+        assert!(!backend.take_pending_reconfigure());
+        assert!(backend.surface_config_dirty.get());
+
+        backend.resize(NonZeroU32::new(640).unwrap(), NonZeroU32::new(480).unwrap()).unwrap();
+        assert!(backend.take_pending_reconfigure());
+        assert!(!backend.take_pending_reconfigure());
+    }
+
+    #[test]
+    fn set_transparent_defers_reconfigure_only_when_alpha_changes() {
+        let backend = backend_with_config(800, 600, wgpu::PresentMode::AutoVsync);
+        assert!(backend.take_pending_reconfigure());
+
+        backend.set_transparent(false);
+        assert!(!backend.surface_config_dirty.get());
+
+        backend.set_transparent(true);
+        assert_eq!(
+            backend.surface_config.borrow().as_ref().unwrap().alpha_mode,
+            wgpu::CompositeAlphaMode::PreMultiplied
+        );
+        assert!(backend.take_pending_reconfigure());
+
+        backend.set_transparent(true);
+        assert!(!backend.surface_config_dirty.get());
+
+        backend.clear_graphics_context();
+        assert!(!backend.surface_config_dirty.get());
+        assert!(backend.surface_config.borrow().is_none());
     }
 }

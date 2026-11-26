@@ -9,7 +9,7 @@ use i_slint_core::partial_renderer::DirtyRegion;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -45,6 +45,7 @@ pub struct WGPUSurface {
     pub(crate) gr_context: RefCell<skia_safe::gpu::DirectContext>,
     wgpu: Rc<SharedWgpuState>,
     surface_config: RefCell<Option<wgpu::SurfaceConfiguration>>,
+    surface_config_dirty: Cell<bool>,
     surface: Option<wgpu::Surface<'static>>,
     textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
     /// The texture that [`Self::flush_and_submit`] makes a color target.
@@ -72,6 +73,9 @@ impl WGPUSurface {
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, PlatformError> {
+        let present_mode = i_slint_core::graphics::wgpu_29::present_mode_for_request(
+            requested_graphics_api.as_ref(),
+        );
         let (instance, adapter, device, queue, surface) =
             i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface(
                 surface_target,
@@ -83,6 +87,7 @@ impl WGPUSurface {
             surface,
             size,
             false,
+            present_mode,
         )
     }
 
@@ -91,6 +96,7 @@ impl WGPUSurface {
         surface: wgpu::Surface<'static>,
         size: PhysicalWindowSize,
         transparent: bool,
+        present_mode: wgpu::PresentMode,
     ) -> Result<Self, PlatformError> {
         let SharedWgpuState { adapter, device, queue, .. } = &*wgpu;
         #[cfg(target_vendor = "apple")]
@@ -120,11 +126,10 @@ impl WGPUSurface {
             surface_config.alpha_mode = mode;
         }
 
-        // Prefer FIFO modes over the Mailbox that `get_default_config` picks on some backends
-        // (it takes the first advertised mode, and DX12 lists Mailbox first), for frame pacing
-        // and better energy efficiency. `AutoVsync` falls back to FifoRelaxed and then Fifo, so
-        // it is supported everywhere.
-        surface_config.present_mode = wgpu::PresentMode::AutoVsync;
+        surface_config.present_mode = i_slint_core::graphics::wgpu_29::select_present_mode(
+            present_mode,
+            &swapchain_capabilities.present_modes,
+        );
 
         let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
         surface.configure(device, &surface_config);
@@ -144,6 +149,7 @@ impl WGPUSurface {
             gr_context: gr_context.into(),
             wgpu,
             surface_config: Some(surface_config).into(),
+            surface_config_dirty: Cell::new(false),
             surface: Some(surface),
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             color_target_to_transition: Default::default(),
@@ -164,6 +170,7 @@ impl WGPUSurface {
             gr_context: RefCell::new(gr_context),
             wgpu: Rc::new(SharedWgpuState { instance, adapter, device, queue }),
             surface_config: None.into(),
+            surface_config_dirty: Cell::new(false),
             surface: None,
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             color_target_to_transition: Default::default(),
@@ -338,6 +345,10 @@ impl crate::Surface for WGPUSurface {
             _ => None,
         };
 
+        let present_mode = i_slint_core::graphics::wgpu_29::present_mode_for_request(
+            requested_graphics_api.as_ref(),
+        );
+
         // try to reuse old / shared graphics primitives from previous windows with matching
         // settings
         if !manual_configuration {
@@ -357,7 +368,7 @@ impl crate::Surface for WGPUSurface {
                     && let Ok(surface) = shared.instance.create_surface(make_target())
                     && shared.adapter.is_surface_supported(&surface)
                 {
-                    match Self::init_with_parts(shared, surface, size, transparent) {
+                    match Self::init_with_parts(shared, surface, size, transparent, present_mode) {
                         Ok(surface) => return Ok(surface),
                         Err(err) => {
                             // The shared device may be lost. Drop it and start over.
@@ -378,7 +389,8 @@ impl crate::Surface for WGPUSurface {
                 i_slint_core::graphics::wgpu_29::default_backends_to_avoid(),
             )?;
         let wgpu = Rc::new(SharedWgpuState { instance, adapter, device, queue });
-        let new_surface = Self::init_with_parts(wgpu.clone(), surface, size, transparent)?;
+        let new_surface =
+            Self::init_with_parts(wgpu.clone(), surface, size, transparent, present_mode)?;
         if !manual_configuration {
             *shared_context.0.wgpu_29_state.borrow_mut() = Rc::downgrade(&wgpu);
         }
@@ -390,9 +402,11 @@ impl crate::Surface for WGPUSurface {
     }
 
     fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
+        if size.width == 0 || size.height == 0 {
+            return Ok(());
+        }
         let mut surface_config_opt = self.surface_config.borrow_mut();
-        let (Some(surface_config), Some(surface)) = (surface_config_opt.as_mut(), &self.surface)
-        else {
+        let Some(surface_config) = surface_config_opt.as_mut() else {
             return Ok(());
         };
 
@@ -402,19 +416,9 @@ impl crate::Surface for WGPUSurface {
             return Ok(());
         }
 
-        {
-            let gr_context = &mut self.gr_context.borrow_mut();
-            // This is brute force, but for the lack of access to the fences this seems to work: Avoid any pending work so that
-            // IDXGISwapChain::ResizeBuffers doesn't complain that the surface is still in use.
-            gr_context
-                .flush_submit_and_sync_cpu()
-                .map_err(|err| format!("Skia renderer: {err}"))?;
-        }
-
         surface_config.width = size.width;
         surface_config.height = size.height;
-
-        surface.configure(&self.wgpu.device, surface_config);
+        self.surface_config_dirty.set(true);
         Ok(())
     }
 
@@ -435,6 +439,16 @@ impl crate::Surface for WGPUSurface {
         };
 
         let gr_context = &mut self.gr_context.borrow_mut();
+
+        if self.surface_config_dirty.get() {
+            // Flush any pending Skia work before reconfiguring so
+            // IDXGISwapChain::ResizeBuffers does not see the surface still in use.
+            gr_context
+                .flush_submit_and_sync_cpu()
+                .map_err(|err| format!("Skia renderer: {err}"))?;
+            surface.configure(&self.wgpu.device, surface_config);
+            self.surface_config_dirty.set(false);
+        }
 
         let frame = match surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(t) => t,
@@ -584,13 +598,12 @@ impl crate::Surface for WGPUSurface {
         };
 
         let mut surface_config_opt = self.surface_config.borrow_mut();
-        let (Some(surface_config), Some(surface)) = (surface_config_opt.as_mut(), &self.surface)
-        else {
+        let Some(surface_config) = surface_config_opt.as_mut() else {
             return Ok(());
         };
         if surface_config.alpha_mode != mode {
             surface_config.alpha_mode = mode;
-            surface.configure(&self.wgpu.device, surface_config);
+            self.surface_config_dirty.set(true);
         }
         Ok(())
     }

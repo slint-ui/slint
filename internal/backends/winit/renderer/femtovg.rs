@@ -347,6 +347,9 @@ fn finalize_wgpu_init(
     use crate::winit_compat::WindowSurfaceSizeExt;
     let slint_size =
         crate::winitwindowadapter::physical_size_to_slint(&winit_window.surface_size());
+    let present_mode = i_slint_core::graphics::wgpu_30::present_mode_for_request(
+        this.requested_graphics_api.as_ref(),
+    );
     this.renderer.configure_surface_from_init_result(
         instance,
         adapter,
@@ -355,6 +358,7 @@ fn finalize_wgpu_init(
         surface,
         slint_size,
         transparent,
+        present_mode,
     );
 
     use i_slint_core::platform::WindowAdapter;

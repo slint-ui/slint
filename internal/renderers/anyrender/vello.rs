@@ -256,6 +256,7 @@ struct ActiveState {
     queue: wgpu::Queue,
     surface: wgpu::Surface<'static>,
     surface_config: wgpu::SurfaceConfiguration,
+    surface_config_dirty: bool,
     alpha_modes: Vec<wgpu::CompositeAlphaMode>,
     target: TargetTexture,
     blitter: wgpu::util::TextureBlitter,
@@ -309,7 +310,7 @@ impl VelloWindowRenderer {
         };
         if state.surface_config.alpha_mode != mode {
             state.surface_config.alpha_mode = mode;
-            state.surface.configure(&state.device, &state.surface_config);
+            state.surface_config_dirty = true;
         }
     }
 
@@ -320,6 +321,9 @@ impl VelloWindowRenderer {
         requested_graphics_api: Option<RequestedGraphicsAPI>,
         transparent: bool,
     ) -> Result<ActiveState, String> {
+        let present_mode = i_slint_core::graphics::wgpu_30::present_mode_for_request(
+            requested_graphics_api.as_ref(),
+        );
         let (instance, adapter, device, queue, surface) =
             i_slint_core::graphics::wgpu_30::init_instance_adapter_device_queue_surface(
                 surface_target,
@@ -334,8 +338,10 @@ impl VelloWindowRenderer {
 
         let capabilities = surface.get_capabilities(&adapter);
 
-        // Prefer FIFO modes over possible Mailbox setting for frame pacing and better energy efficiency.
-        surface_config.present_mode = wgpu::PresentMode::AutoVsync;
+        surface_config.present_mode = i_slint_core::graphics::wgpu_30::select_present_mode(
+            present_mode,
+            &capabilities.present_modes,
+        );
 
         // The blit is a plain copy, so prefer a surface format matching the
         // texture vello renders into.
@@ -365,10 +371,6 @@ impl VelloWindowRenderer {
             }
         }
 
-        if width > 0 && height > 0 {
-            surface.configure(&device, &surface_config);
-        }
-
         let renderer = vello::Renderer::new(&device, renderer_options())
             .map_err(|e| format!("Error creating the vello renderer: {e}"))?;
 
@@ -386,6 +388,7 @@ impl VelloWindowRenderer {
             queue,
             surface,
             surface_config,
+            surface_config_dirty: true,
             alpha_modes: capabilities.alpha_modes,
             renderer,
             texture_imports: Default::default(),
@@ -489,8 +492,7 @@ impl WindowRenderer for VelloWindowRenderer {
         }
         state.surface_config.width = width;
         state.surface_config.height = height;
-        state.surface.configure(&state.device, &state.surface_config);
-        state.target = TargetTexture::new(&state.device, width, height);
+        state.surface_config_dirty = true;
     }
 
     fn render<F: FnOnce(&mut Self::ScenePainter<'_>)>(&mut self, draw_fn: F) {
@@ -548,6 +550,7 @@ impl SlintWindowRenderer for VelloWindowRenderer {
             queue,
             surface,
             surface_config,
+            surface_config_dirty,
             target,
             blitter,
             renderer,
@@ -564,6 +567,11 @@ impl SlintWindowRenderer for VelloWindowRenderer {
         let (width, height) = (surface_config.width, surface_config.height);
         if width == 0 || height == 0 {
             return Ok(DrawOutcome::Skipped);
+        }
+
+        if *surface_config_dirty {
+            *surface_config_dirty = false;
+            surface.configure(device, surface_config);
         }
 
         if target.width != width || target.height != height {
