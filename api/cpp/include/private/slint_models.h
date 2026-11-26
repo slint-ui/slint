@@ -1292,8 +1292,8 @@ public:
         VTableContext<Parent> ctx { inner.get(), parent };
         auto ops = make_ops(ctx);
         bool changed = cbindgen_private::slint_repeater_ensure_updated_listview(
-                &ops, &inner->scroll_to_row, row_count(), content_width, content_height, current_row,
-                item_offset, content_y, listview_width, listview_height);
+                &ops, &inner->scroll_to_row, row_count(), content_width, content_height,
+                current_row, item_offset, content_y, listview_width, listview_height);
         if (changed)
             instance_generation.mark_dirty();
         return recurse_ensure_instantiated() || changed;
