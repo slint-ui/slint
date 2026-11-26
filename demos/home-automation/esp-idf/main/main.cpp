@@ -91,6 +91,7 @@ extern "C" void app_main(void)
             .rotation = slint::platform::SoftwareRenderer::RenderingRotation::Rotate90,
             .byte_swap = false,
             .panel_type = SlintDisplayPanelType::MipiDsiDpi,
+            .rasterize_in_separate_task = true,
     });
 
     auto ui = AppWindow::create();

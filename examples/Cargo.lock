@@ -4893,7 +4893,6 @@ dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
  "chrono",
- "clru",
  "const-field-offset",
  "derive_more",
  "euclid",
@@ -9326,7 +9325,7 @@ dependencies = [
 
 [[package]]
 name = "vtable"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "const-field-offset",
  "portable-atomic",
@@ -9336,7 +9335,7 @@ dependencies = [
 
 [[package]]
 name = "vtable-macro"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "proc-macro2",
  "quote",
