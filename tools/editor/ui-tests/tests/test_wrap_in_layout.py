@@ -8,12 +8,14 @@ import slint_testing
 from editor_sync import wait_for_source
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once
+from ui_assertions import expect
 from ui_driver import (
     element,
     elements,
     first_window,
     launch_editor,
     press_shortcut,
+    query,
     select_outline_row,
     wait_until,
 )
@@ -90,3 +92,40 @@ def test_wrap_in_layout_writes_exact_source(
 
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline, relative_path=WRAP_LAYOUT_SOURCE)
+
+
+@pytest.mark.parametrize(
+    ("source", "row", "wrappable"),
+    [
+        (WRAP_LAYOUT_SOURCE, "wrapped-button", True),
+        ("TabCases.slint", "first-tab", False),
+        ("RadioGroupCases.slint", "first-option", False),
+    ],
+    ids=("button", "tab", "radio-button"),
+)
+def test_wrap_in_layout_menu_opens_only_for_wrappable_elements(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    source: str,
+    row: str,
+    wrappable: bool,
+) -> None:
+    editor_environment["SLINT_NO_MUDA"] = "1"
+    source_file = fixture_project / source
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, source_file.read_bytes())
+        window = first_window(editor)
+        select_outline_row(window, row)
+
+        element(window, "Edit").single_click(slint_testing.PointerEventButton.Left)
+        element(window, "Wrap in Layout").single_click(
+            slint_testing.PointerEventButton.Left
+        )
+
+        submenu_item = query(window, "GridBox")
+        if wrappable:
+            expect(submenu_item).to_be_visible()
+        else:
+            expect(submenu_item).to_be_hidden()

@@ -2933,7 +2933,7 @@ fn set_selected_element(
                 is_interactive,
                 is_moveable: !is_in_layout && !is_root,
                 is_resizable: !is_in_layout && !is_layout,
-                is_wrappable: !is_root,
+                is_wrappable: !is_root && !matches!(type_name.as_str(), "Tab" | "RadioButton"),
             });
 
             if let Some(document_cache) = document_cache_from(preview_state)
