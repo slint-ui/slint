@@ -1,0 +1,83 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+import { TabBarItem } from "std-widget-interfaces.slint";
+
+component HeaderBase {
+    @shadowable in property <string> title: "Base";
+    @shadowable in property <bool> selected;
+    @shadowable in property <bool> focused;
+    @shadowable callback activated();
+    min-width: 100px;
+    min-height: 32px;
+}
+
+component Header inherits HeaderBase {
+    in property <string> title: "Shadow";
+    in property <bool> selected;
+    in property <bool> focused;
+    callback activated();
+    out property <string> actual-title: root.title;
+    out property <bool> actual-selected: root.selected;
+    out property <bool> actual-focused: root.focused;
+    public function trigger() { root.activated(); }
+}
+
+component BarBase {
+    @shadowable in property <[TabBarItem]> tabs;
+    @shadowable in property <Orientation> orientation;
+    @shadowable in-out property <int> current-index;
+    @shadowable out property <int> focused-index;
+    @shadowable public function focus-tab(index: int) { }
+    @children
+}
+
+component Bar inherits BarBase {
+    in property <[TabBarItem]> tabs;
+    in property <Orientation> orientation;
+    in-out property <int> current-index;
+    out property <int> focused-index: root.focus-index;
+    private property <int> focus-index: -1;
+    public function focus-tab(index: int) { root.focus-index = index; }
+    out property <int> tab-count: root.tabs.length;
+    out property <Orientation> actual-orientation: root.orientation;
+    @children
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 200px;
+    out property <int> index: tabs.current-index;
+    out property <string> first-title: first.actual-title;
+    out property <string> second-title: second.actual-title;
+    out property <bool> first-selected: first.actual-selected;
+    out property <bool> second-selected: second.actual-selected;
+    out property <bool> second-focused: second.actual-focused;
+    out property <int> tab-count: bar.tab-count;
+    out property <bool> vertical: bar.actual-orientation == Orientation.vertical;
+    public function activate-second() { second.trigger(); }
+    tabs := TabWidget {
+        orientation: Orientation.vertical;
+        bar << bar := Bar { }
+        Tab { title: "First"; header << first := Header { } }
+        Tab { title: "Second"; header << second := Header { } }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_first_title(), "First");
+assert_eq!(instance.get_second_title(), "Second");
+assert!(instance.get_first_selected());
+assert!(!instance.get_second_selected());
+assert_eq!(instance.get_tab_count(), 2);
+assert!(instance.get_vertical());
+instance.invoke_activate_second();
+assert_eq!(instance.get_index(), 1);
+assert!(!instance.get_first_selected());
+assert!(instance.get_second_selected());
+assert!(instance.get_second_focused());
+```
+*/

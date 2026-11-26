@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+import { TabHeaderBase, TabBarLayoutBase } from "../../../tools/editor/controls/src/headless.slint";
+
+component Pages inherits TabWidget {
+    orientation: vertical;
+    bar << TabBarLayoutBase { }
+    Tab {
+        title: "First custom";
+        header << heading := TabHeaderBase {
+            min-width: 120px;
+            min-height: 40px;
+            content << Text { text: heading.title; }
+        }
+        Rectangle { min-width: 80px; min-height: 60px; }
+    }
+    Tab { title: "Middle standard"; }
+    Tab { title: "Last standard"; }
+}
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 300px;
+    out property <int> current-index: tabs.current-index;
+    out property <bool> test: tabs.current-index == 0;
+    tabs := Pages { }
+}
+
+/*
+```rust
+use slint::platform::{Key, PointerEventButton};
+use slint_testing::{AccessibleRole, ElementQuery};
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert!(instance.get_test());
+let headers = ElementQuery::from_root(&instance).match_accessible_role(AccessibleRole::Tab).find_all();
+let key = |key: Key| {
+    slint_testing::send_keyboard_char(&instance, key.into(), true);
+    slint_testing::send_keyboard_char(&instance, key.into(), false);
+};
+assert_eq!(headers.len(), 3);
+headers[0].mock_single_click(PointerEventButton::Left);
+key(Key::DownArrow);
+assert_eq!(instance.get_current_index(), 0);
+key(Key::Return);
+assert_eq!(instance.get_current_index(), 1);
+headers[2].invoke_accessible_default_action();
+assert_eq!(instance.get_current_index(), 2);
+assert!(headers[2].absolute_position().y > headers[0].absolute_position().y);
+headers[0].mock_single_click(PointerEventButton::Left);
+key(Key::End);
+key(Key::Space);
+assert_eq!(instance.get_current_index(), 2);
+key(Key::UpArrow);
+key(Key::Return);
+assert_eq!(instance.get_current_index(), 1);
+```
+*/

@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+import { TabBarItem } from "std-widget-interfaces.slint";
+
+component ClosedBar {
+    in property <[TabBarItem]> tabs;
+    in property <Orientation> orientation;
+    in-out property <int> current-index;
+    out property <int> focused-index: -1;
+    public function focus-tab(index: int) { }
+}
+
+component Header {
+    in property <string> title;
+    in property <bool> selected;
+    in property <bool> focused;
+    callback activated();
+}
+
+export component Test inherits Window {
+    TabWidget {
+        Tab {
+            header << Header { }
+//                    >     <error{Provide a custom 'bar' to use a custom 'header'}
+        }
+    }
+    TabWidget {
+        Tab {
+            title: "Invalid header";
+            header << Rectangle { }
+//                    >           <error{Cannot implement 'TabHeader'.↵- missing 'callback activated();'↵- missing 'in property <bool> focused;'↵- missing 'in property <bool> selected;'↵- missing 'in property <string> title;'}
+        }
+    }
+    TabWidget {
+        bar << Rectangle { }
+//             >           <error{Cannot implement 'TabBar'.↵- missing 'in-out property <int> current-index;'↵- missing 'public function focus-tab(index: int) { }'↵- missing 'out property <int> focused-index;'↵- missing 'in property <Orientation> orientation;'↵- missing 'in property <[TabBarItem]> tabs;'}
+        Tab { title: "Invalid bar"; }
+    }
+    TabWidget {
+        bar << ClosedBar { }
+//             >        <error{Place '@children' in the custom tab bar's header layout}
+        Tab { title: "Missing header layout"; }
+    }
+}

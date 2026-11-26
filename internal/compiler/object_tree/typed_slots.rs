@@ -426,7 +426,21 @@ impl Element {
             diag.push_error(format!("Duplicate assignment to slot '{name}'"), &name_node);
         }
         let parent_type = r.borrow().base_type.clone();
+        let tab_slot = r.borrow().builtin_type().is_some_and(|builtin| {
+            (builtin.name == "Tab" && name == "header")
+                || (builtin.name == "TabWidget" && name == "bar")
+        });
+        if tab_slot {
+            crate::reject_experimental_feature(
+                diag,
+                tr,
+                crate::ExperimentalFeature::Interfaces,
+                "typed tab slots",
+                &se,
+            );
+        }
         let slot = match &parent_type {
+            _ if tab_slot => None,
             ElementType::Component(component) => {
                 let slot = lookup_slot(component, &name);
                 if slot.is_none() {
@@ -443,6 +457,10 @@ impl Element {
             }
         };
         let Some(sub_element_node) = se.child_node(SyntaxKind::SubElement) else {
+            if tab_slot {
+                diag.push_error(format!("Tab slot '{name}' requires a component"), &se);
+                return;
+            }
             match slot.map(|slot| slot.interface) {
                 Some(Some(interface)) => diag.push_error(
                     format!(
@@ -456,7 +474,7 @@ impl Element {
             }
             return;
         };
-        let is_typed = slot.as_ref().is_some_and(|slot| slot.interface.is_some());
+        let is_typed = tab_slot || slot.as_ref().is_some_and(|slot| slot.interface.is_some());
         let parent_type = if is_typed { tr.empty_type() } else { parent_type };
         let element = Element::from_sub_element_node(
             sub_element_node.into(),

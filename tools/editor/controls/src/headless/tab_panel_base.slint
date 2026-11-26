@@ -1,0 +1,13 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TabPanelBase {
+    in property <string> title;
+    in property <int> tab-index;
+    in property <int> current-index;
+    out property <bool> selected: root.tab-index == root.current-index;
+    visible: root.selected;
+    accessible-role: tab-panel;
+    accessible-label: root.title;
+    @children
+}

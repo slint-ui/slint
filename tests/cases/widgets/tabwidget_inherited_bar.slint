@@ -1,0 +1,104 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+import { TabBarLayoutBase, TabHeaderBase } from "../../../tools/editor/controls/src/headless.slint";
+
+component AppTabs inherits TabWidget {
+    in property <string> marker: "Default bar";
+    in property <bool> compact;
+    out property <length> header-gap: 8px;
+    callback ready();
+    callback bar-ready();
+    init => { root.ready(); }
+    states [
+        compact when root.compact: { header-gap: 2px; }
+    ]
+    bar << TabBarLayoutBase {
+        init => { root.bar-ready(); }
+        spacing: root.header-gap;
+        background << Text { text: root.marker + " gap " + root.header-gap / 1px; }
+    }
+}
+
+component VerticalTabs inherits AppTabs {
+    orientation: vertical;
+}
+
+component PassThroughTabs inherits VerticalTabs { }
+
+export component TestCase inherits Window {
+    width: 700px;
+    height: 400px;
+    in-out property <bool> compact;
+    in-out property <string> marker: "First bar";
+    out property <int> first-index: first.current-index;
+    out property <int> second-index: second.current-index;
+    out property <length> header-gap: first.header-gap;
+    out property <int> instances;
+    out property <int> bars;
+
+    first := PassThroughTabs {
+        x: 20px; y: 20px; width: 300px; height: 300px;
+        compact: root.compact;
+        marker: root.marker;
+        ready => { root.instances += 1; }
+        bar-ready => { root.bars += 1; }
+        Tab {
+            title: "First A";
+            header << TabHeaderBase { min-width: 100px; min-height: 40px; }
+            Text { text: "First page"; }
+        }
+        Tab {
+            title: "First B";
+            header << TabHeaderBase { min-width: 100px; min-height: 40px; }
+            Text { text: "Second page"; }
+        }
+    }
+    second := AppTabs {
+        x: 350px; y: 20px; width: 300px; height: 300px;
+        ready => { root.instances += 1; }
+        bar-ready => { root.bars += 1; }
+        bar << TabBarLayoutBase {
+            background << Text { text: "Overridden bar"; }
+        }
+        Tab { title: "Second A"; Text { text: "First page"; } }
+        Tab { title: "Second B"; Text { text: "Second page"; } }
+    }
+}
+
+/*
+```rust
+use slint::platform::PointerEventButton;
+use slint_testing::{AccessibleRole, ElementQuery};
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+let header = |label| ElementQuery::from_root(&instance).match_accessible_role(AccessibleRole::Tab)
+    .match_accessible_label(label).find_first().unwrap();
+let count = |label| ElementQuery::from_root(&instance).match_accessible_label(label).find_all().len();
+assert_eq!(instance.get_instances(), 2);
+assert_eq!(instance.get_bars(), 1);
+assert_eq!(count("First bar gap 8"), 1);
+assert_eq!(count("Overridden bar"), 1);
+assert_eq!(count("Default bar gap 8"), 0);
+assert_eq!(instance.get_header_gap(), 8.);
+assert!(header("First B").absolute_position().y > header("First A").absolute_position().y);
+assert!(header("Second B").absolute_position().x > header("Second A").absolute_position().x);
+header("First B").mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_first_index(), 1);
+assert_eq!(instance.get_second_index(), 0);
+header("Second B").invoke_accessible_default_action();
+assert_eq!(instance.get_first_index(), 1);
+assert_eq!(instance.get_second_index(), 1);
+instance.set_compact(true);
+assert_eq!(instance.get_header_gap(), 2.);
+assert_eq!(count("First bar gap 2"), 1);
+instance.set_marker("Updated".into());
+assert_eq!(count("Updated gap 2"), 1);
+instance.set_compact(false);
+assert_eq!(instance.get_header_gap(), 8.);
+assert_eq!(count("Updated gap 8"), 1);
+assert_eq!(instance.get_instances(), 2);
+assert_eq!(instance.get_bars(), 1);
+```
+*/
