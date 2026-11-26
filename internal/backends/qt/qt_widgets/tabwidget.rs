@@ -474,7 +474,7 @@ impl Item for NativeTab {
 
         Self::FIELD_OFFSETS.pressed().apply_pin(self).set(match event {
             MouseEvent::Pressed { button, .. } => *button == PointerEventButton::Left,
-            MouseEvent::Exit | MouseEvent::Released { .. } => false,
+            MouseEvent::Exit { .. } | MouseEvent::Released { .. } => false,
             MouseEvent::Moved { .. } => {
                 return if self.pressed() {
                     InputEventResult::GrabMouse

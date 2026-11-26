@@ -368,7 +368,7 @@ impl Flickable {
             MouseEvent::Pressed { .. } | MouseEvent::Moved { .. } | MouseEvent::Released { .. } => {
                 self.interactive() && (event.is_from_touch() || self.mouse_drag_pan_enabled())
             }
-            MouseEvent::Exit
+            MouseEvent::Exit { .. }
             | MouseEvent::DragMove { .. }
             | MouseEvent::Drop { .. }
             | MouseEvent::PinchGesture { .. }
@@ -1299,7 +1299,8 @@ impl FlickableData {
                     InputEventFilterResult::DelayForwarding(FORWARD_DELAY.as_millis() as _)
                 }
             }
-            MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
+            MouseEvent::Exit { .. }
+            | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 inner.pressed_mouse_state = None;
                 if inner.capture_events.is_some() {
                     InputEventFilterResult::Intercept
@@ -1441,27 +1442,20 @@ impl FlickableData {
                 inner.capture_events = Some(CaptureEvents::MouseStart);
                 InputEventResult::GrabMouse
             }
-            MouseEvent::Released { event_time, .. } => {
+            MouseEvent::Released { .. } | MouseEvent::Exit { .. } => {
                 inner.pressed_mouse_state = None;
                 match inner.capture_events {
                     Some(CaptureEvents::MouseMove) => {
-                        let release_time = inner.sample_time(*event_time);
+                        let release_time = inner.sample_time(match event {
+                            MouseEvent::Released { event_time, .. }
+                            | MouseEvent::Exit { event_time } => *event_time,
+                            _ => None,
+                        });
                         inner.animate(flick, flick_rc, release_time);
                         inner.capture_events = None;
                         InputEventResult::EventAccepted
                     }
                     Some(CaptureEvents::MouseStart) => {
-                        inner.capture_events = None;
-                        inner.move_within_limits_if_outside(flick, flick_rc);
-                        InputEventResult::EventAccepted
-                    }
-                    _ => InputEventResult::EventIgnored,
-                }
-            }
-            MouseEvent::Exit => {
-                inner.pressed_mouse_state = None;
-                match inner.capture_events {
-                    Some(CaptureEvents::MouseStart | CaptureEvents::MouseMove) => {
                         inner.capture_events = None;
                         inner.move_within_limits_if_outside(flick, flick_rc);
                         InputEventResult::EventAccepted

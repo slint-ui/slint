@@ -100,7 +100,7 @@ impl Item for TouchArea {
             Self::FIELD_OFFSETS.mouse_x().apply_pin(self).set(pos.x_length());
             Self::FIELD_OFFSETS.mouse_y().apply_pin(self).set(pos.y_length());
         }
-        let hovering = !matches!(event, MouseEvent::Exit);
+        let hovering = !matches!(event, MouseEvent::Exit { .. });
         Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(hovering);
         if hovering {
             *cursor = self.mouse_cursor();
@@ -115,7 +115,7 @@ impl Item for TouchArea {
         self_rc: &ItemRc,
         cursor: &mut MouseCursorInner,
     ) -> InputEventResult {
-        if matches!(event, MouseEvent::Exit) {
+        if matches!(event, MouseEvent::Exit { .. }) {
             Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
         }
         if !self.enabled() {
@@ -143,7 +143,7 @@ impl Item for TouchArea {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Exit => {
+            MouseEvent::Exit { .. } => {
                 Self::FIELD_OFFSETS.pressed().apply_pin(self).set(false);
                 if self.grabbed.replace(false) {
                     Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
@@ -337,7 +337,7 @@ impl Item for WindowMoveArea {
     ) -> InputEventResult {
         match event {
             MouseEvent::Pressed { .. } => InputEventResult::EventAccepted,
-            MouseEvent::Exit | MouseEvent::Released { .. } => {
+            MouseEvent::Exit { .. } | MouseEvent::Released { .. } => {
                 self.pressed.set(false);
                 InputEventResult::EventIgnored
             }
@@ -867,7 +867,7 @@ impl Item for SwipeGestureHandler {
                     super::flickable::FORWARD_DELAY.as_millis() as _
                 )
             }
-            MouseEvent::Exit => {
+            MouseEvent::Exit { .. } => {
                 self.cancel();
                 InputEventFilterResult::ForwardAndIgnore
             }
@@ -913,7 +913,7 @@ impl Item for SwipeGestureHandler {
     ) -> InputEventResult {
         match event {
             MouseEvent::Pressed { .. } => InputEventResult::GrabMouse,
-            MouseEvent::Exit => {
+            MouseEvent::Exit { .. } => {
                 self.cancel();
                 InputEventResult::EventIgnored
             }

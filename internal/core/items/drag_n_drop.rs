@@ -59,7 +59,7 @@ pub(super) fn press_drag_filter(
             pressed.set(true);
             InputEventFilterResult::ForwardAndInterceptGrab
         }
-        MouseEvent::Exit => {
+        MouseEvent::Exit { .. } => {
             pressed.set(false);
             InputEventFilterResult::ForwardAndIgnore
         }
@@ -160,7 +160,7 @@ impl Item for DragArea {
     ) -> InputEventResult {
         match event {
             MouseEvent::Pressed { .. } => InputEventResult::EventAccepted,
-            MouseEvent::Exit => {
+            MouseEvent::Exit { .. } => {
                 self.cancel();
                 InputEventResult::EventIgnored
             }
@@ -357,7 +357,7 @@ impl Item for DropArea {
                 self.current_action.set(clamp_action_to_allowed(returned, *allowed));
                 InputEventResult::EventAccepted
             }
-            MouseEvent::Exit => {
+            MouseEvent::Exit { .. } => {
                 self.has_drag.set(false);
                 self.current_action.set(DragAction::None);
                 InputEventResult::EventIgnored

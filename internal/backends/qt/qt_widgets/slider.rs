@@ -227,7 +227,8 @@ impl Item for NativeSlider {
                 data.pressed_val = self.value();
                 InputEventResult::GrabMouse
             }
-            MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
+            MouseEvent::Exit { .. }
+            | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 if data.pressed != 0 {
                     Self::FIELD_OFFSETS.released().apply_pin(self).call(&(self.value(),));
                 }

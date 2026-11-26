@@ -989,7 +989,7 @@ impl WindowInner {
                         // DropArea under the cursor doesn't fire `dropped`, and so the
                         // underlying Release doesn't reach hit-tested items as a
                         // spurious click.
-                        event = MouseEvent::Exit;
+                        event = MouseEvent::Exit { event_time: None };
                         if let Some(s) = source {
                             pending_drag_finished = Some((s, None));
                         }
@@ -1015,7 +1015,7 @@ impl WindowInner {
                         MouseCursorInner::BuiltIn(BuiltInMouseCursor::NoDrop);
                     event = MouseEvent::DragMove { event: drop_event, allowed };
                 }
-                MouseEvent::Exit => {
+                MouseEvent::Exit { .. } => {
                     mouse_input_state.drag_data = None;
                     mouse_input_state.drop_target = None;
                     if let Some(s) = mouse_input_state.drag_source.take() {

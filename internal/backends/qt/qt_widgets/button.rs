@@ -265,7 +265,10 @@ impl Item for NativeButton {
         _self_rc: &ItemRc,
         _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
-        Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(!matches!(event, MouseEvent::Exit));
+        Self::FIELD_OFFSETS
+            .has_hover()
+            .apply_pin(self)
+            .set(!matches!(event, MouseEvent::Exit { .. }));
         InputEventFilterResult::ForwardEvent
     }
 
@@ -276,7 +279,7 @@ impl Item for NativeButton {
         self_rc: &i_slint_core::items::ItemRc,
         _: &mut MouseCursorInner,
     ) -> InputEventResult {
-        if matches!(event, MouseEvent::Exit) {
+        if matches!(event, MouseEvent::Exit { .. }) {
             Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
         }
         let enabled = self.enabled();
@@ -288,7 +291,7 @@ impl Item for NativeButton {
 
         Self::FIELD_OFFSETS.pressed().apply_pin(self).set(match event {
             MouseEvent::Pressed { button, .. } => *button == PointerEventButton::Left,
-            MouseEvent::Exit | MouseEvent::Released { .. } => false,
+            MouseEvent::Exit { .. } | MouseEvent::Released { .. } => false,
             MouseEvent::Moved { .. } => {
                 return if was_pressed {
                     InputEventResult::GrabMouse

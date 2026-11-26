@@ -717,7 +717,7 @@ impl Window {
                 // and dispatches Exit to the item stack), so report Accepted unconditionally
                 // rather than asking the hit-test whether anything consumed it.
                 self.0.software_cursor_position.set(None);
-                self.0.process_mouse_input(MouseEvent::Exit);
+                self.0.process_mouse_input(MouseEvent::Exit { event_time: None });
                 WindowEventDispatchResult::Accepted
             }
 
@@ -774,7 +774,7 @@ impl Window {
             crate::platform::WindowEvent::Internal(event) => match event.into_inner() {
                 crate::platform::InternalEvent::Mouse(BackendMouseEvent::Exit) => {
                     // Teardown event, always accepted like `WindowEvent::PointerExited`.
-                    self.0.process_mouse_input(MouseEvent::Exit);
+                    self.0.process_mouse_input(MouseEvent::Exit { event_time: None });
                     WindowEventDispatchResult::Accepted
                 }
                 crate::platform::InternalEvent::Mouse(event) => {

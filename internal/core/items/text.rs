@@ -718,7 +718,7 @@ impl StyledTextItem {
                 self.copy_clipboard(window_adapter, Clipboard::SelectionClipboard);
                 Some(InputEventResult::EventAccepted)
             }
-            MouseEvent::Exit => {
+            MouseEvent::Exit { .. } => {
                 self.mouse_selection.take();
                 Some(InputEventResult::EventIgnored)
             }
@@ -1312,7 +1312,7 @@ impl Item for TextInput {
                 );
                 self.paste_clipboard(window_adapter, self_rc, Clipboard::SelectionClipboard);
             }
-            MouseEvent::Exit => self.as_ref().pressed.set(0),
+            MouseEvent::Exit { .. } => self.as_ref().pressed.set(0),
             MouseEvent::Moved { position, .. } => {
                 let pressed = self.as_ref().pressed.get();
                 if pressed > 0 {
