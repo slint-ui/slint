@@ -8,7 +8,8 @@ use crate::editor_preview::{
 use crate::util;
 use i_slint_compiler::element_type::{BuiltinElement, ElementDocEntry, ElementType};
 use i_slint_compiler::expression_tree::Expression;
-use i_slint_compiler::langtype::Type;
+use i_slint_compiler::langtype::{ConstantExpression, Struct, StructName, Type};
+use i_slint_compiler::names::to_kebab_case;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken};
 use itertools::Itertools as _;
@@ -20,8 +21,8 @@ pub fn get_tooltip(
     token: SyntaxToken,
 ) -> Option<Hover> {
     let token_info = token_info(document_cache, token.clone())?;
-    let documentation =
-        token_info.declaration(document_cache).and_then(|x| extract_documentation(&x));
+    let documentation = builtin_type_doc(&token_info)
+        .or_else(|| token_info.declaration(document_cache).and_then(|x| extract_documentation(&x)));
     let documentation = documentation.as_deref();
     let contents = match token_info {
         TokenInfo::Type(ty) => match ty {
@@ -160,6 +161,117 @@ fn extract_documentation(declaration: &SyntaxNode) -> Option<String> {
         result2.pop(); // remove the last newline
     }
     Some(result2)
+}
+
+/// If the given token is a builtin type or the field of a builtin struct, return its documentation
+/// as a markdown string, or else None
+fn builtin_type_doc(token_info: &TokenInfo) -> Option<String> {
+    let doc = match token_info {
+        TokenInfo::Type(Type::Enumeration(e)) if e.node.is_none() => {
+            let (description, values) = builtin_enum_docs(&e.name)?;
+            let values =
+                values.iter().map(|(value, doc)| markdown_list_item(&format!("`{value}`"), doc));
+            make_header_followed_by_list(description, values)
+        }
+        TokenInfo::EnumerationValue(v) if v.enumeration.node.is_none() => {
+            let value = &v.enumeration.values[v.value];
+            builtin_enum_docs(&v.enumeration.name)?.1.into_iter().find(|(n, _)| n == value)?.1
+        }
+        TokenInfo::Type(Type::Struct(s)) => {
+            let (description, fields) = builtin_struct_docs(s)?;
+            let fields = fields.iter().map(|(field, doc)| {
+                let ty =
+                    s.fields.get(field.as_str()).map(|ty| format!(": {ty}")).unwrap_or_default();
+                let constant_to_string = |c: &ConstantExpression| match c {
+                    ConstantExpression::NumberLiteral(n, unit) => Some(format!("{n}{unit}")),
+                    ConstantExpression::BoolLiteral(b) => Some(b.to_string()),
+                    ConstantExpression::EnumerationValue(v) => {
+                        Some(format!("{}.{v}", v.enumeration.name))
+                    }
+                    _ => None,
+                };
+                let default = s
+                    .field_defaults
+                    .get(field.as_str())
+                    .and_then(constant_to_string)
+                    .map(|d| format!(" = {d}"))
+                    .unwrap_or_default();
+                markdown_list_item(&format!("`{field}{ty}{default}`"), doc)
+            });
+            make_header_followed_by_list(description, fields)
+        }
+        TokenInfo::StructField(s, field) => {
+            builtin_struct_docs(s)?.1.into_iter().find(|(n, _)| n == field)?.1
+        }
+        _ => return None,
+    };
+    (!doc.is_empty()).then_some(doc)
+}
+
+fn make_header_followed_by_list(header: String, mut items: impl Iterator<Item = String>) -> String {
+    let list = items.join("\n");
+    [header, list].into_iter().filter(|p| !p.is_empty()).join("\n\n")
+}
+
+fn markdown_list_item(label: &str, doc: &str) -> String {
+    if doc.is_empty() {
+        format!("- {label}")
+    } else {
+        format!("- {label}: {}", doc.lines().join("\n  "))
+    }
+}
+
+fn join_doc_lines(lines: &[&str]) -> String {
+    clean_builtin_doc(&lines.iter().map(|l| l.strip_prefix(' ').unwrap_or(l)).join("\n"))
+}
+
+/// If there is a builtin enum with the given enum_name, return its description and the
+/// name (in kebab-case) and the documentation of each of its values
+fn builtin_enum_docs(enum_name: &str) -> Option<(String, Vec<(String, String)>)> {
+    macro_rules! find_doc {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {{
+            $(
+                if stringify!($Name) == enum_name {
+                    let values = vec![$((
+                        to_kebab_case(stringify!($Value).trim_start_matches("r#")),
+                        join_doc_lines(&[$($value_doc),*]),
+                    )),*];
+                    return Some((join_doc_lines(&[$($enum_doc),*]), values));
+                }
+            )*
+            None
+        }};
+    }
+    i_slint_common::for_each_enums!(find_doc)
+}
+
+/// If the given struct is a builtin struct, return its description and the name
+/// (in kebab-case) and the documentation of each of its fields
+fn builtin_struct_docs(s: &Struct) -> Option<(String, Vec<(String, String)>)> {
+    let StructName::Builtin(builtin) = &s.name else { return None };
+    let struct_name = builtin.slint_name()?;
+    macro_rules! find_doc {
+        ($(
+            $(#[doc = $struct_doc:literal])*
+            $(#[non_exhaustive])?
+            $(#[derive(Copy, Eq)])?
+            $vis:vis struct $Name:ident {
+                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty $(= $field_default:tt)?, )*
+            }
+        )*) => {{
+            $(
+                if stringify!($Name) == struct_name {
+                    let fields = vec![$((
+                        stringify!($field).replace('_', "-"),
+                        join_doc_lines(&[$($field_doc),*]),
+                    )),*];
+                    return Some((join_doc_lines(&[$($struct_doc),*]), fields));
+                }
+            )*
+            None
+        }};
+    }
+    i_slint_common::for_each_builtin_structs!(find_doc)
 }
 
 fn from_property_in_element(
@@ -364,6 +476,18 @@ mod tests {
 
     use i_slint_compiler::parser::TextSize;
 
+    #[track_caller]
+    fn assert_tooltip_contains(h: Option<Hover>, expected: &str) {
+        match h.unwrap().contents {
+            HoverContents::Markup(m) => assert!(
+                m.value.contains(expected),
+                "expected tooltip to contain {expected:?} but got {:?}",
+                m.value
+            ),
+            x => panic!("Found {x:?} ({expected})"),
+        }
+    }
+
     #[test]
     fn test_tooltip_struct_field_and_model_data() {
         // #13305
@@ -475,18 +599,6 @@ export component Test { // not docs
             match h.unwrap().contents {
                 HoverContents::Markup(m) => assert_eq!(m.value, str),
                 x => panic!("Found {x:?} ({str})"),
-            }
-        }
-
-        #[track_caller]
-        fn assert_tooltip_contains(h: Option<Hover>, expected: &str) {
-            match h.unwrap().contents {
-                HoverContents::Markup(m) => assert!(
-                    m.value.contains(expected),
-                    "expected tooltip to contain {expected:?} but got {:?}",
-                    m.value
-                ),
-                x => panic!("Found {x:?} ({expected})"),
             }
         }
 
@@ -606,6 +718,49 @@ export component Test { // not docs
             get_tooltip(&mut dc, find_tk("Eee.E2", 5.into())),
             "```slint\n/// Here some docs for Eee\nEee.E2\n```",
         );
+    }
+
+    #[test]
+    fn test_hover_documentation_enum_and_struct() {
+        let source = r#"
+export component Test {
+    in property <TextWrap> wrap: TextWrap.word-wrap;
+    in property <KeyboardModifiers> mods;
+    in property <InputMethodHints> hints;
+    out property <bool> s: mods.shift;
+}"#;
+        let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
+        let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+        let mut tooltip_at_pattern = |pattern: &str, offset: u32| {
+            let offset = TextSize::new(source.find(pattern).unwrap() as u32 + offset);
+            get_tooltip(&mut dc, crate::language::token_at_offset(&doc, offset).unwrap())
+        };
+
+        let enum_type = tooltip_at_pattern("TextWrap.word-wrap", 0);
+        // has description of enum
+        assert_tooltip_contains(enum_type.clone(), "how the text wraps");
+        // has value and value's description
+        assert_tooltip_contains(enum_type.clone(), "\n- `word-wrap`: The text will be wrapped");
+        assert_tooltip_contains(enum_type, "```slint\nenum TextWrap\n```");
+
+        let enum_value = tooltip_at_pattern("TextWrap.word-wrap", 9);
+        assert_tooltip_contains(enum_value.clone(), "word boundaries");
+        assert_tooltip_contains(enum_value, "```slint\nTextWrap.word-wrap\n```");
+
+        let struct_type = tooltip_at_pattern("<KeyboardModifiers>", 1);
+        assert_tooltip_contains(struct_type.clone(), "modifier keys");
+        assert_tooltip_contains(struct_type.clone(), "\n- `shift: bool`: Indicates the Shift key");
+        assert_tooltip_contains(struct_type, "```slint\nstruct KeyboardModifiers\n```");
+
+        // struct field with a default value
+        assert_tooltip_contains(
+            tooltip_at_pattern("<InputMethodHints>", 1),
+            "\n- `auto-correct: bool = true`: ",
+        );
+
+        let struct_field = tooltip_at_pattern("mods.shift", 5);
+        assert_tooltip_contains(struct_field.clone(), "Shift key");
+        assert_tooltip_contains(struct_field, "```slint\nshift: bool\n```");
     }
 
     #[test]
