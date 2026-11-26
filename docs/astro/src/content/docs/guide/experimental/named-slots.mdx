@@ -273,11 +273,10 @@ Collection slots support three constraints:
 An unrelated component with matching properties doesn't satisfy a component type constraint.
 An interface constraint doesn't require explicit `implement` declarations.
 Wildcard entries expose the standard element properties; typed entries also expose their constraint's public members.
-Scalar typed slots keep the syntax `slot <Entry> entry;`, where `Entry` is an interface.
 
 The `default` qualifier routes ordinary children into the collection instead of `@children`.
 Fill named collections with repeated assignments such as `entries << EntryView { }`.
-A component can declare multiple collection slots, including one default collection, alongside scalar slots.
+A component can declare multiple collection slots, including one default collection.
 
 ### Placing Supplied Entries
 
