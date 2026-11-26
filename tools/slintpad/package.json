@@ -47,7 +47,6 @@
         "monaco-editor-wrapper": "~5.5.3",
         "monaco-languageclient": "~8.8.3",
         "path-browserify": "1.0.1",
-        "playwright-ctrf-json-reporter": "catalog:",
         "rimraf": "6.1.4",
         "typescript": "catalog:",
         "vite": "catalog:",

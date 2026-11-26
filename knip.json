@@ -114,8 +114,7 @@
         "src/components/VersionSelector.astro",
         "src/components/ThreeCardGrid.astro",
         "src/components/VersionBanner.astro"
-      ],
-      "ignoreDependencies": ["playwright-ctrf-json-reporter"]
+      ]
     },
     "docs/python": {
       "ignoreBinaries": ["uv"],

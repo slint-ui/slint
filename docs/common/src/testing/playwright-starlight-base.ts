@@ -35,16 +35,7 @@ export function starlightPlaywrightSharedOptions(
         forbidOnly: !!process.env.CI,
         retries: process.env.CI ? 2 : 0,
         workers: process.env.CI ? 1 : undefined,
-        reporter: [
-            ["html"],
-            [
-                "playwright-ctrf-json-reporter",
-                {
-                    outputFile: "ctrf-report.json",
-                    outputDir: "playwright-report",
-                },
-            ],
-        ],
+        reporter: [["html"]],
         use: {
             baseURL: `http://localhost:4321${basePath}`,
             trace: "on-first-retry",

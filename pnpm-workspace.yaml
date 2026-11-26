@@ -72,7 +72,6 @@ catalog:
   astro-embed: 0.14.0
   cspell: 10.5.2
   playwright: 1.65.1
-  playwright-ctrf-json-reporter: 0.2.0
   rehype-external-links: 3.0.0
   sharp: 0.35.5
   starlight-links-validator: 0.27.0
