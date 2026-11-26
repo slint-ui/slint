@@ -14,7 +14,7 @@
 use super::fling::{BlendWeights, weighted_recent_velocity};
 use super::ring_buffer::VelocityRingBuffer;
 use super::{VelocityEstimate, VelocityEstimator, VelocityTracker};
-use crate::animations::Instant;
+use crate::input::EventTime;
 use crate::lengths::LogicalVector;
 
 /// iOS blends mostly the oldest segment: `[oldest, middle, newest]`.
@@ -29,11 +29,11 @@ pub(crate) struct IOsVelocityTracker {
 }
 
 impl VelocityTracker for IOsVelocityTracker {
-    fn push(&mut self, time: Instant, position_delta: LogicalVector) {
+    fn push(&mut self, time: EventTime, position_delta: LogicalVector) {
         self.buffer.push(time, position_delta);
     }
 
-    fn last_time(&self) -> Option<Instant> {
+    fn last_time(&self) -> Option<EventTime> {
         self.buffer.last_time()
     }
 }

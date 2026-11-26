@@ -206,7 +206,7 @@ impl Item for NativeSpinBox {
                     data.pressed = true;
                     true
                 }
-                MouseEvent::Exit => {
+                MouseEvent::Exit { .. } => {
                     data.pressed = false;
                     true
                 }

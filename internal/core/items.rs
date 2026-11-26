@@ -1633,7 +1633,7 @@ impl Item for ContextMenu {
                 InputEventResult::GrabMouse
             }
             #[cfg(target_os = "android")]
-            MouseEvent::Released { .. } | MouseEvent::Exit => {
+            MouseEvent::Released { .. } | MouseEvent::Exit { .. } => {
                 self.long_press_timer.stop();
                 InputEventResult::EventIgnored
             }
@@ -2162,7 +2162,7 @@ impl Item for TooltipArea {
             Self::FIELD_OFFSETS.mouse_y().apply_pin(self).set(pos.y_length());
         }
 
-        let next_hover = !matches!(event, MouseEvent::Exit);
+        let next_hover = !matches!(event, MouseEvent::Exit { .. });
         self.set_hover_state(next_hover, self_rc);
 
         if next_hover && !self.popup_visible.get() && matches!(event, MouseEvent::Moved { .. }) {
@@ -2181,7 +2181,7 @@ impl Item for TooltipArea {
         _self_rc: &ItemRc,
         _: &mut MouseCursorInner,
     ) -> InputEventResult {
-        if matches!(event, MouseEvent::Exit) {
+        if matches!(event, MouseEvent::Exit { .. }) {
             self.set_hover_state(false, _self_rc);
         }
         InputEventResult::EventIgnored

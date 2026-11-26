@@ -1,0 +1,93 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A drag that ends because the pointer leaves the window, or the system cancels the touch,
+// still flings the content like a release does.
+
+export component TestCase inherits Window {
+    width: 200phx;
+    height: 200phx;
+
+    f := Flickable {
+        viewport-height: 2000phx;
+    }
+
+    out property <length> content-y: f.viewport-y;
+}
+
+/*
+
+```rust
+// Mouse drag, then the pointer leaves the window
+use slint::{platform::{WindowEvent, PointerEventButton}, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 190.0) });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 190.0), button: PointerEventButton::Left });
+for y in [170.0, 130.0, 90.0, 50.0, 10.0] {
+    slint_testing::mock_elapsed_time(16);
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, y) });
+}
+instance.window().dispatch_event(WindowEvent::PointerExited);
+let at_exit = instance.get_content_y();
+assert!(at_exit < -100.0, "the drag moved the content: {at_exit}");
+
+slint_testing::mock_elapsed_time(5000);
+let after = instance.get_content_y();
+assert!(after < at_exit - 100.0, "the content keeps moving after the exit: {at_exit} -> {after}");
+```
+
+```rust
+// Touch drag without platform times, then the system cancels the touch
+use slint::platform::WindowEvent;
+use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
+let instance = TestCase::new().unwrap();
+
+let touch = |y: f32, phase: TouchPhase| {
+    instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 0, position: LogicalPoint::new(100.0, y), phase, event_time: None, history: Default::default() }));
+};
+
+touch(190.0, TouchPhase::Started);
+for y in [170.0, 130.0, 90.0, 50.0, 10.0] {
+    slint_testing::mock_elapsed_time(16);
+    touch(y, TouchPhase::Moved);
+}
+touch(10.0, TouchPhase::Cancelled);
+let at_cancel = instance.get_content_y();
+assert!(at_cancel < -100.0, "the drag moved the content: {at_cancel}");
+
+slint_testing::mock_elapsed_time(5000);
+let after = instance.get_content_y();
+assert!(after < at_cancel - 100.0, "the content keeps moving after the cancel: {at_cancel} -> {after}");
+```
+
+```rust
+// Touch drag with platform times, a pause, then the system cancels the touch
+use slint::platform::WindowEvent;
+use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
+use std::time::Duration;
+let instance = TestCase::new().unwrap();
+
+let touch = |y: f32, phase: TouchPhase, ms: u64| {
+    instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 0, position: LogicalPoint::new(100.0, y), phase, event_time: Some(Duration::from_millis(ms).into()), history: Default::default() }));
+};
+
+let mut ms = 1000;
+touch(190.0, TouchPhase::Started, ms);
+for y in [170.0, 130.0, 90.0, 50.0, 10.0] {
+    slint_testing::mock_elapsed_time(16);
+    ms += 16;
+    touch(y, TouchPhase::Moved, ms);
+}
+slint_testing::mock_elapsed_time(500);
+ms += 500;
+touch(10.0, TouchPhase::Cancelled, ms);
+let at_cancel = instance.get_content_y();
+assert!(at_cancel < -100.0, "the drag moved the content: {at_cancel}");
+
+slint_testing::mock_elapsed_time(5000);
+let after = instance.get_content_y();
+assert_eq!(after, at_cancel, "the finger stopped before the cancel, so the content doesn't fling");
+```
+
+*/

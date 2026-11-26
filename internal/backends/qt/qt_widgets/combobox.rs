@@ -62,7 +62,10 @@ impl Item for NativeComboBox {
         _self_rc: &ItemRc,
         _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
-        Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(!matches!(event, MouseEvent::Exit));
+        Self::FIELD_OFFSETS
+            .has_hover()
+            .apply_pin(self)
+            .set(!matches!(event, MouseEvent::Exit { .. }));
         InputEventFilterResult::ForwardAndIgnore
     }
 
@@ -73,7 +76,7 @@ impl Item for NativeComboBox {
         _self_rc: &i_slint_core::items::ItemRc,
         _: &mut MouseCursorInner,
     ) -> InputEventResult {
-        if matches!(event, MouseEvent::Exit) {
+        if matches!(event, MouseEvent::Exit { .. }) {
             Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
         }
         InputEventResult::EventIgnored

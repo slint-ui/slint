@@ -75,7 +75,10 @@ impl Item for NativeCheckBox {
         _self_rc: &ItemRc,
         _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
-        Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(!matches!(event, MouseEvent::Exit));
+        Self::FIELD_OFFSETS
+            .has_hover()
+            .apply_pin(self)
+            .set(!matches!(event, MouseEvent::Exit { .. }));
         InputEventFilterResult::ForwardEvent
     }
 
@@ -86,7 +89,7 @@ impl Item for NativeCheckBox {
         self_rc: &i_slint_core::items::ItemRc,
         _: &mut MouseCursorInner,
     ) -> InputEventResult {
-        if matches!(event, MouseEvent::Exit) {
+        if matches!(event, MouseEvent::Exit { .. }) {
             Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
         }
         if !self.enabled() {
@@ -112,7 +115,7 @@ impl Item for NativeCheckBox {
             | MouseEvent::DragMove { .. } => InputEventResult::EventIgnored,
             // Make sure that generally mouse events are accepted, so that the hover state is
             // correctly updated
-            MouseEvent::Exit | MouseEvent::Moved { .. } | MouseEvent::Pressed { .. } => {
+            MouseEvent::Exit { .. } | MouseEvent::Moved { .. } | MouseEvent::Pressed { .. } => {
                 InputEventResult::EventAccepted
             }
         }

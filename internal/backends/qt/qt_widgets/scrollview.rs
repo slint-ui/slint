@@ -184,7 +184,7 @@ impl Item for NativeScrollView {
                     data.active_controls = new_control;
                     InputEventResult::GrabMouse
                 }
-                MouseEvent::Exit => {
+                MouseEvent::Exit { .. } => {
                     data.pressed = 0;
                     InputEventResult::EventIgnored
                 }

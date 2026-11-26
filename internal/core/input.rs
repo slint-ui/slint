@@ -41,8 +41,8 @@ pub enum MouseEvent {
         click_count: u8,
         /// The touch ID if the event originated from touch input.
         touch_finger_id: i32,
-        /// Original sample time on the animation clock, independent of event delivery.
-        event_time: Option<crate::animations::Instant>,
+        /// See [`EventTime`].
+        event_time: Option<EventTime>,
     },
     /// The mouse or finger was released
     Released {
@@ -54,8 +54,8 @@ pub enum MouseEvent {
         click_count: u8,
         /// The touch ID if the event originated from touch input.
         touch_finger_id: i32,
-        /// Original sample time on the animation clock, independent of event delivery.
-        event_time: Option<crate::animations::Instant>,
+        /// See [`EventTime`].
+        event_time: Option<EventTime>,
     },
     /// The position of the pointer has changed
     Moved {
@@ -63,8 +63,8 @@ pub enum MouseEvent {
         position: LogicalPoint,
         /// The touch ID if the event originated from touch input.
         touch_finger_id: i32,
-        /// Original sample time on the animation clock, independent of event delivery.
-        event_time: Option<crate::animations::Instant>,
+        /// See [`EventTime`].
+        event_time: Option<EventTime>,
         /// Movement samples coalesced into this event.
         history: TouchHistory,
     },
@@ -114,7 +114,10 @@ pub enum MouseEvent {
         phase: TouchPhase,
     },
     /// The mouse exited the item or component
-    Exit,
+    Exit {
+        /// See [`EventTime`].
+        event_time: Option<EventTime>,
+    },
 }
 
 impl MouseEvent {
@@ -146,7 +149,7 @@ impl MouseEvent {
             MouseEvent::DragMove { event: e, .. } | MouseEvent::Drop { event: e, .. } => {
                 Some(crate::lengths::logical_point_from_api(e.position))
             }
-            MouseEvent::Exit => None,
+            MouseEvent::Exit { .. } => None,
         }
     }
 
@@ -170,7 +173,7 @@ impl MouseEvent {
                 );
                 None
             }
-            MouseEvent::Exit => None,
+            MouseEvent::Exit { .. } => None,
         };
         if let Some(pos) = pos {
             *pos += vec;
@@ -199,7 +202,7 @@ impl MouseEvent {
                 );
                 None
             }
-            MouseEvent::Exit => None,
+            MouseEvent::Exit { .. } => None,
         };
         if let Some(pos) = pos {
             *pos = transform.transform_point(pos.cast()).cast();
@@ -217,6 +220,41 @@ impl MouseEvent {
     }
 }
 
+/// The time a platform sampled an input event, independent of event delivery.
+///
+/// The clock's origin is unknown and differs between platforms.
+/// Only the difference between two times of the same gesture is meaningful:
+/// subtracting them gives a [`Duration`], saturating at zero.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct EventTime(Duration);
+
+impl From<Duration> for EventTime {
+    /// Creates an event time from the platform's timestamp, measured from any fixed origin.
+    fn from(time_since_origin: Duration) -> Self {
+        Self(time_since_origin)
+    }
+}
+
+impl From<crate::animations::Instant> for EventTime {
+    fn from(instant: crate::animations::Instant) -> Self {
+        Self(instant.into())
+    }
+}
+
+impl core::ops::Sub for EventTime {
+    type Output = Duration;
+    fn sub(self, earlier: Self) -> Duration {
+        self.0.saturating_sub(earlier.0)
+    }
+}
+
+impl core::ops::Add<Duration> for EventTime {
+    type Output = Self;
+    fn add(self, duration: Duration) -> Self {
+        Self(self.0 + duration)
+    }
+}
+
 /// Historical touch events between the current event and the previous one
 /// On different platforms like on android or ios not for every touchscreen move
 /// move events are send but with a less frequency. The touch events between are
@@ -226,7 +264,7 @@ impl MouseEvent {
 pub struct TouchHistory {
     /// Chronological positions and sample times preceding the current event.
     /// Positions use the same coordinate system as the current event.
-    pub history: Vec<(LogicalPoint, crate::animations::Instant)>,
+    pub history: Vec<(LogicalPoint, EventTime)>,
 }
 
 /// The mouse events a backend can deliver to the runtime.
@@ -284,7 +322,7 @@ impl From<BackendMouseEvent> for MouseEvent {
             BackendMouseEvent::RotationGesture { position, delta, phase } => {
                 Self::RotationGesture { position, delta, phase }
             }
-            BackendMouseEvent::Exit => Self::Exit,
+            BackendMouseEvent::Exit => Self::Exit { event_time: None },
         }
     }
 }
@@ -307,7 +345,7 @@ impl From<BackendDragEvent> for MouseEvent {
             BackendDragEvent::Move { event, allowed } => Self::DragMove { event, allowed },
             BackendDragEvent::Drop { event, allowed } => Self::Drop { event, allowed },
             // A drag leaving tears down the hover state the same way the pointer leaving does.
-            BackendDragEvent::Leave => Self::Exit,
+            BackendDragEvent::Leave => Self::Exit { event_time: None },
         }
     }
 }
@@ -1454,7 +1492,7 @@ impl ClickState {
             }
             // A cancelled press doesn't count towards a double click.
             // A finished touch also ends with an Exit, so only reset if there was no release.
-            MouseEvent::Exit if self.pressed.replace(false) => {
+            MouseEvent::Exit { .. } if self.pressed.replace(false) => {
                 self.click_count_time_stamp.set(None);
             }
             _ => {}
@@ -1546,7 +1584,12 @@ impl MouseInputState {
                 continue;
             }
             let Some(item) = weak.upgrade() else { continue };
-            item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item, cursor);
+            item.borrow().as_ref().input_event(
+                &MouseEvent::Exit { event_time: None },
+                window_adapter,
+                &item,
+                cursor,
+            );
         }
     }
 
@@ -1644,7 +1687,7 @@ pub(crate) fn handle_mouse_grab(
         };
         if intercept {
             item.borrow().as_ref().input_event(
-                &MouseEvent::Exit,
+                &MouseEvent::Exit { event_time: None },
                 window_adapter,
                 &item,
                 &mut mouse_input_state.cursor,
@@ -1713,8 +1756,9 @@ pub(crate) fn handle_mouse_grab(
             mouse_input_state.grabbed = false;
             // Return a move event so that the new position can be registered properly
             MouseGrabResult {
-                event: Some(mouse_event.position().map_or(MouseEvent::Exit, |position| {
-                    MouseEvent::Moved {
+                event: Some(mouse_event.position().map_or(
+                    MouseEvent::Exit { event_time: None },
+                    |position| MouseEvent::Moved {
                         position,
                         touch_finger_id: mouse_event.touch_finger_id(),
                         event_time: match mouse_event {
@@ -1723,8 +1767,8 @@ pub(crate) fn handle_mouse_grab(
                             _ => None,
                         },
                         history: Default::default(),
-                    }
-                })),
+                    },
+                )),
                 accepted: input_result == InputEventResult::EventAccepted,
             }
         }
@@ -1760,14 +1804,19 @@ pub(crate) fn send_exit_events(
             if item.borrow().as_ref().clips_children() {
                 clipped = true;
             }
-            item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item, cursor);
+            item.borrow().as_ref().input_event(
+                &MouseEvent::Exit { event_time: None },
+                window_adapter,
+                &item,
+                cursor,
+            );
         } else if new_input_state.item_stack.get(idx).is_none_or(|(x, _)| *x != it.0) {
             // The item is still under the mouse, but no longer in the item stack. We should also sent the exit event, unless we delay it
             if new_input_state.delayed.is_some() {
                 new_input_state.delayed_exit_items.push(it.0.clone());
             } else {
                 item.borrow().as_ref().input_event(
-                    &MouseEvent::Exit,
+                    &MouseEvent::Exit { event_time: None },
                     window_adapter,
                     &item,
                     cursor,
@@ -1788,7 +1837,12 @@ pub(crate) fn send_exit_events(
             continue;
         }
         let Some(item) = obs.upgrade() else { continue };
-        item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item, cursor);
+        item.borrow().as_ref().input_event(
+            &MouseEvent::Exit { event_time: None },
+            window_adapter,
+            &item,
+            cursor,
+        );
     }
 }
 
@@ -1847,7 +1901,7 @@ pub fn process_mouse_input(
         .is_none_or(|((accepting_item, _), delaying_item)| accepting_item != delaying_item);
     let delaying_item_still_undecided = is_move && !result.grabbed;
     if mouse_input_state.delayed.is_some()
-        && !matches!(mouse_event, MouseEvent::Exit)
+        && !matches!(mouse_event, MouseEvent::Exit { .. })
         && !moved_outside_delaying_item
         && (!accepted || accepted_by_other_item || delaying_item_still_undecided)
     {
@@ -2125,7 +2179,7 @@ fn send_mouse_event_to_item(
             // set internal press state for this same replayed press; without this, that state
             // never clears, since replaying always treats a delaying item as pass-through.
             item.as_ref().input_event(
-                &MouseEvent::Exit,
+                &MouseEvent::Exit { event_time: None },
                 window_adapter,
                 &item_rc,
                 &mut result.cursor,
@@ -2468,7 +2522,7 @@ impl TouchState {
         id: i32,
         position: LogicalPoint,
         phase: TouchPhase,
-        event_time: Option<crate::animations::Instant>,
+        event_time: Option<EventTime>,
         history: TouchHistory,
     ) -> TouchEventBuffer {
         let mut events = TouchEventBuffer::new();
@@ -2482,7 +2536,8 @@ impl TouchState {
             match event {
                 MouseEvent::Pressed { event_time: time, .. }
                 | MouseEvent::Released { event_time: time, .. }
-                | MouseEvent::Moved { event_time: time, .. } => *time = event_time,
+                | MouseEvent::Moved { event_time: time, .. }
+                | MouseEvent::Exit { event_time: time } => *time = event_time,
                 _ => {}
             }
         }
@@ -2663,7 +2718,7 @@ impl TouchState {
                             event_time: None,
                         });
                     }
-                    events.push(MouseEvent::Exit);
+                    events.push(MouseEvent::Exit { event_time: None });
                 }
             }
             GestureRecognitionState::TwoFingersDown { .. } if is_gesture_finger => {
@@ -2681,11 +2736,11 @@ impl TouchState {
                         });
                     } else {
                         self.primary_touch_id = None;
-                        events.push(MouseEvent::Exit);
+                        events.push(MouseEvent::Exit { event_time: None });
                     }
                 } else {
                     self.primary_touch_id = None;
-                    events.push(MouseEvent::Exit);
+                    events.push(MouseEvent::Exit { event_time: None });
                 }
             }
             GestureRecognitionState::Pinching { .. } if is_gesture_finger => {
@@ -2725,7 +2780,7 @@ impl TouchState {
                         event_time: None,
                     });
                 } else {
-                    events.push(MouseEvent::Exit);
+                    events.push(MouseEvent::Exit { event_time: None });
                 }
             }
             _ => {}
@@ -2748,8 +2803,6 @@ mod touch_tests {
 
     #[test]
     fn original_event_times_follow_touch_and_synthetic_presses() {
-        use crate::animations::Instant;
-
         let mut state = TouchState::default();
         for (id, phase, nanos, expected_time) in [
             (0, TouchPhase::Started, 0, Some(0)),
@@ -2765,7 +2818,7 @@ mod touch_tests {
                 id,
                 pt(0., 0.),
                 phase,
-                Some(Instant::from_nanos(nanos)),
+                Some(Duration::from_nanos(nanos).into()),
                 TouchHistory::default(),
             );
             let times: Vec<_> = events
@@ -2776,8 +2829,10 @@ mod touch_tests {
                     _ => None,
                 })
                 .collect();
-            let expected: Vec<_> =
-                expected_time.into_iter().map(|nanos| Some(Instant::from_nanos(nanos))).collect();
+            let expected: Vec<_> = expected_time
+                .into_iter()
+                .map(|nanos| Some(Duration::from_nanos(nanos).into()))
+                .collect();
             assert_eq!(times, expected);
         }
     }
@@ -2895,7 +2950,7 @@ mod touch_tests {
                 MouseEvent::Pressed { position, .. } => Ev::Pressed(position.x, position.y),
                 MouseEvent::Released { position, .. } => Ev::Released(position.x, position.y),
                 MouseEvent::Moved { position, .. } => Ev::Moved(position.x, position.y),
-                MouseEvent::Exit => Ev::Exit,
+                MouseEvent::Exit { .. } => Ev::Exit,
                 MouseEvent::PinchGesture { delta, phase, .. } => match phase {
                     TouchPhase::Started => Ev::PinchStarted,
                     TouchPhase::Moved => Ev::PinchMoved(delta),
