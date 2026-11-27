@@ -868,8 +868,16 @@ impl WindowInner {
             if let Some(component) = self.try_component() {
                 changed |= crate::item_tree::ensure_item_tree_instantiated(&component);
             }
-            for popup in self.active_popups.borrow().iter() {
-                changed |= crate::item_tree::ensure_item_tree_instantiated(&popup.component);
+            // Updating a popup's item tree can close other popups, such as a tooltip
+            // whose anchor was removed.
+            let popup_components: Vec<_> = self
+                .active_popups
+                .borrow()
+                .iter()
+                .map(|popup| ItemTreeRc::downgrade(&popup.component))
+                .collect();
+            for component in popup_components.iter().filter_map(ItemTreeWeak::upgrade) {
+                changed |= crate::item_tree::ensure_item_tree_instantiated(&component);
             }
             for overlay in self.overlays.borrow().iter() {
                 changed |= crate::item_tree::ensure_item_tree_instantiated(overlay);
