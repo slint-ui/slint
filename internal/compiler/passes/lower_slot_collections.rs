@@ -3,7 +3,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::element_type::{ElementType, PropertyLookupMode};
-use crate::expression_tree::{BindingExpression, Expression, NamedReference};
+use crate::expression_tree::{BindingExpression, Callable, Expression, NamedReference};
 use crate::expression_types::Unit;
 use crate::langtype::Type;
 use crate::object_tree::forward_inherited_expression::{
@@ -171,17 +171,42 @@ pub(super) fn lower_slot_collections(
             {
                 continue;
             }
-            if let Some(child) = children.iter().find(|child| child.borrow().repeated.is_some()) {
+            if let Some(child) = children
+                .iter()
+                .find(|e| e.borrow().repeated.as_ref().is_some_and(|r| r.is_conditional_element))
+            {
                 diag.push_error(
-                    "Repeated children are not supported in collection slots yet".into(),
+                    "Conditional children are not supported in collection slots yet".into(),
                     &*child.borrow(),
                 );
                 continue;
             }
-            let length = Expression::NumberLiteral(children.len() as f64, Unit::None);
+            if children.len() > 1
+                && let Some(child) = children.iter().find(|e| e.borrow().repeated.is_some())
+            {
+                diag.push_error(
+                    "A 'for' loop must be the only child in a collection slot".into(),
+                    &*child.borrow(),
+                );
+                continue;
+            }
+            let length = match children.first().and_then(|e| e.borrow().repeated.clone()) {
+                Some(repeated) => Expression::FunctionCall {
+                    function: Callable::Builtin(
+                        crate::builtin_functions::BuiltinFunction::ArrayLength,
+                    ),
+                    arguments: vec![repeated.model],
+                    source_location: None,
+                },
+                None => Expression::NumberLiteral(children.len() as f64, Unit::None),
+            };
             set_length(&group, contract.length.name(), length);
             for (index, child) in children.iter().enumerate() {
-                let index = Expression::NumberLiteral(index as f64, Unit::None);
+                let index = if child.borrow().repeated.is_some() {
+                    Expression::RepeaterIndexReference { element: Rc::downgrade(child) }
+                } else {
+                    Expression::NumberLiteral(index as f64, Unit::None)
+                };
                 connect(contract, &group, child, index.clone(), symbols, &mut forwarded, diag);
             }
         }
