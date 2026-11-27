@@ -28,7 +28,7 @@ If a design specifies glyphs as raw geometry and ships no asset files, **generat
 - `Palette.color-scheme` (from `std-widgets.slint`) reflects the OS light/dark
   setting and updates live; it's also settable to force a scheme for native
   widgets.
-- A clean pattern: an `export global Style` holding the color roles
+- A clean pattern: an `export global Style` holding the colors
   as `out property`s selected by a `dark` bool, bound to the palette with an
   optional user override:
   ```slint

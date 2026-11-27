@@ -4,7 +4,7 @@ Put host-facing data and its operations together in the feature that owns them.
 Re-export the global from the entry file so the host can access it.
 
 ```slint
-// pages/library.slint
+// views/library.slint
 export struct Row { id: int, name: string, selected: bool }
 export global Library {
     in property <[Row]> rows;
@@ -15,7 +15,7 @@ export global Library {
 
 ```slint no-test
 // main.slint
-export { Library, Row } from "pages/library.slint";
+export { Library, Row } from "views/library.slint";
 ```
 
 ## Rust

@@ -1,4 +1,4 @@
-import { Button, StandardButton } from "std-widgets.slint";
+import { StandardButton } from "std-widgets.slint";
 import { Metrics } from "../metrics.slint";
 import { Style } from "../style.slint";
 
@@ -13,7 +13,7 @@ export component ConfirmRemoval inherits PopupWindow {
 
     Dialog {
         Text {
-            text: @tr("Are you sure?");
+            text: @tr("Do you really want to remove this item?");
         }
 
         cancel := StandardButton {
