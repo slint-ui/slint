@@ -249,13 +249,16 @@ Your users can ask their operating system for less motion.
 Slint reads that setting on these platforms:
 
 - Windows, with the winit backend: `Animation effects` under `Settings > Accessibility > Visual effects`.
-- Android: `Remove animations` under `Settings > Accessibility`.
+- Android: whenever animations are off system-wide,
+  as with `Remove animations` under `Settings > Accessibility`
+  or an animator duration scale of 0 in the developer options.
+  Some devices also turn animations off in Battery Saver.
 
 On other platforms and backends, animations always run.
-When your users reduce motion, Slint skips animations:
+When your users reduce motion, Slint skips most animations:
 
 - Every `animate` block behaves as if `enabled` were `false`, so a change sets the property to its target value at once.
-- A `Flickable` still pans while the pointer is down, but doesn't fling when the pointer is released.
+- A `Flickable` still pans while the pointer is down and flings when it's released, since the fling continues the user's own movement.
 - A mouse wheel step, a smooth `scroll-to()`, and a smooth `ensure-row-visible()` scroll at once.
 - Content pulled past an edge snaps back at once.
 

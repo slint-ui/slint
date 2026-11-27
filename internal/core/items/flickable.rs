@@ -1058,17 +1058,23 @@ impl FlickableDataInner {
 
     /// `release_time` is when the pointer was released, on the clock of the tracked samples.
     fn animate(&mut self, flick: Pin<&Flickable>, flick_rc: &ItemRc, release_time: Instant) {
-        if self.capture_events.is_some() && Flickable::reduced_motion(flick_rc) {
-            let released_at = LogicalPoint::from_lengths(flick.content_x(), flick.content_y());
-            let target = self.scroll_to(flick, flick_rc, -released_at, ScrollBehavior::Instant);
-            self.pending_flicked |= target != released_at.to_vector();
-        } else if self.capture_events.is_some() {
+        if self.capture_events.is_some() {
             let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
             let (inside_bounds_x, inside_bounds_y) = inside_bounds(
                 flick,
                 LogicalPoint::new(flick.content_x().get(), flick.content_y().get()),
                 &geo,
             );
+            let reduced_motion = Flickable::reduced_motion(flick_rc);
+            if reduced_motion && !(inside_bounds_x && inside_bounds_y) {
+                if !inside_bounds_x {
+                    self.start_spring_back(flick, flick_rc, Dimension::X, &geo);
+                }
+                if !inside_bounds_y {
+                    self.start_spring_back(flick, flick_rc, Dimension::Y, &geo);
+                }
+                self.pending_flicked = true;
+            }
             let estimated_velocity =
                 self.velocity_rb.estimate_velocity(release_time).map(|v| v.velocity);
 
@@ -1077,6 +1083,9 @@ impl FlickableDataInner {
                                       velocity: Option<f32>,
                                       inside_bounds: bool| {
                 if !inside_bounds {
+                    if reduced_motion {
+                        return None;
+                    }
                     return Some(Self::spring_back(
                         flick,
                         flick_rc,
