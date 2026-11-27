@@ -1147,6 +1147,76 @@ pub fn token_at_offset(doc: &syntax_nodes::Document, offset: TextSize) -> Option
     Some(token)
 }
 
+/// A constant `rgb` / `rgba` call, using the same channel rules as the compiler.
+///
+/// `rgb()` and `rgba()` are macros, so they never become `ColorLiteral` tokens.
+/// Non-constant arguments are skipped: there is no single swatch to report.
+fn literal_rgb_color(call: &syntax_nodes::FunctionCallExpression) -> Option<(u8, u8, u8, u8)> {
+    let mut args = call.Expression();
+    let callee = args.next()?;
+    if !matches!(callee.text().to_string().trim(), "rgb" | "rgba") {
+        return None;
+    }
+    let red = rgb_channel(&args.next()?)?;
+    let green = rgb_channel(&args.next()?)?;
+    let blue = rgb_channel(&args.next()?)?;
+    let alpha = match args.next() {
+        Some(expr) => rgb_alpha(&expr)?,
+        None => 255,
+    };
+    if args.next().is_some() {
+        return None;
+    }
+    Some((red, green, blue, alpha))
+}
+
+/// One number literal, and whether it was written as a percent.
+fn plain_number(expr: &syntax_nodes::Expression) -> Option<(f64, bool)> {
+    let mut literal = None;
+    for child in expr.children_with_tokens() {
+        match child.kind() {
+            SyntaxKind::Whitespace | SyntaxKind::Comment => {}
+            SyntaxKind::NumberLiteral if literal.is_none() => {
+                literal = child.into_token().map(|token| token.text().to_string());
+            }
+            _ => return None,
+        }
+    }
+    let (value, unit) = i_slint_compiler::literals::parse_number_literal(literal?.into()).ok()?;
+    match unit {
+        i_slint_compiler::expression_types::WrittenUnit::None => Some((value, false)),
+        i_slint_compiler::expression_types::WrittenUnit::Percent => Some((value, true)),
+        _ => None,
+    }
+}
+
+fn rgb_channel(expr: &syntax_nodes::Expression) -> Option<u8> {
+    let (value, percent) = plain_number(expr)?;
+    let scaled = if percent { value * 0.01 * 255. } else { value };
+    if !scaled.is_finite() {
+        return None;
+    }
+    Some((scaled as i32).clamp(0, 255) as u8)
+}
+
+fn rgb_alpha(expr: &syntax_nodes::Expression) -> Option<u8> {
+    let (value, percent) = plain_number(expr)?;
+    let alpha = if percent { value * 0.01 } else { value };
+    if !alpha.is_finite() {
+        return None;
+    }
+    // `as u8` saturates, matching `(255. * a) as u8` in the rgb builtin.
+    Some((255. * alpha) as u8)
+}
+
+fn push_color(result: &mut Vec<ColorInformation>, range: lsp_types::Range, col: u32) {
+    let shift = |s: u32| -> f32 { ((col >> s) & 0xff) as f32 / 255. };
+    result.push(ColorInformation {
+        range,
+        color: Color { alpha: shift(24), red: shift(16), green: shift(8), blue: shift(0) },
+    });
+}
+
 fn get_document_color(
     document_cache: &mut editor_preview::DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
@@ -1160,18 +1230,22 @@ fn get_document_color(
             (|| -> Option<()> {
                 let range = util::token_to_lsp_range(&token, document_cache.format);
                 let col = i_slint_common::color_parsing::parse_color_literal(token.text())?;
-                let shift = |s: u32| -> f32 { ((col >> s) & 0xff) as f32 / 255. };
-                result.push(ColorInformation {
-                    range,
-                    color: Color {
-                        alpha: shift(24),
-                        red: shift(16),
-                        green: shift(8),
-                        blue: shift(0),
-                    },
-                });
+                push_color(&mut result, range, col);
                 Some(())
             })();
+        } else if token.kind() == SyntaxKind::Identifier && matches!(token.text(), "rgb" | "rgba") {
+            if let Some(call) =
+                token.parent_ancestors().find_map(syntax_nodes::FunctionCallExpression::new)
+                && let Some(callee) = call.Expression().next()
+                && callee.text_range().contains_range(token.text_range())
+                && let Some((red, green, blue, alpha)) = literal_rgb_color(&call)
+            {
+                let col = ((alpha as u32) << 24)
+                    | ((red as u32) << 16)
+                    | ((green as u32) << 8)
+                    | (blue as u32);
+                push_color(&mut result, util::node_to_lsp_range(&call, document_cache.format), col);
+            }
         }
         token = match token.next_token() {
             Some(token) => token,
@@ -2012,6 +2086,44 @@ pub mod tests {
         assert_eq!(f64::trunc(color.green as f64 * 255.0), 0.0);
         assert_eq!(f64::trunc(color.blue as f64 * 255.0), 255.0);
         assert_eq!(f64::trunc(color.alpha as f64 * 255.0), 128.0);
+    }
+
+    #[test]
+    fn test_text_document_color_rgb_function() {
+        let (mut dc, uri, _) = loaded_document_cache(
+            r#"
+            component Main inherits Rectangle {
+                background: #ff0000;
+                background: rgb(219, 226, 249);
+                background: rgba(0, 128, 255, 0.5);
+                background: rgb(100%, 0%, 0%);
+                background: rgb(1 + 2, 0, 0);
+            }
+            "#
+            .into(),
+        );
+
+        let result = get_document_color(&mut dc, &lsp_types::TextDocumentIdentifier { uri })
+            .expect("Color Vec was returned");
+
+        assert_eq!(result.len(), 4);
+        let channel = |c: f32| f64::trunc(c as f64 * 255.0);
+        let expect = [
+            (2u32, 28u32, 35u32, 255.0, 0.0, 0.0, 255.0),
+            (3, 28, 46, 219.0, 226.0, 249.0, 255.0),
+            (4, 28, 50, 0.0, 128.0, 255.0, 127.0),
+            (5, 28, 45, 255.0, 0.0, 0.0, 255.0),
+        ];
+        for (info, (line, start, end, red, green, blue, alpha)) in result.iter().zip(expect) {
+            assert_eq!(info.range.start.line, line);
+            assert_eq!(info.range.start.character, start);
+            assert_eq!(info.range.end.line, line);
+            assert_eq!(info.range.end.character, end);
+            assert_eq!(channel(info.color.red), red);
+            assert_eq!(channel(info.color.green), green);
+            assert_eq!(channel(info.color.blue), blue);
+            assert_eq!(channel(info.color.alpha), alpha);
+        }
     }
 
     #[test]
