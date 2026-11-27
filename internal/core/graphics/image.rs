@@ -549,6 +549,29 @@ pub enum WGPUTexture {
     WGPU30Texture(wgpu_30::Texture),
 }
 
+cfg_select! {
+    all(
+        any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"),
+        not(all(target_arch = "wasm32", not(target_os = "emscripten")))
+    ) => {
+        const _: () = {
+            const fn assert_send_sync<T: Send + Sync>() {}
+            #[cfg(feature = "unstable-wgpu-29")]
+            assert_send_sync::<wgpu_29::Texture>();
+            #[cfg(feature = "unstable-wgpu-30")]
+            assert_send_sync::<wgpu_30::Texture>();
+        };
+        // SAFETY: A `wgpu::Texture` is `Send` and `Sync` outside the web, as asserted above.
+        // Implementing them here keeps the compiler from proving it through wgpu's internals,
+        // which exceeds the default recursion limit in every crate that needs `Image: Send`.
+        #[allow(unsafe_code)]
+        unsafe impl Send for WGPUTexture {}
+        #[allow(unsafe_code)]
+        unsafe impl Sync for WGPUTexture {}
+    }
+    _ => {}
+}
+
 #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
 impl OpaqueImage for WGPUTexture {
     fn size(&self) -> IntSize {
@@ -972,26 +995,6 @@ impl std::error::Error for LoadImageError {}
 /// pixmap.fill_path(&circle, &paint, tiny_skia::FillRule::Winding, Default::default(), None);
 ///
 /// let image = Image::from_rgba8_premultiplied(pixel_buffer);
-/// ```
-///
-/// ### Sending Image to a thread
-///
-/// `Image` is not [`Send`], because it uses internal cache that are local to the Slint thread.
-/// If you want to create image data in a thread and send that to slint, construct the
-/// [`SharedPixelBuffer`] in a thread, and send that to Slint's UI thread.
-///
-/// ```rust,no_run
-/// # use i_slint_core::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
-/// std::thread::spawn(move || {
-///     let mut pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::new(640, 480);
-///     // ... fill the pixel_buffer with data as shown in the previous example ...
-///     slint::invoke_from_event_loop(move || {
-///         // this will run in the Slint's UI thread
-///         let image = Image::from_rgba8_premultiplied(pixel_buffer);
-///         // ... use the image, eg:
-///         // my_ui_handle.upgrade().unwrap().set_image(image);
-///     });
-/// });
 /// ```
 #[repr(transparent)]
 #[derive(Default, Clone, Debug, PartialEq, derive_more::From)]
