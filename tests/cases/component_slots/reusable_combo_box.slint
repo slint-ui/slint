@@ -19,8 +19,6 @@ export component TestCase inherits Window {
     out property <int> highlighted-index: combo.highlighted-index;
     out property <int> activations;
     out property <int> highlights;
-    out property <brush> background-color: combo.background-color;
-    out property <brush> foreground-color: combo.foreground-color;
     out property <bool> test: root.current-value == "One" && !root.expanded;
     public function open() { combo.open(); }
     public function choose(index: int) { combo.select(index); }
@@ -52,6 +50,10 @@ export component TestCase inherits Window {
 ```rust
 use slint::platform::{Key, PointerEventButton};
 let instance = TestCase::new().unwrap();
+mod visuals { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/control_visuals.rs")); }
+let background_color = || visuals::color(instance.window(), "TestCase::combo", "ComboBox::surface");
+let foreground_color = || visuals::color(instance.window(), "TestCase::combo", "ComboBox::label");
+
 assert!(instance.get_test());
 let combo = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Selection").next().unwrap();
 assert_eq!(combo.accessible_role(), Some(slint_testing::AccessibleRole::Combobox));
@@ -152,8 +154,8 @@ instance.invoke_open();
 instance.set_enabled(false);
 slint::platform::update_timers_and_animations();
 assert!(!instance.get_expanded());
-assert_eq!(instance.get_background_color(), palette.get_disabled_background());
-assert_eq!(instance.get_foreground_color(), palette.get_disabled_foreground());
+assert_eq!(background_color(), palette.get_disabled_background());
+assert_eq!(foreground_color(), palette.get_disabled_foreground());
 let count = instance.get_activations();
 combo.invoke_accessible_expand_action();
 combo.set_accessible_value("Zero");

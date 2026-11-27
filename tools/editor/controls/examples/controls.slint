@@ -73,9 +73,24 @@ export component ControlsDemo inherits Window {
                 for page[index] in root.pages: Button {
                     text: page;
                     min-height: 44px;
-                    style: ButtonStyles.invisible;
-                    background-color: root.current-page == index ? BasicTheme.accent.with-alpha(0.08) : transparent;
-                    foreground-color: root.current-page == index ? BasicTheme.accent : BasicTheme.foreground;
+                    style: {
+                        rest: {
+                            background-color: root.current-page == index ? BasicTheme.accent.with-alpha(0.08) : transparent,
+                            foreground-color: root.current-page == index ? BasicTheme.accent : BasicTheme.foreground,
+                            ..ButtonStyles.invisible.rest,
+                        },
+                        hover: {
+                            background-color: root.current-page == index ? BasicTheme.accent.with-alpha(0.08) : transparent,
+                            foreground-color: root.current-page == index ? BasicTheme.accent : BasicTheme.foreground,
+                            ..ButtonStyles.invisible.hover,
+                        },
+                        pressed: {
+                            background-color: root.current-page == index ? BasicTheme.accent.with-alpha(0.08) : transparent,
+                            foreground-color: root.current-page == index ? BasicTheme.accent : BasicTheme.foreground,
+                            ..ButtonStyles.invisible.pressed,
+                        },
+                        ..ButtonStyles.invisible,
+                    };
                     font-weight: 600;
                     clicked => { root.current-page = index; }
                 }
