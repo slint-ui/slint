@@ -4,6 +4,7 @@
 use std::{cell::Cell, rc::Rc};
 
 use i_slint_core::api::{PhysicalSize, Window, WindowSize};
+use i_slint_core::items::ColorScheme;
 use i_slint_core::platform::{Platform, Renderer, WindowAdapter, WindowEvent};
 use i_slint_renderer_anyrender::VelloCpuRenderer;
 use slint_interpreter::ComponentHandle;
@@ -109,7 +110,14 @@ impl RenderedFrame {
 
 #[wasm_bindgen]
 impl WrappedCompiledComp {
-    pub fn render(&self) -> Result<RenderedFrame, JsValue> {
+    pub fn render(&self, color_scheme: Option<String>) -> Result<RenderedFrame, JsValue> {
+        let color_scheme = match color_scheme.as_deref() {
+            Some("dark") => ColorScheme::Dark,
+            Some("light") => ColorScheme::Light,
+            _ => ColorScheme::Unknown,
+        };
+        i_slint_core::with_existing_context(|context| context.set_color_scheme(color_scheme))
+            .map_err(|error| JsValue::from_str(&error.to_string()))?;
         let instance = self.0.create().map_err(|error| JsValue::from_str(&error.to_string()))?;
         let snapshot = instance.show().and_then(|()| instance.window().take_snapshot());
         let hidden = instance.hide();

@@ -7,6 +7,7 @@ import { createRequire } from "node:module";
 import { isAbsolute, normalize } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { crc32, deflateSync } from "node:zlib";
+import { systemColorScheme } from "./system-color-scheme.mjs";
 
 const require = createRequire(import.meta.url);
 const CHECKER_MODULE = "./checker/slint_wasm_interpreter.js";
@@ -80,6 +81,7 @@ function encodePng(frame) {
 }
 
 export async function checkSlint(previewInput) {
+    const colorScheme = await systemColorScheme();
     const checkerInstance = loadChecker();
     const { interpreter, runtime } = checkerInstance;
     const readSource = async (value) => {
@@ -134,7 +136,7 @@ export async function checkSlint(previewInput) {
         component = compilation.component;
         if (!component) return result;
         result.status = "render-error";
-        frame = component.render();
+        frame = component.render(colorScheme);
         result.image = {
             png: encodePng(frame),
             width: frame.width,
