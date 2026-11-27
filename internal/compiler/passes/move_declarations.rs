@@ -74,11 +74,7 @@ fn collect_renames(component: &Rc<Component>, renames: &mut RenameMap) {
 
 fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
     let mut decl = Declarations::take_from_element(&mut component.root_element.borrow_mut());
-    component
-        .sub_windows
-        .borrow()
-        .iter()
-        .for_each(|f| do_move_declarations(&f.component, renames));
+    component.sub_windows.borrow().iter().for_each(|f| do_move_declarations(&f.component, renames));
     component.menu_item_tree.borrow().iter().for_each(|c| do_move_declarations(c, renames));
 
     let mut new_root_bindings = HashMap::new();
