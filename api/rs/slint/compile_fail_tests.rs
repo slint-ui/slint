@@ -105,6 +105,14 @@ slint::slint!{ export component Hello inherits Window { } }
 #[cfg(doctest)]
 const MISSING_EDITION: () = ();
 
+/**
+```compile_fail
+slint::compile_project!("tests/project_file_macro/ancestor/nested/ui/main.slint");
+```
+*/
+#[cfg(doctest)]
+const PROJECT_MACRO_REJECTS_SLINT_FILE: () = ();
+
 #[cfg(doctest)]
 #[doc = include_str!("README.md")]
 const CHECK_README_EXAMPLES: () = ();

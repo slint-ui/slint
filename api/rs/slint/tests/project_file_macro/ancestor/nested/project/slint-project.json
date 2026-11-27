@@ -1,0 +1,4 @@
+{
+    "main": "../ui/main.slint",
+    "edition": "1.19"
+}

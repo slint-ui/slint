@@ -107,6 +107,21 @@ fn main() {
 
 Settings on <LangRefLink lang="rust-slint-build" relpath="struct.CompilerConfiguration">`CompilerConfiguration`</LangRefLink> win over the project file.
 Cargo rebuilds your crate when the project file changes.
+
+Alternatively, compile the project directly in your Rust source with `compile_project!`:
+
+```rust
+slint::compile_project!();
+```
+
+This loads `slint-project.json` from the Cargo manifest directory and makes the exported components available in the current module.
+To use another project, pass its directory or project file as a string literal:
+
+```rust
+slint::compile_project!("../ui");
+```
+
+The path is relative to the directory containing the Rust source file.
 The `slint!` macro doesn't load a project file.
 </TabItem>
 <TabItem label="C++" icon="seti:cpp">
