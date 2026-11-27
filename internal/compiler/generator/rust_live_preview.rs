@@ -190,6 +190,7 @@ fn generate_public_component(
             pub fn new() -> sp::Result<Self, slint::PlatformError> {
                 #compiler_factory
                 let instance = sp::live_preview::LiveReloadingComponent::new(compiler_factory, #main_file.into(), Some(#component_name.into()))?;
+                instance.borrow_mut().set_error_hook(|error| ::std::eprintln!("Warning: Live preview: {error}"));
                 let window_adapter = sp::WindowInner::from_pub(slint::ComponentHandle::window(instance.borrow().instance())).window_adapter();
                 sp::Ok(Self(instance, window_adapter))
             }
@@ -198,6 +199,7 @@ fn generate_public_component(
             pub fn new_with_context(ctx: sp::SlintContext) -> sp::Result<Self, slint::PlatformError> {
                 #compiler_factory
                 let instance = sp::live_preview::LiveReloadingComponent::new_with_context(compiler_factory, #main_file.into(), Some(#component_name.into()), ctx)?;
+                instance.borrow_mut().set_error_hook(|error| ::std::eprintln!("Warning: Live preview: {error}"));
                 let window_adapter = sp::WindowInner::from_pub(slint::ComponentHandle::window(instance.borrow().instance())).window_adapter();
                 sp::Ok(Self(instance, window_adapter))
             }

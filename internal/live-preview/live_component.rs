@@ -4,7 +4,7 @@
 //! This is an internal module that contains the [`LiveReloadingComponent`] struct.
 
 use crate::file_watcher::FileWatcher;
-use core::cell::{Cell, RefCell};
+use core::cell::RefCell;
 use core::task::Waker;
 use i_slint_core::api::{ComponentHandle, PlatformError};
 use slint_interpreter::{SetCallbackError, SetPropertyError};
@@ -33,22 +33,11 @@ pub struct LiveReloadingComponent {
     watcher: Arc<Mutex<Watcher>>,
     file_name: PathBuf,
     component_name: Option<String>,
-    properties: RefCell<HashMap<String, CachedProperty>>,
+    properties: RefCell<HashMap<String, Value>>,
     callbacks: RefCell<HashMap<String, Rc<dyn Fn(&[Value]) -> Value + 'static>>>,
     post_reload_hook: Option<Box<dyn Fn(&ComponentInstance)>>,
     error_hook: Box<dyn Fn(String)>,
     extra_watch_paths: Vec<PathBuf>,
-}
-
-struct CachedProperty {
-    value: Value,
-    rust_pending: Option<Cell<bool>>,
-}
-
-impl CachedProperty {
-    fn is_rust_pending(&self) -> bool {
-        self.rust_pending.as_ref().is_some_and(Cell::get)
-    }
 }
 
 impl LiveReloadingComponent {
@@ -189,17 +178,9 @@ impl LiveReloadingComponent {
 
     /// Reload the properties and callbacks after a reload()
     pub fn reload_properties_and_callbacks(&self) {
-        for (name, property) in self.properties.borrow().iter() {
-            let result = self.write_property(name, property.value.clone());
-            if let Some(pending) = &property.rust_pending {
-                pending.set(result.is_err());
-                if let Err(error) = result {
-                    eprintln!(
-                        "Warning: Live preview could not restore '{name}': {error}. Keeping the Rust value for a later reload."
-                    );
-                }
-            } else if let Err(error) = result {
-                (self.error_hook)(format!("Cannot set property {name}: {error}"));
+        for (name, value) in self.properties.borrow().iter() {
+            if let Err(error) = self.write_property(name, value.clone()) {
+                (self.error_hook)(format!("Cannot restore property '{name}': {error}"));
             }
         }
         for (name, callback) in self.callbacks.borrow_mut().iter() {
@@ -252,53 +233,34 @@ impl LiveReloadingComponent {
 
     /// Store a generated Rust setter's value even when the current UI can't accept it.
     pub fn set_rust_property(&self, name: &str, value: Value) {
-        let pending = if self
-            .properties
-            .borrow()
-            .get(name)
-            .is_some_and(CachedProperty::is_rust_pending)
-        {
-            eprintln!(
-                "Warning: Live preview updated the cached Rust value of '{name}'. The current UI cannot accept it."
-            );
-            true
-        } else if let Err(error) = self.write_property(name, value.clone()) {
+        if let Err(error) = self.write_property(name, value.clone()) {
             eprintln!(
                 "Warning: Live preview could not set '{name}': {error}. Keeping the Rust value for a later reload."
             );
-            true
-        } else {
-            false
-        };
-        self.properties
-            .borrow_mut()
-            .insert(name.into(), CachedProperty { value, rust_pending: Some(Cell::new(pending)) });
+        }
+        self.properties.borrow_mut().insert(name.into(), value);
     }
 
     /// Read a property using the type of the generated Rust getter.
     pub fn get_rust_property<T, Error>(
         &self,
         name: &str,
-        convert: impl FnOnce(Value) -> Result<T, Error>,
+        convert: impl Fn(Value) -> Result<T, Error>,
         default: impl FnOnce() -> T,
     ) -> T {
-        let pending = self
-            .properties
-            .borrow()
-            .get(name)
-            .filter(|property| property.is_rust_pending())
-            .map(|property| property.value.clone());
-        let value = if let Some(value) = pending {
-            eprintln!(
-                "Warning: Live preview is reading the cached Rust value of '{name}' because it could not be applied to the UI."
-            );
-            Some(value)
-        } else if let Some((global, property)) = name.split_once('.') {
+        let value = if let Some((global, property)) = name.split_once('.') {
             self.instance().get_global_property(global, property).ok()
         } else {
             self.instance().get_property(name).ok()
         };
         if let Some(value) = value.and_then(|value| convert(value).ok()) {
+            return value;
+        }
+        let cached = self.properties.borrow().get(name).cloned();
+        if let Some(value) = cached.and_then(|value| convert(value).ok()) {
+            eprintln!(
+                "Warning: Live preview could not read '{name}' with the compiled Rust type. Returning the cached Rust value."
+            );
             return value;
         }
         eprintln!(
@@ -316,9 +278,7 @@ impl LiveReloadingComponent {
     /// Like [`Self::set_property`], but returns the error instead of panicking.
     pub fn try_set_property(&self, name: &str, value: Value) -> Result<(), SetPropertyError> {
         self.instance().set_property(name, value.clone())?;
-        self.properties
-            .borrow_mut()
-            .insert(name.into(), CachedProperty { value, rust_pending: None });
+        self.properties.borrow_mut().insert(name.into(), value);
         Ok(())
     }
 
@@ -368,9 +328,7 @@ impl LiveReloadingComponent {
         value: Value,
     ) -> Result<(), SetPropertyError> {
         self.instance().set_global_property(global_name, name, value.clone())?;
-        self.properties
-            .borrow_mut()
-            .insert(format!("{global_name}.{name}"), CachedProperty { value, rust_pending: None });
+        self.properties.borrow_mut().insert(format!("{global_name}.{name}"), value);
         Ok(())
     }
 

@@ -14,6 +14,7 @@ use std::rc::Rc;
 const COMPATIBLE: &str = r#"
     export global Directory {
         in-out property <string> current: "initial";
+        in-out property <string> description;
     }
     export component App inherits Window {
         out property <string> label: Directory.current;
@@ -25,6 +26,7 @@ const INCOMPATIBLE: &str = r#"
     enum Location { home, work }
     export global Directory {
         in-out property <Location> current: Location.home;
+        out property <string> description: "read from Slint";
     }
     export component App inherits Window {
         out property <Location> label: Directory.current;
@@ -36,9 +38,10 @@ fn rust_writes_survive_an_incompatible_reload() {
     let directory = harness::TestDir::new("property-type");
     let file = directory.write("app.slint", COMPATIBLE);
     let component = harness::start(&file);
-    component
-        .borrow()
-        .set_rust_property("Directory.current", Value::String("before reload".into()));
+    component.borrow_mut().set_error_hook(|error| eprintln!("Warning: Live preview: {error}"));
+    for name in ["Directory.current", "Directory.description"] {
+        component.borrow().set_rust_property(name, Value::String("before reload".into()));
+    }
 
     let reloads = Rc::new(Cell::new(0));
     component.borrow_mut().set_post_reload_hook({
@@ -52,6 +55,7 @@ fn rust_writes_survive_an_incompatible_reload() {
             reloads.set(reloads.get() + 1);
             if reloads.get() == 1 {
                 assert_eq!(read("Directory.current"), "before reload");
+                assert_eq!(read("Directory.description"), "read from Slint");
                 assert_eq!(read("label"), "");
                 component
                     .set_rust_property("Directory.current", Value::String("during reload".into()));
