@@ -127,7 +127,8 @@ export component TestCase inherits Window {
     width: 300px;
     height: 200px;
     in-out property <int> factor <=> static-group.factor;
-    out property <bool> test: static-group.count == 2
+    in-out property <[string]> model: ["A", "B", "C"];
+    out property <bool> test: static-group.count == 2 && repeated.count == 3
         && first.position == 0 && second.position == 1
         && inherited.count == 2 && empty.count == 0 && explicit-empty.count == 0
         && empty-named.leading-count == 0 && empty-named.trailing-count == 0
@@ -139,10 +140,12 @@ export component TestCase inherits Window {
         && leading-second.length == 2 && trailing-first.index == 0
         && trailing-first.length == 1 && action.position == 12 && any.count == 2
         && nominal.count == 2 && nominal-first.index == 0 && nominal-second.index == 1
-        && nominal-second.length == 2
+        && nominal-second.length == 2 && nominal-repeated.count == 3
         && rectangles.count == 2 && literal-name.count == 1
         && overridden-entry.position == 42 && overridden-entry.factor == 3;
     out property <int> static-count: static-group.count;
+    out property <int> repeated-count: repeated.count;
+    out property <int> nominal-repeated-count: nominal-repeated.count;
     out property <int> second-factor: second.factor;
     out property <int> observed-factor: static-group.observed-factor;
     out property <int> child-observed-factor: second.observed-factor;
@@ -153,10 +156,15 @@ export component TestCase inherits Window {
     out property <int> last-index: static-group.last-index;
     public function trigger-second() { second.trigger(); }
     public function set-shared(value: int) { second.shared = value; }
+    public function clear-model() { root.model = []; }
     VerticalLayout {
         static-group := EntryGroup {
             first := EntryView { }
             second := DecoratedEntry { }
+        }
+        repeated := EntryGroup {
+            factor: 7;
+            for _ in root.model: EntryView { }
         }
         inherited := FixedGroup { factor: 9; }
         empty := EntryGroup { }
@@ -186,6 +194,9 @@ export component TestCase inherits Window {
             entries << nominal-first := PositionedView { }
             entries << nominal-second := DerivedPositionedView { }
         }
+        nominal-repeated := ComponentChildren {
+            for _ in root.model: DerivedPositionedView { }
+        }
         rectangles := RectangleChildren { Rectangle { } RectangleView { } }
         literal-name := ComponentNamedComponent { component { } }
         EntryGroup {
@@ -213,6 +224,10 @@ assert_eq!(instance.get_inherited_shared(), 0);
 instance.invoke_trigger_second();
 assert_eq!(instance.get_last_value(), 5);
 assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Preserved decoration").count(), 2);
+instance.invoke_clear_model();
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_repeated_count(), 0);
+assert_eq!(instance.get_nominal_repeated_count(), 0);
 assert_eq!(instance.get_static_count(), 2);
 ```
 

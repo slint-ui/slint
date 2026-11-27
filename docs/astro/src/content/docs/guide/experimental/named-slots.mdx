@@ -282,8 +282,11 @@ A component can declare multiple collection slots, including one default collect
 
 Enable `named-slots` to run this example.
 `ItemGroup` places its supplied children in a vertical layout and exposes their count.
+Supply the children individually or use a single `for` loop to create one child per model row.
 
 ```slint
+import { Button } from "std-widgets.slint";
+
 component ItemGroup {
     default slot <[*]> items;
     out property <int> count: items.length;
@@ -294,20 +297,34 @@ component ItemGroup {
 }
 
 export component App inherits Window {
+    in-out property <[string]> labels: ["One", "Two"];
+
     VerticalLayout {
         padding: 12px;
         spacing: 6px;
 
-        Text { text: "Entries: \{group.count}"; }
+        Text { text: "Static entries: \{group.count}"; }
         group := ItemGroup {
             Text { text: "One"; }
             Text { text: "Two"; }
+        }
+
+        Text { text: "Model-backed entries: \{model-group.count}"; }
+        model-group := ItemGroup {
+            for label in root.labels: Text { text: label; }
+        }
+
+        Button {
+            text: "Add an Entry";
+            clicked => { root.labels.push("New entry"); }
         }
     }
 }
 ```
 
-The window shows the two supplied entries and a count of two.
+The first group always has two entries.
+The second group starts with two entries from `labels`.
+Click **Add an Entry** to append a row and see the second group gain a child and update its count.
 
 ### Collection Defaults
 
@@ -347,8 +364,10 @@ component EntryGroup {
 
 The expansion places existing supplied components without replacing their type or visuals.
 The child and optional index variables are available only inside the expansion.
-`entries.length` tracks the number of supplied components.
+`entries.length` tracks the number of supplied components, including changes to a supplied repeater's model.
 Collection lengths and indexes are read-only.
+Supply entries as individual components or a single `for` loop.
+To include an entry conditionally, use a `for` loop over a model with zero or one row.
 
 Property bindings on a supplied component take precedence over bindings from the expansion.
 Property change handlers from both sides are combined.

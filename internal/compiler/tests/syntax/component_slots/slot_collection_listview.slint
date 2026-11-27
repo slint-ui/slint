@@ -34,6 +34,6 @@ component InheritedCollectionList {
 export component Test inherits Window {
     CustomListCollection { Page { title: "Custom"; } }
     DerivedCustomListCollection { Page { title: "Derived custom"; } }
-    CollectionList { Page { title: "One"; } }
-    InheritedCollectionList { Page { title: "One"; } }
+    CollectionList { for title in ["One"]: Page { title: title; } }
+    InheritedCollectionList { for title in ["One"]: Page { title: title; } }
 }

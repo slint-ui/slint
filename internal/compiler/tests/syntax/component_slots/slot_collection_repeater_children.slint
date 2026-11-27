@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Group {
+    default slot <[*]> entries;
+    for entry in entries: entry { }
+}
+
+export component Test inherits Window {
+    Group {
+        if true: Rectangle { }
+//               >        <error{Conditional children are not supported in collection slots yet}
+    }
+    Group {
+        Text { text: "Static"; }
+        for value in [1, 2]: Rectangle { }
+//                           >        <error{A 'for' loop must be the only child in a collection slot}
+    }
+    Group {
+        for value in [1, 2]: Rectangle { }
+//                           >        <error{A 'for' loop must be the only child in a collection slot}
+        for value in [3, 4]: Rectangle { }
+    }
+}
