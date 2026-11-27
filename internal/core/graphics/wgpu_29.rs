@@ -64,6 +64,10 @@ pub mod api {
         pub device_experimental_features: wgpu_29::ExperimentalFeatures,
         /// The memory hints for the device.
         pub device_memory_hints: wgpu_29::MemoryHints,
+        /// The present mode for the window surface.
+        /// Defaults to [`wgpu::PresentMode::AutoVsync`].
+        /// Falls back to [`wgpu::PresentMode::AutoVsync`] if the surface does not advertise the requested mode.
+        pub present_mode: wgpu_29::PresentMode,
     }
 
     impl Default for WGPUSettings {
@@ -83,6 +87,7 @@ pub mod api {
                 device_required_limits: wgpu_29::Limits::downlevel_webgl2_defaults(),
                 device_experimental_features: wgpu_29::ExperimentalFeatures::disabled(),
                 device_memory_hints: wgpu_29::MemoryHints::MemoryUsage,
+                present_mode: wgpu_29::PresentMode::AutoVsync,
             }
         }
     }
@@ -185,6 +190,39 @@ pub fn mask_backends(
 ) -> wgpu::Backends {
     let masked = requested & !backends_to_avoid;
     if masked.is_empty() { requested } else { masked }
+}
+
+/// Returns the present mode requested in `requested_graphics_api`, or [`wgpu::PresentMode::AutoVsync`].
+#[doc(hidden)]
+pub fn present_mode_for_request(
+    requested_graphics_api: Option<&RequestedGraphicsAPI>,
+) -> wgpu::PresentMode {
+    #[cfg(feature = "unstable-wgpu-29")]
+    if let Some(RequestedGraphicsAPI::WGPU29(api::WGPUConfiguration::Automatic(settings))) =
+        requested_graphics_api
+    {
+        return settings.present_mode;
+    }
+    let _ = requested_graphics_api;
+    wgpu::PresentMode::AutoVsync
+}
+
+/// Returns `requested` when the surface supports it, or [`wgpu::PresentMode::AutoVsync`].
+///
+/// `AutoVsync`, `AutoNoVsync`, and `Fifo` are always supported by wgpu,
+/// even though `SurfaceCapabilities::present_modes` omits the `Auto*` variants.
+#[doc(hidden)]
+pub fn select_present_mode(
+    requested: wgpu::PresentMode,
+    advertised: &[wgpu::PresentMode],
+) -> wgpu::PresentMode {
+    match requested {
+        wgpu::PresentMode::AutoVsync | wgpu::PresentMode::AutoNoVsync | wgpu::PresentMode::Fifo => {
+            requested
+        }
+        mode if advertised.contains(&mode) => mode,
+        _ => wgpu::PresentMode::AutoVsync,
+    }
 }
 
 fn backends_for_request(
@@ -568,5 +606,45 @@ mod tests {
     #[test]
     fn default_avoid_includes_gl() {
         assert!(default_backends_to_avoid().contains(wgpu::Backends::GL));
+    }
+
+    #[test]
+    fn select_present_mode_honors_supported_and_falls_back() {
+        let fifo_only = [wgpu::PresentMode::Fifo];
+        assert_eq!(
+            select_present_mode(wgpu::PresentMode::AutoVsync, &fifo_only),
+            wgpu::PresentMode::AutoVsync
+        );
+        assert_eq!(
+            select_present_mode(wgpu::PresentMode::AutoNoVsync, &fifo_only),
+            wgpu::PresentMode::AutoNoVsync
+        );
+        assert_eq!(
+            select_present_mode(wgpu::PresentMode::Fifo, &fifo_only),
+            wgpu::PresentMode::Fifo
+        );
+        assert_eq!(
+            select_present_mode(wgpu::PresentMode::Mailbox, &fifo_only),
+            wgpu::PresentMode::AutoVsync
+        );
+
+        let with_mailbox = [wgpu::PresentMode::Fifo, wgpu::PresentMode::Mailbox];
+        assert_eq!(
+            select_present_mode(wgpu::PresentMode::Mailbox, &with_mailbox),
+            wgpu::PresentMode::Mailbox
+        );
+    }
+
+    #[test]
+    fn present_mode_for_request_defaults_and_reads_settings() {
+        assert_eq!(present_mode_for_request(None), wgpu::PresentMode::AutoVsync);
+        #[cfg(feature = "unstable-wgpu-29")]
+        {
+            let mut settings = api::WGPUSettings::default();
+            assert_eq!(settings.present_mode, wgpu::PresentMode::AutoVsync);
+            settings.present_mode = wgpu::PresentMode::Mailbox;
+            let request = RequestedGraphicsAPI::WGPU29(api::WGPUConfiguration::Automatic(settings));
+            assert_eq!(present_mode_for_request(Some(&request)), wgpu::PresentMode::Mailbox);
+        }
     }
 }
