@@ -1,0 +1,227 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The area of a Flickable (here: the part the virtual keyboard leaves free, or its width) changes
+// while a spring back to its end is running, or its content gets shorter while a wheel scroll runs.
+// The simulation used to end past the new end, and the content stayed there.
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 800px;
+
+    fli := Flickable {
+        x: 0px;
+        y: 0px;
+        width: 300px;
+        height: 600px;
+        content-width: 300px;
+        content-height: 700px;
+    }
+
+    in-out property fli_width <=> fli.width;
+    in-out property fli_content_width <=> fli.content_width;
+    in-out property fli_content_height <=> fli.content_height;
+    in-out property fli_content_x <=> fli.content_x;
+    in-out property fli_content_y <=> fli.content_y;
+}
+
+/*
+```rust
+use slint::*;
+use slint_testing::AutoBool;
+
+fn keyboard(instance: &TestCase, height: f32) {
+    instance.window().set_virtual_keyboard(
+        LogicalPosition::new(0., 800. - height),
+        LogicalSize::new(400., height),
+        i_slint_core::InternalToken,
+    );
+}
+
+// With the keyboard up, 400 of the 600 px are free and the end of the content is at -300.
+// The content is put past it, and a spring back starts.
+fn with_spring_back() -> TestCase {
+    let instance = TestCase::new().unwrap();
+    let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+        .next()
+        .unwrap();
+    slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
+    keyboard(&instance, 400.);
+    slint_testing::mock_elapsed_time(1);
+    instance.set_fli_content_y(-340.);
+    slint_testing::mock_elapsed_time(1);
+    slint_testing::mock_elapsed_time(50);
+    assert!(instance.get_fli_content_y() < -300., "the spring has not started: {}", instance.get_fli_content_y());
+    instance
+}
+
+fn settle() {
+    for _ in 0..40 {
+        slint_testing::mock_elapsed_time(100);
+    }
+}
+
+// The keyboard goes down and the content gets shorter so that it fits: the end is at 0.
+let instance = with_spring_back();
+keyboard(&instance, 0.);
+instance.set_fli_content_height(600.);
+settle();
+assert_eq!(instance.get_fli_content_y(), 0.);
+
+// The keyboard goes down and the content still doesn't fit: the end is at -101.
+let instance = with_spring_back();
+keyboard(&instance, 0.);
+instance.set_fli_content_height(701.);
+settle();
+assert_eq!(instance.get_fli_content_y(), -101.);
+
+// Only the keyboard goes down: the end is at -100.
+let instance = with_spring_back();
+keyboard(&instance, 0.);
+settle();
+assert_eq!(instance.get_fli_content_y(), -100.);
+```
+
+```rust
+use slint::*;
+use slint_testing::AutoBool;
+
+fn settle() {
+    for _ in 0..40 {
+        slint_testing::mock_elapsed_time(100);
+    }
+}
+
+// A press stops the spring back. The content stays where it is while the finger is down,
+// and the release springs it back to the end.
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
+instance.window().set_virtual_keyboard(
+    LogicalPosition::new(0., 400.),
+    LogicalSize::new(400., 400.),
+    i_slint_core::InternalToken,
+);
+slint_testing::mock_elapsed_time(1);
+instance.set_fli_content_y(-340.);
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(50);
+let spring_at = instance.get_fli_content_y();
+assert!(spring_at < -300. && spring_at > -340., "the spring has not started: {spring_at}");
+let position = LogicalPosition::new(100., 125.);
+instance.window().dispatch_event(platform::WindowEvent::PointerPressed {
+    position,
+    button: platform::PointerEventButton::Left,
+});
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_fli_content_y(), spring_at);
+
+instance.window().dispatch_event(platform::WindowEvent::PointerReleased {
+    position,
+    button: platform::PointerEventButton::Left,
+});
+settle();
+assert_eq!(instance.get_fli_content_y(), -300.);
+```
+
+```rust
+use slint_testing::AutoBool;
+
+fn settle() {
+    for _ in 0..40 {
+        slint_testing::mock_elapsed_time(100);
+    }
+}
+
+// The Flickable gets wider during a spring back to its right end: the end moves from -100 to -50.
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
+instance.set_fli_width(600.);
+instance.set_fli_content_width(700.);
+slint_testing::mock_elapsed_time(1);
+instance.set_fli_content_x(-140.);
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(50);
+assert!(instance.get_fli_content_x() < -100., "the spring has not started: {}", instance.get_fli_content_x());
+instance.set_fli_width(650.);
+settle();
+assert_eq!(instance.get_fli_content_x(), -50.);
+```
+
+```rust
+use slint::*;
+use slint_testing::AutoBool;
+
+fn settle() {
+    for _ in 0..40 {
+        slint_testing::mock_elapsed_time(100);
+    }
+}
+
+// The same press as above, during a spring back to the right end.
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
+instance.set_fli_width(600.);
+instance.set_fli_content_width(700.);
+slint_testing::mock_elapsed_time(1);
+instance.set_fli_content_x(-140.);
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(50);
+let spring_at = instance.get_fli_content_x();
+assert!(spring_at < -100. && spring_at > -140., "the spring has not started: {spring_at}");
+let position = LogicalPosition::new(100., 125.);
+instance.window().dispatch_event(platform::WindowEvent::PointerPressed {
+    position,
+    button: platform::PointerEventButton::Left,
+});
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_fli_content_x(), spring_at);
+
+instance.window().dispatch_event(platform::WindowEvent::PointerReleased {
+    position,
+    button: platform::PointerEventButton::Left,
+});
+settle();
+assert_eq!(instance.get_fli_content_x(), -100.);
+```
+
+```rust
+use slint::platform::WindowEvent;
+use slint_testing::{AutoBool, BackendMouseEvent, LogicalPoint, TouchPhase};
+
+fn wheel(instance: &TestCase, delta_y: f32) {
+    instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+        position: LogicalPoint::new(150., 200.),
+        delta_x: 0.,
+        delta_y,
+        phase: TouchPhase::Moved,
+    }));
+}
+
+// Without bounce, the content gets shorter while a wheel scroll runs, so that the end is at -30.
+// The scroll is shorter than WHEEL_SCROLL_DURATION (180 ms) when the content shrinks.
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::Off);
+instance.set_fli_content_height(2000.);
+slint_testing::mock_elapsed_time(1);
+wheel(&instance, -100.);
+slint_testing::mock_elapsed_time(80);
+wheel(&instance, 40.);
+instance.set_fli_content_height(630.);
+slint_testing::mock_elapsed_time(100);
+assert!(instance.get_fli_content_y() < -30., "{} isn't past -30", instance.get_fli_content_y());
+slint_testing::mock_elapsed_time(100000);
+assert_eq!(instance.get_fli_content_y(), -30.);
+```
+*/
