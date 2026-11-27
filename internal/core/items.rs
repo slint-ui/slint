@@ -951,8 +951,9 @@ impl Item for Opacity {
 }
 
 impl Opacity {
-    /// A layer and per-item opacity only differ where drawn primitives overlap,
-    /// so a single childless item is drawn without one.
+    /// A layer and per-item opacity differ only where drawn primitives overlap.
+    /// One childless item is drawn without a layer, unless that item itself
+    /// paints a fill together with a border or a stroke.
     /// `Clip` and `Transform` draw nothing themselves and are looked through.
     /// The compiler injects them for `visible` and the transform properties,
     /// see `passes/visible.rs` and `lower_transform_properties`.
@@ -970,12 +971,35 @@ impl Opacity {
             if ItemRef::downcast_pin::<Clip>(item_ref).is_none()
                 && ItemRef::downcast_pin::<Transform>(item_ref).is_none()
             {
-                return item.first_child().is_some();
+                return item.first_child().is_some()
+                    || item_paints_overlapping_primitives(item_ref);
             }
             child = item.first_child();
         }
         false
     }
+}
+
+/// A fill and a border, or a fill and a stroke, cover the same pixels.
+/// Per-primitive opacity darkens that overlap, so the item needs a group layer.
+fn item_paints_overlapping_primitives(item_ref: Pin<ItemRef<'_>>) -> bool {
+    if let Some(rect) = ItemRef::downcast_pin::<BasicBorderRectangle>(item_ref) {
+        return border_overlaps_fill(rect.border_width(), rect.background(), rect.border_color());
+    }
+    if let Some(rect) = ItemRef::downcast_pin::<BorderRectangle>(item_ref) {
+        return border_overlaps_fill(rect.border_width(), rect.background(), rect.border_color());
+    }
+    #[cfg(feature = "path")]
+    if let Some(path) = ItemRef::downcast_pin::<Path>(item_ref) {
+        return path.stroke_width().get() > 0.
+            && !path.fill().is_transparent()
+            && !path.stroke().is_transparent();
+    }
+    false
+}
+
+fn border_overlaps_fill(width: LogicalLength, background: Brush, border_color: Brush) -> bool {
+    width.get() > 0. && !background.is_transparent() && !border_color.is_transparent()
 }
 
 impl ItemConsts for Opacity {

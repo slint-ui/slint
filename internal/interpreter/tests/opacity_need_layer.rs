@@ -108,3 +108,61 @@ fn leaf_behind_injected_wrappers_needs_no_layer() {
 
     assert_eq!(need_layer(1.0), [false; 7]);
 }
+
+/// A fill and a border, or a fill and a stroke, cover the same pixels.
+/// Group opacity has to composite them once. Per-primitive opacity darkens the overlap (#13671).
+#[test]
+fn overlapping_primitives_need_a_layer() {
+    let instance = compile(
+        r#"
+            export component TestCase inherits Window {
+                width: 200px;
+                height: 40px;
+                fill-only := Rectangle { background: red; opacity: 0.5; }
+                bordered := Rectangle {
+                    background: red;
+                    border-width: 20px;
+                    border-color: #0000ff80;
+                    opacity: 0.5;
+                }
+                border-only := Rectangle {
+                    border-width: 4px;
+                    border-color: blue;
+                    opacity: 0.5;
+                }
+                filled-path := Path {
+                    opacity: 0.5;
+                    width: 40px;
+                    height: 40px;
+                    fill: red;
+                    stroke: blue;
+                    stroke-width: 4px;
+                    MoveTo { x: 0; y: 0; }
+                    LineTo { x: 40; y: 0; }
+                    LineTo { x: 40; y: 40; }
+                    Close {}
+                }
+                stroke-only := Path {
+                    opacity: 0.5;
+                    width: 40px;
+                    height: 40px;
+                    stroke: blue;
+                    stroke-width: 4px;
+                    MoveTo { x: 0; y: 0; }
+                    LineTo { x: 40; y: 40; }
+                }
+            }
+        "#,
+    );
+    let items = opacity_items(&instance);
+    let need: Vec<bool> = items.iter().map(|item| Opacity::need_layer(item, 0.5)).collect();
+    assert_eq!(
+        need,
+        [false, true, false, true, false],
+        "fill-only, bordered rectangle, border-only, filled path, stroke-only"
+    );
+    assert_eq!(
+        items.iter().map(|item| Opacity::need_layer(item, 1.0)).collect::<Vec<_>>(),
+        [false, false, false, false, false]
+    );
+}
