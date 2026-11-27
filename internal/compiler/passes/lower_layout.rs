@@ -1972,6 +1972,8 @@ fn lower_dialog_layout(
             true
         } else if is_standard_button(&layout_child.borrow()) {
             // layout_child is a StandardButton
+            // Filled while `kind`'s binding is borrowed; applied after that borrow ends.
+            let mut invoke_declared_clicked: Option<(SmolStr, Vec<Type>)> = None;
             match layout_child.borrow().binding("kind") {
                 None => diag.push_error(
                     "The `kind` property of the StandardButton in a Dialog must be set".into(),
@@ -2019,27 +2021,54 @@ fn lower_dialog_layout(
                                     matches!(c.value_expression(), Expression::Invalid)
                                 })
                             {
-                                dialog_element
-                                    .borrow_mut()
+                                let callback_name = format_smolstr!("{}-clicked", kind);
+                                // A callback the Dialog already declares stays a real callback.
+                                // An alias of the button would recurse through
+                                // `clicked => { root.ok-clicked(); }` (#5693).
+                                // The button calls it when that button has no clicked handler.
+                                let declared = dialog_element
+                                    .borrow()
                                     .property_declarations
-                                    .entry(format_smolstr!("{}-clicked", kind))
-                                    .or_insert_with(|| PropertyDeclaration {
-                                        property_type: clicked_ty,
-                                        node: None,
-                                        expose_in_public_api: true,
-                                        is_alias: Some(NamedReference::new(
-                                            layout_child,
-                                            SmolStr::new_static("clicked"),
-                                        )),
-                                        visibility: PropertyVisibility::InOut,
-                                        pure: None,
-                                        shadowed_name: None,
-                                        shadowable: false,
-                                        testable: false,
-                                        moved_from: None,
-                                        deprecated: None,
-                                        synthesized: false,
+                                    .get(&callback_name)
+                                    .map(|decl| {
+                                        (decl.is_alias.is_none(), decl.property_type.clone())
                                     });
+                                let button_clicked_unbound = layout_child
+                                    .borrow()
+                                    .binding("clicked")
+                                    .is_none_or(|binding| {
+                                        matches!(binding.value_expression(), Expression::Invalid)
+                                            && binding.two_way_bindings.is_empty()
+                                    });
+                                if let Some((true, Type::Callback(declared_sig))) = &declared
+                                    && let Type::Callback(clicked_sig) = &clicked_ty
+                                    && declared_sig.args == clicked_sig.args
+                                    && button_clicked_unbound
+                                {
+                                    invoke_declared_clicked =
+                                        Some((callback_name, clicked_sig.args.clone()));
+                                } else if declared.is_none() {
+                                    dialog_element.borrow_mut().property_declarations.insert(
+                                        callback_name,
+                                        PropertyDeclaration {
+                                            property_type: clicked_ty,
+                                            node: None,
+                                            expose_in_public_api: true,
+                                            is_alias: Some(NamedReference::new(
+                                                layout_child,
+                                                SmolStr::new_static("clicked"),
+                                            )),
+                                            visibility: PropertyVisibility::InOut,
+                                            pure: None,
+                                            shadowed_name: None,
+                                            shadowable: false,
+                                            testable: false,
+                                            moved_from: None,
+                                            deprecated: None,
+                                            synthesized: false,
+                                        },
+                                    );
+                                }
                             }
                         }
                     } else {
@@ -2050,6 +2079,23 @@ fn lower_dialog_layout(
                         );
                     }
                 }
+            }
+            if let Some((callback_name, args)) = invoke_declared_clicked {
+                let callback = NamedReference::new(dialog_element, callback_name);
+                let arguments = args
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, ty)| Expression::FunctionParameterReference { index, ty })
+                    .collect();
+                layout_child.borrow_mut().set_binding(
+                    SmolStr::new_static("clicked"),
+                    Expression::FunctionCall {
+                        function: Callable::Callback(callback),
+                        arguments,
+                        source_location: None,
+                    }
+                    .into(),
+                );
             }
             true
         } else {
