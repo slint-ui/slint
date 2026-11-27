@@ -139,30 +139,7 @@ fn generate_public_component(
                 }
             ));
         } else {
-            let rust_property_type = rust_primitive_type(&p.ty).unwrap();
-            let convert_to_value = convert_to_value_fn(&p.ty);
-            let convert_from_value = convert_from_value_fn(&p.ty);
-
-            let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
-            property_and_callback_accessors.push(quote!(
-                pub fn #getter_ident(&self) -> #rust_property_type {
-                    #convert_from_value(self.0.borrow().get_property(#prop_name))
-                        .unwrap_or_else(|_| panic!("Invalid property type for {}::{}", #component_name, #prop_name))
-                }
-            ));
-
-            let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
-            if !p.read_only() {
-                property_and_callback_accessors.push(quote!(
-                    pub fn #setter_ident(&self, value: #rust_property_type) {
-                        self.0.borrow().set_property(#prop_name, #convert_to_value(value))
-                    }
-                ));
-            } else {
-                property_and_callback_accessors.push(quote!(
-                    fn #setter_ident(&self, _read_only_property : ()) { }
-                ));
-            }
+            property_and_callback_accessors.push(generate_property_accessors(name, prop_name, p));
         }
     }
 
@@ -331,30 +308,12 @@ fn generate_global(
                 }
             ));
         } else {
-            let rust_property_type = rust_primitive_type(&p.ty).unwrap();
-            let convert_to_value = convert_to_value_fn(&p.ty);
-            let convert_from_value = convert_from_value_fn(&p.ty);
-
-            let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
-            property_and_callback_accessors.push(quote!(
-                pub fn #getter_ident(&self) -> #rust_property_type {
-                    #convert_from_value(self.0.borrow().get_global_property(#global_name, #prop_name))
-                        .unwrap_or_else(|_| panic!("Invalid property type for {}::{}", #global_name, #prop_name))
-                }
+            let qualified_name = format!("{global_name}.{prop_name}");
+            property_and_callback_accessors.push(generate_property_accessors(
+                name,
+                &qualified_name,
+                p,
             ));
-
-            let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
-            if !p.read_only() {
-                property_and_callback_accessors.push(quote!(
-                    pub fn #setter_ident(&self, value: #rust_property_type) {
-                        self.0.borrow().set_global_property(#global_name, #prop_name, #convert_to_value(value))
-                    }
-                ));
-            } else {
-                property_and_callback_accessors.push(quote!(
-                    fn #setter_ident(&self, _read_only_property : ()) { }
-                ));
-            }
         }
     }
 
@@ -446,6 +405,47 @@ fn import_library_types(doc: &Document, llr: &llr::CompilationUnit) -> TokenStre
     quote! {
         #(#library_imports)*
         #(#library_globals_trait_impls)*
+    }
+}
+
+fn generate_property_accessors(
+    name: &str,
+    qualified_name: &str,
+    property: &llr::PublicProperty,
+) -> TokenStream {
+    let rust_type = rust_primitive_type(&property.ty).unwrap();
+    let convert_from_value = convert_from_value_fn(&property.ty);
+    let default = default_property_value_fn(&property.ty);
+    let getter = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
+    let setter = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
+    let setter = if property.read_only() {
+        quote!(fn #setter(&self, _read_only_property: ()) {})
+    } else {
+        let convert_to_value = convert_to_value_fn(&property.ty);
+        quote!(
+            pub fn #setter(&self, value: #rust_type) {
+                self.0.borrow().set_rust_property(#qualified_name, #convert_to_value(value));
+            }
+        )
+    };
+    quote!(
+        pub fn #getter(&self) -> #rust_type {
+            self.0.borrow().get_rust_property(#qualified_name, #convert_from_value, #default)
+        }
+
+        #setter
+    )
+}
+
+fn default_property_value_fn(ty: &Type) -> TokenStream {
+    if let Type::Struct(structure) = ty
+        && structure.name.is_none()
+    {
+        // Anonymous Slint structs map to tuples, which can exceed Rust's Default tuple arity.
+        let fields = structure.fields.values().map(default_property_value_fn);
+        quote!(|| (#((#fields)(),)*))
+    } else {
+        quote!(::core::default::Default::default)
     }
 }
 
