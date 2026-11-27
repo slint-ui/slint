@@ -54,6 +54,11 @@ export component DuplicateExpansion {
     for item in items: item { }
 //  >                         <error{The slot 'items' can only appear once in an element}
 }
+export component WrongExpansion {
+    default slot <[implements Entry]> items;
+//                                    >   <error{Place collection slot 'items' with a 'for' loop}
+    for item in items: Rectangle { }
+}
 export component ScalarDefault {
     default slot <Entry> item;
 //  >                        <error{A default slot must have a collection type, such as '<[*]>'}

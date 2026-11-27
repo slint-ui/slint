@@ -3147,6 +3147,65 @@ fn component_collection_types_without_interfaces() {
 }
 
 #[test]
+fn snapshotting_slot_collections() {
+    let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    config.experimental_features = crate::ExperimentalFeatures::all();
+    let mut diag = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(config, &mut diag);
+    let path = SourcePath::new("/tmp/slot-collections-library.slint");
+    crate::poll_ready(
+        loader.load_file(
+            &path,
+            r#"
+        interface Entry { in property <int> value; }
+        export component Group {
+            out property <int> count: items.length;
+            default slot <[implements Entry]> items;
+            for item[index] in items: item { value: index; }
+        }
+        export component NominalEntry { in property <int> value; }
+        export component NominalGroup {
+            default slot <[NominalEntry]> items;
+            for item[index] in items: item { value: index; }
+        }
+        export component ViewGroup {
+            default slot <[implements Entry]> items;
+            HorizontalLayout {
+                for item in items: Text { text: "\{item.value}"; }
+            }
+            for item in items: item { }
+        }
+        "#
+            .into(),
+            false,
+            &mut diag,
+        ),
+    );
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+    let mut copy = snapshot(&loader).unwrap();
+    drop(loader);
+    let source = r#"
+        import { Group, ViewGroup, NominalEntry as ImportedEntry, NominalGroup } from "slot-collections-library.slint";
+        component Item { in property <int> value; }
+        component DerivedEntry inherits ImportedEntry { }
+        export component Test inherits Window {
+            Group { Item { } }
+            Group { for value in [1, 2, 3]: Item { } }
+            NominalGroup { ImportedEntry { } DerivedEntry { } }
+            ViewGroup { Item { value: 7; } }
+        }
+    "#;
+    let raw = crate::poll_ready(copy.load_root_file(
+        &SourcePath::new("/tmp/slot-collections-app.slint"),
+        source.into(),
+        true,
+        &mut diag,
+    ));
+    assert!(raw.is_some());
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+}
+
+#[test]
 fn test_builtin_style() {
     let test_source_path: PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();
