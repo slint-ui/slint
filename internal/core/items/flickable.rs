@@ -1116,11 +1116,7 @@ impl FlickableDataInner {
                     &content,
                     FlickAnimation::create_animation(
                         FlickAnimationParameter::Velocity { velocity: velocity + carried_velocity },
-                        if reduced_motion {
-                            AutoBool::Off
-                        } else {
-                            effective_bounce(flick, &geo, dimension)
-                        },
+                        effective_bounce(flick, &geo, dimension),
                         content.get().0 as f32,
                         limit,
                     ),

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // When the user asks the operating system for less motion, a Flickable still pans while
-// the pointer is down and flings when it's released, but wheel scrolling lands at once,
-// content past an edge goes back at once, and a fling stops at the edge without bouncing.
+// the pointer is down and flings when it's released, but wheel scrolling lands at once
+// and content pulled past an edge goes back at once.
 
 export component TestCase inherits Window {
     width: 500phx;
@@ -93,7 +93,7 @@ slint_testing::set_motion_preference(MotionPreference::NoPreference);
 ```
 
 ```rust
-// A fling stops at the edge without bouncing past it.
+// A fling into an edge still bounces past it, then settles on it.
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
 use slint_testing::{AutoBool, MotionPreference};
 let instance = TestCase::new().unwrap();
@@ -112,11 +112,13 @@ for y in [360.0, 320.0, 280.0, 240.0] {
 }
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 240.0), button: PointerEventButton::Left });
 let end = 700. - 480.;
-for _ in 0..200 {
+let mut furthest = 0f32;
+for _ in 0..625 {
     slint_testing::mock_elapsed_time(16);
-    assert!(instance.get_offset_y() <= end, "never past the edge: {}", instance.get_offset_y());
+    furthest = furthest.max(instance.get_offset_y());
 }
-assert_eq!(instance.get_offset_y(), end);
+assert!(furthest > end, "the fling bounces past the edge: {furthest}");
+assert!((instance.get_offset_y() - end).abs() < 0.01, "it settles on the edge: {}", instance.get_offset_y());
 slint_testing::set_motion_preference(MotionPreference::NoPreference);
 ```
 
