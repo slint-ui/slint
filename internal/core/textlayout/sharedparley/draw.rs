@@ -6,7 +6,7 @@
 
 use super::layout::ElisionCut;
 use super::selection::{RunCoverage, SelectionSpan, run_coverage};
-use super::shaping::{Brush, TextParagraph};
+use super::shaping::{Brush, QUOTE_BAR_WIDTH_EM, QUOTE_INDENT_EM, TextParagraph};
 use super::*;
 
 /// Outline drawn around a rectangle filled via [`GlyphRenderer::fill_rectangle`].
@@ -106,6 +106,20 @@ pub(super) fn visible_x_range(item_renderer: &impl GlyphRenderer) -> Range<Physi
     (x_range.start * scale_factor)..(x_range.end * scale_factor)
 }
 
+/// Uses the text's luminance, so the window background isn't needed.
+fn is_on_dark_background(default_text_color: Color) -> bool {
+    let luminance = 0.299 * default_text_color.red() as f32
+        + 0.587 * default_text_color.green() as f32
+        + 0.114 * default_text_color.blue() as f32;
+    luminance > 140.0
+}
+
+enum LineVisibility {
+    Draw,
+    Skip,
+    Stop,
+}
+
 impl TextParagraph {
     /// Returns whether each glyph of `line` belongs to a control character, in the order its
     /// glyph runs yield them, or an empty vector when the line has no control character.
@@ -127,6 +141,76 @@ impl TextParagraph {
                 cluster.glyphs().map(move |_| is_control)
             })
             .collect()
+    }
+
+    fn line_visibility(
+        &self,
+        layout: &Layout,
+        index: usize,
+        metrics: &parley::LineMetrics,
+        para_y: PhysicalLength,
+        visible_band: &Range<PhysicalLength>,
+        last_drawn: usize,
+    ) -> LineVisibility {
+        // Stop once we are past the last kept line of the last kept paragraph.
+        if index > last_drawn {
+            return LineVisibility::Stop;
+        }
+
+        // Skip lines that can't reach the visible band. Ink may overhang the line's metrics
+        // box (stacked diacritics, swashes), so pad by one line height on each side before
+        // excluding -- the pad scales with the line itself. Lines are in block order, so the
+        // first line past the band ends the walk.
+        let line_height = PhysicalLength::new(metrics.block_max_coord - metrics.block_min_coord);
+        if para_y + PhysicalLength::new(metrics.block_max_coord) + line_height < visible_band.start
+        {
+            return LineVisibility::Skip;
+        }
+        if para_y + PhysicalLength::new(metrics.block_min_coord) - line_height > visible_band.end {
+            return LineVisibility::Stop;
+        }
+
+        // The kept line is always drawn, even when it slightly exceeds the box (#12197); other
+        // lines are kept only while they fall within the box, taking vertical alignment into
+        // account (bottom/center alignment clips lines off the top, not the bottom).
+        if index != last_drawn
+            && !layout.paragraph_line_within_box(
+                self,
+                metrics.block_min_coord,
+                metrics.block_max_coord,
+            )
+        {
+            return LineVisibility::Skip;
+        }
+        LineVisibility::Draw
+    }
+
+    /// The lines that `draw` draws, with their indices.
+    pub(super) fn drawn_lines<'a>(
+        &'a self,
+        layout: &'a Layout,
+        para_y: PhysicalLength,
+        visible_band: &'a Range<PhysicalLength>,
+        last_drawn: usize,
+    ) -> impl Iterator<Item = (usize, parley::layout::Line<'a, Brush>)> {
+        self.layout
+            .lines()
+            .enumerate()
+            .map_while(move |(index, line)| {
+                match self.line_visibility(
+                    layout,
+                    index,
+                    line.metrics(),
+                    para_y,
+                    visible_band,
+                    last_drawn,
+                ) {
+                    LineVisibility::Draw => Some(Some((index, line))),
+                    LineVisibility::Skip => Some(None),
+                    LineVisibility::Stop => None,
+                }
+            })
+            .flatten()
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -168,45 +252,26 @@ impl TextParagraph {
             _ => (line_count.saturating_sub(1), false),
         };
 
-        self.draw_inline_code_backgrounds(item_renderer, para_y, default_text_color, last_drawn);
+        let x = self.x(layout.quote_step);
+        let origin = PhysicalPoint::from_lengths(x, para_y);
 
-        for (index, line) in self.layout.lines().enumerate() {
-            // Stop once we are past the last kept line of the last kept paragraph.
-            if index > last_drawn {
-                break;
-            }
+        self.draw_inline_code_backgrounds(
+            layout,
+            item_renderer,
+            origin,
+            visible_band,
+            default_text_color,
+            last_drawn,
+        );
+
+        let mut drawn_extent: Option<Range<f32>> = None;
+        for (index, line) in self.drawn_lines(layout, para_y, visible_band, last_drawn) {
             let metrics = line.metrics();
-
-            // Skip lines that can't reach the visible band. Ink may overhang the line's metrics
-            // box (stacked diacritics, swashes), so pad by one line height on each side before
-            // excluding -- the pad scales with the line itself. Lines are in block order, so the
-            // first line past the band ends the walk.
+            let top = drawn_extent.map_or(metrics.block_min_coord, |extent| extent.start);
+            drawn_extent = Some(top..metrics.block_max_coord);
             let line_height =
                 PhysicalLength::new(metrics.block_max_coord - metrics.block_min_coord);
-            if para_y + PhysicalLength::new(metrics.block_max_coord) + line_height
-                < visible_band.start
-            {
-                continue;
-            }
-            if para_y + PhysicalLength::new(metrics.block_min_coord) - line_height
-                > visible_band.end
-            {
-                break;
-            }
-
-            // The kept line is always drawn, even when it slightly exceeds the box (#12197); other
-            // lines are kept only while they fall within the box, taking vertical alignment into
-            // account (bottom/center alignment clips lines off the top, not the bottom).
             let last_line = index == last_drawn;
-            if !last_line
-                && !layout.paragraph_line_within_box(
-                    self,
-                    metrics.block_min_coord,
-                    metrics.block_max_coord,
-                )
-            {
-                continue;
-            }
             // The last drawn line should show an ellipsis if real lines below it were dropped for
             // the height, even when it fits the width.
             let vertically_truncated = last_line && vertical_truncation;
@@ -214,10 +279,10 @@ impl TextParagraph {
                 selection.map(|selection| selection.spans.for_line(paragraph_index, index));
             // Padded for ink overhanging the advance, like the vertical filtering of lines.
             let padded_x_range = visible_x_range
-                .map(|x_range| (x_range.start - line_height)..(x_range.end + line_height));
+                .map(|x_range| (x_range.start - x - line_height)..(x_range.end - x + line_height));
             let control_glyphs = self.control_glyphs(&line);
             let elision = last_line
-                .then(|| layout.line_elision(&line, self.layout.is_rtl(), vertically_truncated))
+                .then(|| layout.line_elision(&line, self.layout.is_rtl(), vertically_truncated, x))
                 .flatten();
             let mut glyph_index = 0;
             let mut run_index = 0;
@@ -255,7 +320,7 @@ impl TextParagraph {
                                 item_renderer,
                                 default_fill_brush,
                                 default_stroke_brush,
-                                para_y,
+                                origin,
                                 glyph_x_range,
                                 &mut elision.glyphs(&glyph_run).filter(&mut is_printable),
                                 selection.map(|selection| &selection.foreground),
@@ -268,7 +333,7 @@ impl TextParagraph {
                                 item_renderer,
                                 default_fill_brush,
                                 default_stroke_brush,
-                                para_y,
+                                origin,
                                 glyph_x_range,
                                 &mut glyph_run.positioned_glyphs().filter(&mut is_printable),
                                 selection.map(|selection| &selection.foreground),
@@ -277,7 +342,8 @@ impl TextParagraph {
                             None
                         };
 
-                        if let Some((ellipsis_glyph, ellipsis_font, font_size)) = ellipsis {
+                        if let Some((mut ellipsis_glyph, ellipsis_font, font_size)) = ellipsis {
+                            ellipsis_glyph.x += x.get();
                             let run = glyph_run.run();
                             item_renderer.draw_glyph_run(
                                 &ellipsis_font,
@@ -301,6 +367,37 @@ impl TextParagraph {
                 };
             }
         }
+
+        if let Some(extent) = drawn_extent {
+            self.draw_quote_bars(layout, item_renderer, para_y, extent, default_text_color);
+        }
+    }
+
+    fn draw_quote_bars<R: GlyphRenderer>(
+        &self,
+        layout: &Layout,
+        item_renderer: &mut R,
+        para_y: PhysicalLength,
+        extent: Range<f32>,
+        default_text_color: Color,
+    ) {
+        // Rounded, so the bars of adjacent paragraphs meet without a seam.
+        let top = (para_y.get() + extent.start).round();
+        let bottom = (para_y.get() + extent.end).round();
+        let color = if is_on_dark_background(default_text_color) {
+            Color::from_argb_u8(112, 170, 170, 170)
+        } else {
+            Color::from_argb_u8(96, 128, 128, 128)
+        };
+        let step = layout.quote_step.get();
+        let width = (step * QUOTE_BAR_WIDTH_EM / QUOTE_INDENT_EM).round().max(1.0);
+        for level in 0..self.quote_depth {
+            let rect = PhysicalRect::new(
+                PhysicalPoint::new(step * level as f32, top),
+                PhysicalSize::new(width, bottom - top),
+            );
+            item_renderer.fill_rectangle_with_color(rect, color);
+        }
     }
 
     /// Paints a translucent rounded capsule under every glyph run that lies inside one of
@@ -309,8 +406,10 @@ impl TextParagraph {
     /// without any user-facing styling property.
     fn draw_inline_code_backgrounds<R: GlyphRenderer>(
         &self,
+        layout: &Layout,
         item_renderer: &mut R,
-        para_y: PhysicalLength,
+        origin: PhysicalPoint,
+        visible_band: &Range<PhysicalLength>,
         default_text_color: Color,
         last_drawn: usize,
     ) {
@@ -321,13 +420,8 @@ impl TextParagraph {
         // Neutral gray fill (low alpha) on both themes — contrast against the page
         // background carries the "this is code" cue. The border picks up the same hue
         // but a higher alpha so the rounded outline stays visible against the fill.
-        // Pick brighter values on dark backgrounds (luminance of the text gives us
-        // that signal without poking at the window background).
-        let fg_luminance = 0.299 * default_text_color.red() as f32
-            + 0.587 * default_text_color.green() as f32
-            + 0.114 * default_text_color.blue() as f32;
         let fill = Color::from_argb_u8(28, 128, 128, 128);
-        let border = if fg_luminance > 140.0 {
+        let border = if is_on_dark_background(default_text_color) {
             Color::from_argb_u8(88, 170, 170, 170)
         } else {
             Color::from_argb_u8(56, 128, 128, 128)
@@ -345,9 +439,7 @@ impl TextParagraph {
         let scale_factor = item_renderer.scale_factor();
         let border_width = BORDER_WIDTH * scale_factor;
 
-        // Capsules only under lines that are drawn: lines past the visible-extent cut
-        // (`overflow: elide` height limit or `max-lines`) don't render their glyphs either.
-        for line in self.layout.lines().take(last_drawn + 1) {
+        for (_, line) in self.drawn_lines(layout, origin.y_length(), visible_band, last_drawn) {
             for item in line.items() {
                 let parley::PositionedLayoutItem::GlyphRun(glyph_run) = item else {
                     continue;
@@ -394,12 +486,12 @@ impl TextParagraph {
                 if bg_width <= 0.0 {
                     continue;
                 }
-                let bg_left = glyph_run.offset();
+                let bg_left = origin.x + glyph_run.offset();
 
                 let bg_rect = PhysicalRect::new(
                     PhysicalPoint::from_lengths(
                         PhysicalLength::new(bg_left),
-                        PhysicalLength::new(bg_top) + para_y,
+                        PhysicalLength::new(bg_top) + origin.y_length(),
                     ),
                     PhysicalSize::new(bg_width, bg_height),
                 );
@@ -429,7 +521,7 @@ impl TextParagraph {
         item_renderer: &mut R,
         default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
-        para_y: PhysicalLength,
+        origin: PhysicalPoint,
         // A uniform `no-wrap` line is a single run, so culling whole runs is not enough.
         visible_x_range: Option<&Range<PhysicalLength>>,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
@@ -438,7 +530,8 @@ impl TextParagraph {
         selection_brush: Option<&<R as GlyphRenderer>::PlatformBrush>,
         line_spans: &[SelectionSpan],
     ) {
-        let run_x = glyph_run.offset()..glyph_run.offset() + glyph_run.advance();
+        let run_start = origin.x + glyph_run.offset();
+        let run_x = run_start..run_start + glyph_run.advance();
 
         // Bidirectional text reorders glyphs within a run, so this filters rather than truncating.
         let x_range = visible_x_range.cloned();
@@ -457,7 +550,7 @@ impl TextParagraph {
                 item_renderer,
                 default_fill_brush,
                 default_stroke_brush,
-                para_y,
+                origin,
                 glyphs_it,
                 None,
             ),
@@ -466,7 +559,7 @@ impl TextParagraph {
                 item_renderer,
                 default_fill_brush,
                 default_stroke_brush,
-                para_y,
+                origin,
                 glyphs_it,
                 selection_brush,
             ),
@@ -494,7 +587,7 @@ impl TextParagraph {
                             item_renderer,
                             default_fill_brush,
                             default_stroke_brush,
-                            para_y,
+                            origin,
                             &glyphs,
                             segment,
                             brush,
@@ -507,7 +600,7 @@ impl TextParagraph {
                     item_renderer,
                     default_fill_brush,
                     default_stroke_brush,
-                    para_y,
+                    origin,
                     &glyphs,
                     x..run_x.end,
                     None,
@@ -516,14 +609,14 @@ impl TextParagraph {
         }
     }
 
-    /// Draws `glyphs` clipped to the horizontal band `x`, so that a glyph straddling the band's
+    /// Draws `glyphs` clipped to the horizontal band `x`, in item coordinates, so that a glyph straddling the band's
     /// edge is cut rather than recolored as a whole.
     fn draw_glyph_run_segment<R: GlyphRenderer>(
         glyph_run: &parley::layout::GlyphRun<Brush>,
         item_renderer: &mut R,
         default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
-        para_y: PhysicalLength,
+        origin: PhysicalPoint,
         glyphs: &[parley::layout::Glyph],
         x: Range<f32>,
         override_fill_brush: Option<&<R as GlyphRenderer>::PlatformBrush>,
@@ -558,7 +651,7 @@ impl TextParagraph {
                 item_renderer,
                 default_fill_brush,
                 default_stroke_brush,
-                para_y,
+                origin,
                 &mut glyphs.iter().cloned(),
                 override_fill_brush,
             );
@@ -572,11 +665,18 @@ impl TextParagraph {
         item_renderer: &mut R,
         default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
-        para_y: PhysicalLength,
+        origin: PhysicalPoint,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
         // Forced fill for selected glyphs, overriding the run's own brush.
         override_fill_brush: Option<&<R as GlyphRenderer>::PlatformBrush>,
     ) {
+        let para_y = origin.y_length();
+        let mut glyphs_it = glyphs_it.map(|mut glyph| {
+            glyph.x += origin.x;
+            glyph
+        });
+        let glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph> = &mut glyphs_it;
+
         let run = glyph_run.run();
         let normalized_coords: &[i16] = bytemuck::cast_slice(run.normalized_coords());
         let synthesis = run.synthesis();
@@ -684,7 +784,7 @@ impl TextParagraph {
         let decoration = |item_renderer: &R, offset: f32, size: f32| {
             PhysicalRect::new(
                 PhysicalPoint::new(
-                    glyph_run.offset(),
+                    origin.x + glyph_run.offset(),
                     item_renderer.snap_y(para_y.get() + glyph_run.baseline() - offset),
                 ),
                 PhysicalSize::new(glyph_run.advance(), size.round().max(1.)),
