@@ -866,7 +866,7 @@ macro_rules! check_geometry {
 
 struct QtItemRenderer<'a> {
     painter: QPainterPtr,
-    cache: &'a ItemCache<qttypes::QPixmap>,
+    cache: &'a ItemCache<Rc<qttypes::QPixmap>>,
     text_layout_cache: &'a sharedparley::TextLayoutCache,
     window: &'a i_slint_core::api::Window,
     metrics: RenderingMetrics,
@@ -1064,7 +1064,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         item_rc: &ItemRc,
         _size: LogicalSize,
     ) {
-        let pixmap : qttypes::QPixmap = self.cache.get_or_update_cache_entry( item_rc, || {
+        let pixmap = self.cache.get_or_update_cache_entry( item_rc, || Rc::new({
                 let shadow_rect = check_geometry!(item_rc.geometry().size);
 
                 let source_size = qttypes::QSize {
@@ -1135,7 +1135,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
                         return QPixmap::fromImage(*img);
                     }}
                 }
-            });
+            }));
+        let pixmap = qttypes::QPixmap::clone(&pixmap);
 
         let blur_radius = box_shadow.blur();
 
@@ -1900,7 +1901,29 @@ pub(crate) fn image_to_pixmap(
     source_size: Option<euclid::Size2D<u32, PhysicalPx>>,
     context: &i_slint_core::SlintContext,
 ) -> Option<qttypes::QPixmap> {
-    shared_image_buffer_to_pixmap(&image.render_to_buffer(source_size, Some(context))?)
+    image_to_shared_pixmap(image, source_size, context)
+        .map(|pixmap| qttypes::QPixmap::clone(&pixmap))
+}
+
+/// Returns the pixmap of `image`, rendered at `source_size` if it's an SVG.
+/// The pixmap of an image with a cache key, other than an SVG, is shared through the image
+/// cache of `context`.
+fn image_to_shared_pixmap(
+    image: &ImageInner,
+    source_size: Option<euclid::Size2D<u32, PhysicalPx>>,
+    context: &i_slint_core::SlintContext,
+) -> Option<Rc<qttypes::QPixmap>> {
+    let key = i_slint_core::graphics::ImageCacheKey::new(image).filter(|_| !image.is_svg());
+    let Some(key) = key else {
+        return shared_image_buffer_to_pixmap(&image.render_to_buffer(source_size, Some(context))?)
+            .map(Rc::new);
+    };
+    i_slint_core::graphics::cache::cached(Some(context), &key, || {
+        let pixmap =
+            shared_image_buffer_to_pixmap(&image.render_to_premultiplied_buffer(None, context)?)?;
+        let size = pixmap.size();
+        Some((pixmap, size.width as usize * size.height as usize * 4))
+    })
 }
 
 /// Converts a Qt image to a Slint `SharedPixelBuffer<Rgba8Pixel>`, repacking each
@@ -1978,7 +2001,7 @@ impl QtItemRenderer<'_> {
             (1., 1.)
         };
 
-        let pixmap: qttypes::QPixmap = self.cache.get_or_update_cache_entry_unless(
+        let pixmap = self.cache.get_or_update_cache_entry_unless(
             item_rc,
             || {
                 let source = image.source(context);
@@ -2001,11 +2024,14 @@ impl QtItemRenderer<'_> {
                     None
                 };
 
-                image_to_pixmap(source, source_size, context).map_or_else(
+                image_to_shared_pixmap(source, source_size, context).map_or_else(
                     Default::default,
-                    |mut pixmap: qttypes::QPixmap| {
+                    |pixmap| {
                         let colorize = image.colorize();
-                        if !colorize.is_transparent() {
+                        if colorize.is_transparent() {
+                            pixmap
+                        } else {
+                            let mut pixmap = qttypes::QPixmap::clone(&pixmap);
                             let pixmap_size = pixmap.size();
                             let brush: qttypes::QBrush = into_qbrush(
                                 colorize,
@@ -2017,8 +2043,8 @@ impl QtItemRenderer<'_> {
                                 p.setCompositionMode(QPainter::CompositionMode_SourceIn);
                                 p.fillRect(QRect(QPoint(), pixmap.size()), brush);
                             });
+                            Rc::new(pixmap)
                         }
-                        pixmap
                     },
                 )
             },
@@ -2042,6 +2068,7 @@ impl QtItemRenderer<'_> {
             },
         );
 
+        let pixmap = qttypes::QPixmap::clone(&pixmap);
         let image_size = pixmap.size();
         let source_rect = source_rect
             .unwrap_or_else(|| euclid::rect(0, 0, image_size.width as _, image_size.height as _));
@@ -2194,7 +2221,7 @@ impl QtItemRenderer<'_> {
         item_rc: &ItemRc,
         layer_size_fn: &dyn Fn() -> LogicalSize,
     ) -> qttypes::QPixmap {
-        self.cache.get_or_update_cache_entry(item_rc,  || {
+        let layer = self.cache.get_or_update_cache_entry(item_rc,  || {
             let painter: &mut QPainterPtr = &mut self.painter;
             let dpr = cpp! { unsafe [painter as "QPainterPtr*"] -> f32 as "float" {
                 return (*painter)->paintEngine()->paintDevice()->devicePixelRatioF();
@@ -2209,7 +2236,7 @@ impl QtItemRenderer<'_> {
             // Skip rendering if the size is zero since QPainter fails to draw
             // on an empty QImage (and also to avoid wasting CPU cycles).
             if layer_size.width == 0 || layer_size.height == 0 {
-                return qttypes::QPixmap::default();
+                return Default::default();
             }
 
             let mut layer_image = qttypes::QImage::new(layer_size, qttypes::ImageFormat::ARGB32_Premultiplied);
@@ -2239,8 +2266,9 @@ impl QtItemRenderer<'_> {
             std::mem::swap(&mut self.painter, &mut layer_painter);
             drop(layer_painter);
 
-            qttypes::QPixmap::from(layer_image)
-        })
+            Rc::new(qttypes::QPixmap::from(layer_image))
+        });
+        qttypes::QPixmap::clone(&layer)
     }
 
     fn render_and_blend_layer(&mut self, alpha_tint: f32, item_rc: &ItemRc) -> RenderingResult {
@@ -2328,7 +2356,7 @@ pub struct QtWindow {
 
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
 
-    cache: ItemCache<qttypes::QPixmap>,
+    cache: ItemCache<Rc<qttypes::QPixmap>>,
     text_layout_cache: sharedparley::TextLayoutCache,
 
     tree_structure_changed: RefCell<bool>,
