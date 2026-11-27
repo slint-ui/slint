@@ -729,7 +729,7 @@ fn lower_menu_items(
     });
     let enclosing = parent.borrow().enclosing_component.upgrade().unwrap();
 
-    super::lower_popups::check_no_reference_to_popup(
+    super::lower_sub_windows::check_no_reference_to_sub_window(
         parent,
         &enclosing,
         &Rc::downgrade(&component),

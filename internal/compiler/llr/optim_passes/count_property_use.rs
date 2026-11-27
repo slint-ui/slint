@@ -145,15 +145,16 @@ pub fn count_property_use(root: &CompilationUnit) {
         }
 
         // 10. popup x/y coordinates
-        for popup in &sc.popup_windows {
+        for sub_window in &sc.sub_windows {
+            let crate::llr::SubWindowKind::Popup { position, .. } = &sub_window.kind;
             let parent_ctx = ParentScope::new(ctx, None);
             let popup_ctx = EvaluationContext::new_sub_component(
                 root,
-                popup.item_tree.root,
+                sub_window.item_tree.root,
                 (),
                 Some(&parent_ctx),
             );
-            popup.position.borrow().visit_property_references(&popup_ctx, &mut visit_property)
+            position.borrow().visit_property_references(&popup_ctx, &mut visit_property)
         }
         // 11. timer
         for timer in &sc.timers {

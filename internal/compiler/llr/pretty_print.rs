@@ -299,17 +299,18 @@ impl PrettyPrinter<'_> {
             write!(self.writer, "menu : /*@menu({i})*/ ")?;
             self.print_component(root, t.root, Some(&ParentScope::new(&ctx, None)))?
         }
-        for (i, w) in sc.popup_windows.iter().enumerate() {
+        for (i, w) in sc.sub_windows.iter().enumerate() {
             self.indent()?;
             let parent = ParentScope::new(&ctx, None);
+            let crate::llr::SubWindowKind::Popup { position, is_tooltip } = &w.kind;
             // The position is evaluated in the popup's own scope.
             let popup_ctx =
                 EvaluationContext::new_sub_component(root, w.item_tree.root, (), Some(&parent));
             write!(
                 self.writer,
                 "{} at {} : /*@popup({i})*/ ",
-                if w.is_tooltip { "tooltip" } else { "popup" },
-                DisplayExpression(&w.position.borrow(), &popup_ctx)
+                if *is_tooltip { "tooltip" } else { "popup" },
+                DisplayExpression(&position.borrow(), &popup_ctx)
             )?;
             self.print_component(root, w.item_tree.root, Some(&parent))?
         }

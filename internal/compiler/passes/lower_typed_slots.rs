@@ -221,7 +221,7 @@ pub(super) fn lower(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
             *reference = target.clone();
         }
     });
-    for popup in component.popup_windows.borrow().iter() {
+    for popup in component.sub_windows.borrow().iter() {
         lower(&popup.component, diag);
     }
     for menu in component.menu_item_tree.borrow().iter() {

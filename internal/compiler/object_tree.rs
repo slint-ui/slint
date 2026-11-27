@@ -367,17 +367,53 @@ impl Document {
     }
 }
 
+/// An element lowered into its own component, which is only instantiated while it's shown in its own window.
+/// It can read the properties of the enclosing component.
+#[derive(Debug, Clone)]
+pub struct SubWindow {
+    pub component: Rc<Component>,
+    pub parent_element: ElementRc,
+    pub kind: SubWindowKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum SubWindowKind {
+    Popup(PopupWindow),
+}
+
+impl SubWindow {
+    pub fn as_popup(&self) -> Option<&PopupWindow> {
+        match &self.kind {
+            SubWindowKind::Popup(p) => Some(p),
+        }
+    }
+
+    pub fn as_popup_mut(&mut self) -> Option<&mut PopupWindow> {
+        match &mut self.kind {
+            SubWindowKind::Popup(p) => Some(p),
+        }
+    }
+}
+
+impl PopupWindow {
+    pub fn visit_named_references(&mut self, vis: &mut dyn FnMut(&mut NamedReference)) {
+        vis(&mut self.x);
+        vis(&mut self.y);
+        if let Some(is_open) = &mut self.is_open {
+            vis(is_open);
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct PopupWindow {
-    pub component: Rc<Component>,
     pub x: NamedReference,
     pub y: NamedReference,
     pub close_policy: EnumerationValue,
-    pub parent_element: ElementRc,
     pub is_tooltip: bool,
     /// A reference to a synthesized property on the *parent* component that the runtime keeps in sync
     /// with the popup's visibility (`true` while shown, `false` once closed). This is `Some` only when
-    /// the parent reads the PopupWindow's `is-open` property; see the `lower_popups` pass.
+    /// the parent reads the PopupWindow's `is-open` property; see the `lower_sub_windows` pass.
     pub is_open: Option<NamedReference>,
 }
 
@@ -609,11 +645,11 @@ pub struct Component {
 
     pub init_code: RefCell<InitCode>,
 
-    pub popup_windows: RefCell<Vec<PopupWindow>>,
+    pub sub_windows: RefCell<Vec<SubWindow>>,
     pub timers: RefCell<Vec<Timer>>,
     pub menu_item_tree: RefCell<Vec<Rc<Component>>>,
 
-    /// This component actually inherits PopupWindow (although that has been changed to a Window by the lower_popups pass)
+    /// This component actually inherits PopupWindow (although that has been changed to a Window by the lower_sub_windows pass)
     pub inherits_popup_window: Cell<bool>,
 
     /// The names under which this component should be accessible
@@ -1392,7 +1428,7 @@ pub struct Element {
 
     /// true if this Element may have a popup as child meaning it cannot be optimized
     /// because the popup references it.
-    pub has_popup_child: bool,
+    pub has_sub_window_child: bool,
 
     /// True for compiler-generated tooltip `PopupWindow` instances (see `lower_tooltips`).
     pub is_tooltip: bool,
@@ -3546,7 +3582,7 @@ fn recurse_elem_including_sub_components_dyn<State>(
         vis(elem, state)
     });
     component
-        .popup_windows
+        .sub_windows
         .borrow()
         .iter()
         .for_each(|p| recurse_elem_including_sub_components_dyn(&p.component, state, vis));
@@ -3612,7 +3648,7 @@ fn recurse_elem_including_sub_components_no_borrow_dyn<State>(
         }
         vis(elem, state)
     });
-    component.popup_windows.borrow().iter().for_each(|p| {
+    component.sub_windows.borrow().iter().for_each(|p| {
         recurse_elem_including_sub_components_no_borrow_dyn(&p.component, state, vis)
     });
     component
@@ -4072,11 +4108,9 @@ fn visit_all_named_references_dyn(component: &Component, vis: &mut dyn FnMut(&mu
             if !Weak::ptr_eq(parent_compo, &compo) {
                 let compo = compo.upgrade().unwrap();
                 compo.root_constraints.borrow_mut().visit_named_references(vis);
-                compo.popup_windows.borrow_mut().iter_mut().for_each(|p| {
-                    vis(&mut p.x);
-                    vis(&mut p.y);
-                    if let Some(is_open) = &mut p.is_open {
-                        vis(is_open);
+                compo.sub_windows.borrow_mut().iter_mut().for_each(|p| {
+                    if let Some(popup) = p.as_popup_mut() {
+                        popup.visit_named_references(vis);
                     }
                 });
                 compo.timers.borrow_mut().iter_mut().for_each(|t| {

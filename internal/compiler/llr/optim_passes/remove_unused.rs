@@ -211,7 +211,7 @@ mod visitor {
                 for r in &sc.repeated {
                     parent_mapping[r.sub_tree.root] = Some(idx);
                 }
-                for p in &sc.popup_windows {
+                for p in &sc.sub_windows {
                     parent_mapping[p.item_tree.root] = Some(idx);
                 }
                 for m in &sc.menu_item_trees {
@@ -316,7 +316,7 @@ mod visitor {
             items: _,
             repeated,
             component_containers: _,
-            popup_windows,
+            sub_windows,
             menu_item_trees: _,
             timers,
             sub_components: _,
@@ -395,10 +395,11 @@ mod visitor {
             }
         }
 
-        for p in popup_windows {
-            let popup_scope = EvaluationScope::SubComponent(p.item_tree.root, None);
-            visit_expression(p.position.get_mut(), &popup_scope, state, visitor);
-            visit_tree_node_z_properties(&mut p.item_tree.tree, &popup_scope, state, visitor);
+        for p in sub_windows {
+            let sub_window_scope = EvaluationScope::SubComponent(p.item_tree.root, None);
+            let SubWindowKind::Popup { position, .. } = &mut p.kind;
+            visit_expression(position.get_mut(), &sub_window_scope, state, visitor);
+            visit_tree_node_z_properties(&mut p.item_tree.tree, &sub_window_scope, state, visitor);
         }
         for t in timers {
             visit_expression(t.interval.get_mut(), &scope, state, visitor);

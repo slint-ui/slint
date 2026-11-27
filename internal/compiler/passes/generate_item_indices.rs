@@ -38,7 +38,7 @@ pub fn generate_item_indices(component: &Rc<Component>) {
     // the structure as if the SubCompo was inlined, but it also means that the local item indices must be
     // counted continuously.
     crate::generator::build_item_tree(component, &false, &mut Helper { current_item_index: 0 });
-    for p in component.popup_windows.borrow().iter() {
+    for p in component.sub_windows.borrow().iter() {
         generate_item_indices(&p.component)
     }
     for c in component.menu_item_tree.borrow().iter() {

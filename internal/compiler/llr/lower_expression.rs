@@ -677,7 +677,7 @@ fn lower_listview_ensure_row_visible(
 /// component is the parent item's enclosing component, which is not always the parent item
 /// itself (it may be a nested sub-component instance), so this reference must be resolved
 /// separately from the parent item used for positioning.
-fn lower_popup_owner(
+fn lower_sub_window_owner(
     e: &ElementWeak,
     ctx: &mut ExpressionLoweringCtx,
 ) -> (Rc<Component>, llr_Expression, usize) {
@@ -690,7 +690,7 @@ fn lower_popup_owner(
         ctx,
     );
     let popup_index = parent_component
-        .popup_windows
+        .sub_windows
         .borrow()
         .iter()
         .position(|p| Rc::ptr_eq(&p.component, &pop_comp))
@@ -703,11 +703,13 @@ fn lower_show_popup_window(
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     if let [tree_Expression::ElementReference(e)] = args {
-        let (parent_component, owner_ref, popup_index) = lower_popup_owner(e, ctx);
-        let popup_list = parent_component.popup_windows.borrow();
-        let popup = &popup_list[popup_index];
+        let (parent_component, owner_ref, popup_index) = lower_sub_window_owner(e, ctx);
+        let sub_windows = parent_component.sub_windows.borrow();
+        let sub_window = &sub_windows[popup_index];
+        let popup =
+            sub_window.as_popup().expect("ShowPopupWindow on a sub-window that isn't a popup");
         let item_ref = lower_expression(
-            &tree_Expression::ElementReference(Rc::downgrade(&popup.parent_element)),
+            &tree_Expression::ElementReference(Rc::downgrade(&sub_window.parent_element)),
             ctx,
         );
 
@@ -738,7 +740,7 @@ fn lower_close_popup_window(
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     if let [tree_Expression::ElementReference(e)] = args {
-        let (_, owner_ref, popup_index) = lower_popup_owner(e, ctx);
+        let (_, owner_ref, popup_index) = lower_sub_window_owner(e, ctx);
         llr_Expression::BuiltinFunctionCall {
             function: BuiltinFunction::ClosePopupWindow,
             arguments: vec![llr_Expression::NumberLiteral(popup_index as _), owner_ref],

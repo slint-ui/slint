@@ -29,7 +29,7 @@ pub fn optimize_useless_rectangles(root_component: &Rc<Component>) {
 
             let enclosing = parent.enclosing_component.upgrade().unwrap();
 
-            for popup in enclosing.popup_windows.borrow_mut().iter_mut() {
+            for popup in enclosing.sub_windows.borrow_mut().iter_mut() {
                 if Rc::ptr_eq(&popup.parent_element, &elem) {
                     // parent element is use for x/y, and the position of the removed element is 0,0
                     popup.parent_element = parent_.clone();
@@ -47,7 +47,7 @@ pub fn optimize_useless_rectangles(root_component: &Rc<Component>) {
 /// Check that this is a element we can optimize
 fn can_optimize(elem: &ElementRc) -> bool {
     let element = elem.borrow();
-    if element.is_flickable_content || element.has_popup_child || element.is_component_placeholder {
+    if element.is_flickable_content || element.has_sub_window_child || element.is_component_placeholder {
         return false;
     };
 

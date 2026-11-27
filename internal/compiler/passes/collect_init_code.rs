@@ -25,7 +25,7 @@ pub fn collect_init_code(component: &Rc<Component>) {
                 .push(InitCodeEntry { owner: Rc::downgrade(elem), code: init_callback.expression });
         }
     });
-    for popup in component.popup_windows.borrow().iter() {
+    for popup in component.sub_windows.borrow().iter() {
         collect_init_code(&popup.component);
     }
 }

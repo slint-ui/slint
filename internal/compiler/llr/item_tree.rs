@@ -587,7 +587,7 @@ pub struct SubComponent {
     pub items: TiVec<ItemInstanceIdx, Item>,
     pub repeated: TiVec<RepeatedElementIdx, RepeatedElement>,
     pub component_containers: Vec<ComponentContainerElement>,
-    pub popup_windows: Vec<PopupWindow>,
+    pub sub_windows: Vec<SubWindow>,
     /// The MenuItem trees. The index is stored in a Expression::NumberLiteral in the arguments of BuiltinFunction::ShowPopupMenu and BuiltinFunction::SetupMenuBar
     pub menu_item_trees: Vec<ItemTree>,
     pub timers: TiVec<TimerIdx, Timer>,
@@ -692,10 +692,15 @@ pub struct SubComponent {
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct PopupWindow {
+pub struct SubWindow {
     pub item_tree: ItemTree,
-    pub position: MutExpression,
-    pub is_tooltip: bool,
+    pub kind: SubWindowKind,
+}
+
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum SubWindowKind {
+    Popup { position: MutExpression, is_tooltip: bool },
 }
 
 #[derive(Debug, Clone)]
@@ -905,7 +910,7 @@ impl CompilationUnit {
                     Some(&ParentScope::new(&ctx, Some(idx))),
                 );
             }
-            for popup in &sc.popup_windows {
+            for popup in &sc.sub_windows {
                 visit_component(
                     root,
                     popup.item_tree.root,
@@ -1044,7 +1049,7 @@ impl CompilationUnit {
             for r in &sc.repeated {
                 trees[r.sub_tree.root] = Some(&r.sub_tree.tree);
             }
-            for p in &sc.popup_windows {
+            for p in &sc.sub_windows {
                 trees[p.item_tree.root] = Some(&p.item_tree.tree);
             }
         }

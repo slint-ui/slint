@@ -381,8 +381,9 @@ fn make_static(compilation_unit: &mut CompilationUnit) {
         expression.borrow_mut().visit_recursive_mut(&mut make_expression_static);
     });
     for sub_component in &compilation_unit.sub_components {
-        for popup in &sub_component.popup_windows {
-            popup.position.borrow_mut().visit_recursive_mut(&mut make_expression_static);
+        for sub_window in &sub_component.sub_windows {
+            let i_slint_compiler::llr::SubWindowKind::Popup { position, .. } = &sub_window.kind;
+            position.borrow_mut().visit_recursive_mut(&mut make_expression_static);
         }
     }
     for sub_component in &mut compilation_unit.sub_components {

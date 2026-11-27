@@ -179,7 +179,7 @@ pub struct SubComponentInstance {
     pub change_trackers: Vec<ChangeTracker>,
     /// One runtime `Timer` per `SubComponent::timers` entry.
     pub timers: Vec<i_slint_core::timers::Timer>,
-    /// One entry per `SubComponent::popup_windows`. Stores the currently
+    /// One entry per `SubComponent::sub_windows`. Stores the currently
     /// open popup's id (handed out by `WindowInner::show_popup`) so a
     /// later `popup.close()` in the same sub-component can resolve which
     /// popup to tear down.
@@ -933,7 +933,7 @@ fn build_sub_component_instance(
                 .take(sc.change_callbacks.len())
                 .collect(),
             timers: core::iter::repeat_with(Default::default).take(sc.timers.len()).collect(),
-            popup_ids: vec![Cell::new(None); sc.popup_windows.len()],
+            popup_ids: vec![Cell::new(None); sc.sub_windows.len()],
             repeated_in: OnceCell::new(),
             menubar: RefCell::new(None),
         }

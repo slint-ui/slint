@@ -68,14 +68,14 @@ fn collect_renames(component: &Rc<Component>, renames: &mut RenameMap) {
         }
     }
 
-    component.popup_windows.borrow().iter().for_each(|p| collect_renames(&p.component, renames));
+    component.sub_windows.borrow().iter().for_each(|p| collect_renames(&p.component, renames));
     component.menu_item_tree.borrow().iter().for_each(|c| collect_renames(c, renames));
 }
 
 fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
     let mut decl = Declarations::take_from_element(&mut component.root_element.borrow_mut());
     component
-        .popup_windows
+        .sub_windows
         .borrow()
         .iter()
         .for_each(|f| do_move_declarations(&f.component, renames));
@@ -153,14 +153,12 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
         .root_constraints
         .borrow_mut()
         .visit_named_references(&mut |nr| fixup_reference(nr, renames));
-    component.popup_windows.borrow_mut().iter_mut().for_each(|p| {
-        fixup_reference(&mut p.x, renames);
-        fixup_reference(&mut p.y, renames);
+    component.sub_windows.borrow_mut().iter_mut().for_each(|p| {
         // `is_open` references the synthesized property on this (the parent) component; it must be
         // remapped to the moved-to-root property just like `x`/`y`, otherwise the runtime setter
         // (see the interpreter's `show_popup`) cannot find it once the declaration is hoisted.
-        if let Some(is_open) = &mut p.is_open {
-            fixup_reference(is_open, renames);
+        if let Some(popup) = p.as_popup_mut() {
+            popup.visit_named_references(&mut |nr| fixup_reference(nr, renames));
         }
         visit_all_named_references(&p.component, &mut |nr| fixup_reference(nr, renames))
     });
@@ -244,7 +242,7 @@ fn moved_name(renames: &RenameMap, e: &ElementRc, s: &SmolStr) -> SmolStr {
 fn simplify_optimized_items_recursive(component: &Rc<Component>) {
     simplify_optimized_items(component.optimized_elements.borrow().as_slice());
     component
-        .popup_windows
+        .sub_windows
         .borrow()
         .iter()
         .for_each(|f| simplify_optimized_items_recursive(&f.component));

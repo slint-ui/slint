@@ -57,7 +57,7 @@ const OFFSET: &str = "offset";
 const TEXT: &str = "text";
 
 /// Report an error and replace any named reference that points to the tooltip element itself.
-/// References to the tooltip's *children* are caught later by `lower_popups::check_no_reference_to_popup`
+/// References to the tooltip's *children* are caught later by `lower_sub_windows::check_no_reference_to_sub_window`
 /// once the children have been moved into the generated PopupWindow component.
 fn check_no_reference_to_tooltip(
     tooltip_element: &ElementRc,
@@ -72,7 +72,7 @@ fn check_no_reference_to_tooltip(
     let mut check = |nr: &NamedReference, span: &SourceLocation| {
         let in_tooltip = Rc::ptr_eq(&nr.element(), tooltip_element);
         if in_tooltip && reported.insert(nr.clone()) {
-            super::lower_popups::report_access(
+            super::lower_sub_windows::report_access(
                 tooltip_element,
                 diag,
                 tooltip_element,
@@ -439,7 +439,7 @@ fn lower_tooltips_in_component(
             .into_iter()
             .collect(),
             // Carry the Tooltip's source location so diagnostics from
-            // lower_popups point back to the original Tooltip element.
+            // lower_sub_windows point back to the original Tooltip element.
             debug: tooltip_config.borrow().debug.clone(),
             ..Default::default()
         };

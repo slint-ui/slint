@@ -16,7 +16,7 @@ use i_slint_core::model::Model;
 
 pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression]) -> Value {
     // Expected args (from `BuiltinFunction::ShowPopupWindow`):
-    //   0: NumberLiteral(popup_index) into the declaring sub-component's popup_windows
+    //   0: NumberLiteral(popup_index) into the declaring sub-component's sub_windows
     //   1: close_policy expression
     //   2: PropertyReference to the declaring component's root (`owner_ref`): its
     //      `popup_id` and the popup's scope live here. Resolved through the full
@@ -49,10 +49,11 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
     };
     let cu = owner.compilation_unit.clone();
     let sc = &cu.sub_components[owner.sub_component_idx];
-    let popup = match sc.popup_windows.get(*popup_index as usize) {
+    let popup = match sc.sub_windows.get(*popup_index as usize) {
         Some(p) => p,
         None => return Value::Void,
     };
+    let i_slint_compiler::llr::SubWindowKind::Popup { position, is_tooltip } = &popup.kind;
 
     let popup_vrc = new_popup_for(&owner, &popup.item_tree);
 
@@ -80,7 +81,7 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
     };
 
     let window_kind = || {
-        if popup.is_tooltip {
+        if *is_tooltip {
             i_slint_core::window::WindowKind::ToolTip
         } else {
             i_slint_core::window::WindowKind::Popup
@@ -96,7 +97,7 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
     // The position expression is evaluated lazily so the window can
     // re-query it after measuring the popup.
     let access_position: Box<dyn Fn() -> i_slint_core::api::LogicalPosition> = {
-        let pos_expr = popup.position.borrow().clone();
+        let pos_expr = position.borrow().clone();
         let popup_root = popup_vrc.root_sub_component.clone();
         Box::new(move || {
             let mut popup_ctx = EvalContext::new(popup_root.clone());
@@ -140,7 +141,7 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
 
 pub(crate) fn close_popup_window(ctx: &mut EvalContext, arguments: &[Expression]) -> Value {
     // Expected args (from `BuiltinFunction::ClosePopupWindow`):
-    //   0: NumberLiteral(popup_index) into the declaring sub-component's popup_windows
+    //   0: NumberLiteral(popup_index) into the declaring sub-component's sub_windows
     //   1: PropertyReference to the declaring component's root, where `popup_id`
     //      lives — resolved through the full reference like `show_popup_window`.
     let [Expression::NumberLiteral(popup_index), Expression::PropertyReference(parent_ref)] =

@@ -71,7 +71,7 @@ impl Check<'_> {
     /// A popup is a tree of its own:
     /// its items nest under the popup, not under the element that declares it.
     fn visit_popups(&mut self, component: &Component) {
-        for popup in component.popup_windows.borrow().iter() {
+        for popup in component.sub_windows.borrow().iter() {
             self.visit_component(&popup.component);
         }
     }

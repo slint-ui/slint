@@ -1639,7 +1639,7 @@ fn generate_public_component(
         for repeater in &sc.repeated {
             add_friends(friends, unit, repeater.sub_tree.root, false)
         }
-        for popup in &sc.popup_windows {
+        for popup in &sc.sub_windows {
             add_friends(friends, unit, popup.item_tree.root, false)
         }
         for menu in &sc.menu_item_trees {
@@ -2360,7 +2360,7 @@ fn generate_child_item_trees(
     let component = &root.sub_components[component];
     let parent_ctx = ParentScope::new(&ctx, None);
 
-    component.popup_windows.iter().for_each(|popup| {
+    component.sub_windows.iter().for_each(|popup| {
         let component_id = ident(&root.sub_components[popup.item_tree.root].name);
         let mut popup_struct = Struct { name: component_id.clone(), ..Default::default() };
         generate_item_tree(
@@ -2627,7 +2627,7 @@ fn generate_sub_component_body(
         ));
     }
 
-    for (i, _) in component.popup_windows.iter().enumerate() {
+    for (i, _) in component.sub_windows.iter().enumerate() {
         target_struct.members.push((
             field_access,
             Declaration::Var(Var {
@@ -5471,7 +5471,8 @@ fn compile_builtin_function_call(
 
                 ctx.with_reference_scope(*parent_level, &local_reference.sub_component_path, |parent_ctx| {
                 let popup = &ctx.compilation_unit.sub_components[parent_ctx.sub_component]
-                    .popup_windows[*popup_index as usize];
+                    .sub_windows[*popup_index as usize];
+                let llr::SubWindowKind::Popup { position, is_tooltip } = &popup.kind;
                 let popup_window_id =
                     ident(&ctx.compilation_unit.sub_components[popup.item_tree.root].name);
                 let popup_ctx = EvaluationContext::new_sub_component(
@@ -5480,9 +5481,9 @@ fn compile_builtin_function_call(
                     CppGeneratorContext { global_access: "self->globals".into(), conditional_includes: ctx.generator_state.conditional_includes },
                     Some(&parent_ctx),
                 );
-                let position = compile_expression(&popup.position.borrow(), &popup_ctx);
+                let position = compile_expression(&position.borrow(), &popup_ctx);
                 let close_policy = compile_expression(close_policy, ctx);
-                let window_kind = if popup.is_tooltip { "::slint::cbindgen_private::WindowKind::ToolTip" } else { "::slint::cbindgen_private::WindowKind::Popup" };
+                let window_kind = if *is_tooltip { "::slint::cbindgen_private::WindowKind::ToolTip" } else { "::slint::cbindgen_private::WindowKind::Popup" };
                 // Keep the parent's `is-open` property in sync. The setter is passed directly into
                 // `show_popup`, so there is no extra registration call and no second popup lookup. The
                 // `false` is delivered when the popup is dropped, which may be long after this frame, so

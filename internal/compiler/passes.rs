@@ -38,7 +38,7 @@ mod lower_component_container;
 pub(crate) mod lower_layout;
 mod lower_menus;
 mod lower_platform;
-mod lower_popups;
+mod lower_sub_windows;
 mod lower_property_to_element;
 mod lower_radiogroup;
 mod lower_repeated_rows;
@@ -156,7 +156,7 @@ pub async fn run_passes(
         lower_text_input_interface::lower_text_input_interface(component);
         compile_paths::check_derived_paths(component, &doc.local_registry, diag);
         repeater_component::process_repeater_components(component);
-        lower_popups::lower_popups(component, &doc.local_registry, diag);
+        lower_sub_windows::lower_sub_windows(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
         lower_timers::lower_timers(component, diag);
         lower_menus::remove_root_menus(component);

@@ -72,7 +72,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 accessibility_props: std::mem::take(&mut original_elem.accessibility_props),
                 geometry_props: original_elem.geometry_props.clone(),
                 is_flickable_content: original_elem.is_flickable_content,
-                has_popup_child: original_elem.has_popup_child,
+                has_sub_window_child: original_elem.has_sub_window_child,
                 is_tooltip: original_elem.is_tooltip,
                 z_order: original_elem.z_order.clone(),
                 item_index: Default::default(), // Not determined yet
@@ -144,7 +144,7 @@ fn create_repeater_components(component: &Rc<Component>) {
         original_elem_rc.borrow_mut().base_type = ElementType::Component(repeated_component);
     });
 
-    for p in component.popup_windows.borrow().iter() {
+    for p in component.sub_windows.borrow().iter() {
         create_repeater_components(&p.component);
     }
     for c in component.menu_item_tree.borrow().iter() {

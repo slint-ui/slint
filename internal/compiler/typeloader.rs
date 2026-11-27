@@ -393,12 +393,12 @@ impl Snapshotter {
                 RefCell::new(component.child_insertion_points.borrow().clone());
             let declared_slots = component.declared_slots.clone();
 
-            let popup_windows = RefCell::new(
+            let sub_windows = RefCell::new(
                 component
-                    .popup_windows
+                    .sub_windows
                     .borrow()
                     .iter()
-                    .map(|p| self.snapshot_popup_window(p))
+                    .map(|p| self.snapshot_sub_window(p))
                     .collect(),
             );
             let timers = RefCell::new(
@@ -427,7 +427,7 @@ impl Snapshotter {
                 inherits_popup_window: std::cell::Cell::new(component.inherits_popup_window.get()),
                 optimized_elements,
                 parent_element: RefCell::new(parent_element),
-                popup_windows,
+                sub_windows,
                 timers,
                 menu_item_tree,
                 private_properties: RefCell::new(component.private_properties.borrow().clone()),
@@ -622,7 +622,7 @@ impl Snapshotter {
         target_element.child_of_layout = elem.child_of_layout;
         target_element.child_of_flexbox = elem.child_of_flexbox;
         target_element.default_fill_parent = elem.default_fill_parent;
-        target_element.has_popup_child = elem.has_popup_child;
+        target_element.has_sub_window_child = elem.has_sub_window_child;
         target_element.inline_depth = elem.inline_depth;
         target_element.is_component_placeholder = elem.is_component_placeholder;
         target_element.is_flickable_content = elem.is_flickable_content;
@@ -746,19 +746,28 @@ impl Snapshotter {
         }
     }
 
-    fn snapshot_popup_window(
+    fn snapshot_sub_window(
         &mut self,
-        popup_window: &object_tree::PopupWindow,
-    ) -> object_tree::PopupWindow {
-        object_tree::PopupWindow {
-            component: Weak::upgrade(&self.use_component(&popup_window.component))
+        sub_window: &object_tree::SubWindow,
+    ) -> object_tree::SubWindow {
+        object_tree::SubWindow {
+            component: Weak::upgrade(&self.use_component(&sub_window.component))
                 .expect("Looking at a known component"),
-            x: popup_window.x.snapshot(self),
-            y: popup_window.y.snapshot(self),
-            close_policy: popup_window.close_policy.clone(),
-            parent_element: self.use_element(&popup_window.parent_element),
-            is_tooltip: popup_window.is_tooltip,
-            is_open: popup_window.is_open.as_ref().map(|is_open| is_open.snapshot(self)),
+            parent_element: self.use_element(&sub_window.parent_element),
+            kind: match &sub_window.kind {
+                object_tree::SubWindowKind::Popup(popup_window) => {
+                    object_tree::SubWindowKind::Popup(object_tree::PopupWindow {
+                        x: popup_window.x.snapshot(self),
+                        y: popup_window.y.snapshot(self),
+                        close_policy: popup_window.close_policy.clone(),
+                        is_tooltip: popup_window.is_tooltip,
+                        is_open: popup_window
+                            .is_open
+                            .as_ref()
+                            .map(|is_open| is_open.snapshot(self)),
+                    })
+                }
+            },
         }
     }
 

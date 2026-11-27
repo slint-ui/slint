@@ -61,7 +61,7 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
                 }
             }
         });
-        component.popup_windows.borrow().iter().for_each(|p| {
+        component.sub_windows.borrow().iter().for_each(|p| {
             inline_components_recursively(&p.component, roots, inline_selection, diag)
         })
     }
@@ -303,7 +303,7 @@ fn inline_element(
         } else if !children.is_empty() {
             let enclosing = inlined_cip.parent.borrow().enclosing_component.upgrade().unwrap();
             let in_popup = inlined_component
-                .popup_windows
+                .sub_windows
                 .borrow()
                 .iter()
                 .any(|p| Rc::ptr_eq(&p.component, &enclosing));
@@ -418,16 +418,16 @@ fn inline_element(
         .optimized_elements
         .borrow_mut()
         .extend(removed_defaults.retain_optimized(optimized_elements));
-    root_component.popup_windows.borrow_mut().extend(
-        inlined_component.popup_windows.borrow().iter().filter_map(|p| {
+    root_component.sub_windows.borrow_mut().extend(
+        inlined_component.sub_windows.borrow().iter().filter_map(|p| {
             if removed_defaults.contains_original(&mapping, &p.parent_element)
                 || removed_defaults.is_replaced_default(&p.component.root_element)
             {
                 return None;
             }
-            let popup = duplicate_popup(p, &mut mapping, priority_delta);
-            removed_defaults.remark_kept_default(&popup.component.root_element);
-            Some(popup)
+            let sub_window = duplicate_sub_window(p, &mut mapping, priority_delta);
+            removed_defaults.remark_kept_default(&sub_window.component.root_element);
+            Some(sub_window)
         }),
     );
 
@@ -463,7 +463,7 @@ fn inline_element(
             &insertion_element.borrow().enclosing_component,
             &elem_mut.enclosing_component,
         ));
-        debug_assert!(root_component.popup_windows.borrow().iter().any(|p| Rc::ptr_eq(
+        debug_assert!(root_component.sub_windows.borrow().iter().any(|p| Rc::ptr_eq(
             &p.component,
             &insertion_element.borrow().enclosing_component.upgrade().unwrap()
         )));
@@ -604,12 +604,8 @@ fn inline_element(
         }
         visit_all_named_references_in_element(e, |nr| fixup_reference(nr, &mapping));
     }
-    for p in root_component.popup_windows.borrow_mut().iter_mut() {
-        fixup_reference(&mut p.x, &mapping);
-        fixup_reference(&mut p.y, &mapping);
-        if let Some(is_open) = &mut p.is_open {
-            fixup_reference(is_open, &mapping);
-        }
+    for p in root_component.sub_windows.borrow_mut().iter_mut().filter_map(|p| p.as_popup_mut()) {
+        p.visit_named_references(&mut |nr| fixup_reference(nr, &mapping));
     }
     for t in root_component.timers.borrow_mut().iter_mut() {
         fixup_reference(&mut t.interval, &mapping);
@@ -693,7 +689,7 @@ fn duplicate_element_with_mapping(
         item_index: Default::default(), // Not determined yet
         item_index_of_first_children: Default::default(),
         is_flickable_content: elem.is_flickable_content,
-        has_popup_child: elem.has_popup_child,
+        has_sub_window_child: elem.has_sub_window_child,
         is_tooltip: elem.is_tooltip,
         z_order: elem.z_order.clone(),
         is_legacy_syntax: elem.is_legacy_syntax,
@@ -776,7 +772,7 @@ fn duplicate_sub_component(
         child_insertion_points: component_to_duplicate.child_insertion_points.clone(),
         declared_slots: component_to_duplicate.declared_slots.clone(),
         init_code: component_to_duplicate.init_code.clone(),
-        popup_windows: Default::default(),
+        sub_windows: Default::default(),
         timers: component_to_duplicate.timers.clone(),
         menu_item_tree: Default::default(),
         exported_global_names: component_to_duplicate.exported_global_names.clone(),
@@ -794,18 +790,14 @@ fn duplicate_sub_component(
     for o in new_component.optimized_elements.borrow().iter() {
         o.element.borrow_mut().enclosing_component = weak.clone()
     }
-    *new_component.popup_windows.borrow_mut() = component_to_duplicate
-        .popup_windows
+    *new_component.sub_windows.borrow_mut() = component_to_duplicate
+        .sub_windows
         .borrow()
         .iter()
-        .map(|p| duplicate_popup(p, mapping, priority_delta))
+        .map(|p| duplicate_sub_window(p, mapping, priority_delta))
         .collect();
-    for p in new_component.popup_windows.borrow_mut().iter_mut() {
-        fixup_reference(&mut p.x, mapping);
-        fixup_reference(&mut p.y, mapping);
-        if let Some(is_open) = &mut p.is_open {
-            fixup_reference(is_open, mapping);
-        }
+    for p in new_component.sub_windows.borrow_mut().iter_mut().filter_map(|p| p.as_popup_mut()) {
+        p.visit_named_references(&mut |nr| fixup_reference(nr, mapping));
     }
     for t in new_component.timers.borrow_mut().iter_mut() {
         fixup_reference(&mut t.interval, mapping);
@@ -832,22 +824,18 @@ fn duplicate_sub_component(
     new_component
 }
 
-fn duplicate_popup(p: &PopupWindow, mapping: &mut Mapping, priority_delta: i32) -> PopupWindow {
+fn duplicate_sub_window(p: &SubWindow, mapping: &mut Mapping, priority_delta: i32) -> SubWindow {
     let parent = mapping
         .get(&element_key(p.component.parent_element().expect("must have a parent")))
         .expect("Parent must be in the mapping")
         .clone();
-    PopupWindow {
-        x: p.x.clone(),
-        y: p.y.clone(),
-        close_policy: p.close_policy.clone(),
+    SubWindow {
         component: duplicate_sub_component(&p.component, &parent, mapping, priority_delta),
         parent_element: mapping
             .get(&element_key(p.parent_element.clone()))
             .expect("Parent element must be in the mapping")
             .clone(),
-        is_tooltip: p.is_tooltip,
-        is_open: p.is_open.clone(),
+        kind: p.kind.clone(),
     }
 }
 
@@ -1078,7 +1066,7 @@ fn element_require_inlining(elem: &ElementRc) -> bool {
     }
 
     // Popup windows need to be inlined for root.close() to work properly.
-    if super::lower_popups::is_popup_window(elem) {
+    if super::lower_sub_windows::is_popup_window(elem) {
         return true;
     }
 
