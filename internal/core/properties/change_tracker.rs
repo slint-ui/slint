@@ -157,8 +157,7 @@ impl ChangeTracker {
                 let _self_raw = _self;
                 let _self = _self as *const BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>;
                 let inner = core::ptr::addr_of!((*_self).binding).as_ref().unwrap();
-                let mut pool =
-                    core::mem::take(&mut *(*core::ptr::addr_of!((*_self).dep_nodes)).get());
+                let mut pool = super::BindingHolder::take_dep_nodes(_self_raw);
                 assert!(!inner.evaluating.get());
                 inner.evaluating.set(true);
                 let new_value = super::current_binding_storage::set(

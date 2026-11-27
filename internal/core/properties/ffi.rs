@@ -565,8 +565,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         let _self_raw = _self;
         let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
         let inner = unsafe { core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap() };
-        let mut pool =
-            unsafe { core::mem::take(&mut *(*core::ptr::addr_of!((*_self).dep_nodes)).get()) };
+        let mut pool = unsafe { super::BindingHolder::take_dep_nodes(_self_raw) };
         let notify = super::current_binding_storage::set(
             super::PooledBindingHolder { binding: _self_raw, pool: &mut pool },
             || (inner.eval_fn)(inner.user_data),
@@ -682,5 +681,68 @@ mod ffi_change_tracker_leak_test {
             ctx.run_change_handlers();
             assert_eq!(ct.test_dep_node_count(), 1, "leaked a DependencyNode at iteration {i}");
         }
+    }
+
+    // Mode 0 reads `mode`, `first` and `second`. Any other mode reads `mode` and `second`.
+    struct SwitchState {
+        mode: *const Property<i32>,
+        first: *const Property<i32>,
+        second: *const Property<i32>,
+        evaluations: Cell<usize>,
+    }
+
+    extern "C" fn switch_eval_fn(user_data: *mut c_void) -> bool {
+        let st = unsafe { &*(user_data as *const SwitchState) };
+        st.evaluations.set(st.evaluations.get() + 1);
+        let get = |prop: *const Property<i32>| unsafe { Pin::new_unchecked(&*prop) }.get();
+        if get(st.mode) == 0 {
+            get(st.first);
+        }
+        get(st.second);
+        false
+    }
+
+    // The nodes of a change tracker are the reads of its last evaluation.
+    #[test]
+    fn ffi_change_tracker_nodes_follow_the_reads_of_the_last_evaluation() {
+        let ctx = crate::SlintContext::new(Box::new(crate::testing::NoWindowPlatform));
+        let mode = Box::pin(Property::new(0));
+        let first = Box::pin(Property::new(0));
+        let second = Box::pin(Property::new(0));
+        let state = SwitchState {
+            mode: &*mode as *const _,
+            first: &*first as *const _,
+            second: &*second as *const _,
+            evaluations: Cell::new(0),
+        };
+        let ct = ChangeTracker::default();
+        unsafe {
+            slint_change_tracker_init(
+                &ct as *const ChangeTracker as *const ChangeTrackerOpaque,
+                &state as *const SwitchState as *mut c_void,
+                drop_fn,
+                switch_eval_fn,
+                notify_fn,
+            );
+        }
+        assert_eq!(state.evaluations.get(), 1);
+        assert_eq!(ct.test_dep_node_count(), 3);
+
+        // Fewer reads: the node of `first` is dropped.
+        mode.as_ref().set(1);
+        ctx.run_change_handlers();
+        assert_eq!(state.evaluations.get(), 2);
+        assert_eq!(ct.test_dep_node_count(), 2);
+
+        // `first` is not read any more, so changing it doesn't evaluate again.
+        first.as_ref().set(1);
+        ctx.run_change_handlers();
+        assert_eq!(state.evaluations.get(), 2);
+
+        // More reads than nodes: the node for `first` is made again.
+        mode.as_ref().set(0);
+        ctx.run_change_handlers();
+        assert_eq!(state.evaluations.get(), 3);
+        assert_eq!(ct.test_dep_node_count(), 3);
     }
 }

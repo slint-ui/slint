@@ -70,20 +70,16 @@ mod single_linked_list_pin {
         }
 
         /// Like `push_front`, but moves the first node of `pool` to the front of this list
-        /// instead of allocating one, if there is one. That node must equal `value`.
+        /// instead of allocating one, if there is one. The node keeps its value, and `value`
+        /// is dropped.
         ///
         /// Safety: `pool` is null or valid.
-        pub unsafe fn push_front_from(&mut self, pool: *mut Self, value: T) -> Pin<&T>
-        where
-            T: PartialEq,
-        {
-            // Safety: see above.
+        pub unsafe fn push_front_from(&mut self, pool: *mut Self, value: T) -> Pin<&T> {
+            // Safety: `pool` is valid, and its first node is a valid allocation that it owned
+            // and this list owns now.
             let Some(node) = (unsafe { pool.as_ref() }).and_then(|pool| pool.0) else {
                 return self.push_front(value);
             };
-            // Safety: the node is a valid allocation.
-            debug_assert!(unsafe { (*node.as_ptr()).value == value });
-            // Safety: the node is a valid allocation that `pool` owned, and this list owns now.
             unsafe {
                 (*pool).0 = (*node.as_ptr()).next;
                 (*node.as_ptr()).next = self.0;
@@ -270,6 +266,10 @@ pub(crate) mod dependency_tracker {
             Self { next: Cell::new(core::ptr::null()), prev: Cell::new(core::ptr::null()), binding }
         }
 
+        pub fn binding(&self) -> &T {
+            &self.binding
+        }
+
         /// Assert that the invariant of `next` and `prev` are met.
         pub fn debug_assert_valid(&self) {
             // Under Miri with Tree Borrows, reading through prev/next creates
@@ -306,13 +306,6 @@ pub(crate) mod dependency_tracker {
             }
             self.prev.set(core::ptr::null());
             self.next.set(core::ptr::null());
-        }
-    }
-
-    /// Nodes are equal if they belong to the same binding, wherever they are linked.
-    impl<T: PartialEq> PartialEq for DependencyNode<T> {
-        fn eq(&self, other: &Self) -> bool {
-            self.binding == other.binding
         }
     }
 
@@ -421,10 +414,12 @@ mod current_binding_storage {
     pub(super) type Nodes = SingleLinkedListPinHead<DependencyNode>;
 
     /// The binding being evaluated, and the nodes of its previous evaluation.
+    /// A read takes a node from the pool before it allocates one.
+    /// The nodes that are left when the evaluation ends are dropped, which unlinks them.
     #[derive(Clone, Copy)]
     pub(super) struct PooledBindingHolder {
         pub(super) binding: *const BindingHolder,
-        /// The nodes that a new node is taken from before one is allocated, or null.
+        /// Null if there are no previous nodes to take.
         pub(super) pool: *mut Nodes,
     }
 
@@ -524,8 +519,22 @@ impl BindingHolder {
         unsafe {
             let dep_nodes = &mut *(*self_ptr).dep_nodes.get();
             let node = dep_nodes.push_front_from(pool, node);
+            debug_assert!(*node.binding() == self_ptr, "the pool has the nodes of another binding");
             DependencyListHead::append(&*property_that_will_notify, node);
         }
+    }
+
+    /// Takes the nodes of the previous evaluation, for the next one to reuse.
+    /// They are unlinked from the properties they were read from, so that those don't notify
+    /// the binding during the evaluation, as if the nodes were dropped.
+    ///
+    /// Safety: `self_ptr` is valid and pinned.
+    unsafe fn take_dep_nodes(self_ptr: *const BindingHolder) -> current_binding_storage::Nodes {
+        let nodes = core::mem::take(unsafe { &mut *(*self_ptr).dep_nodes.get() });
+        for node in nodes.iter() {
+            node.remove();
+        }
+        nodes
     }
 }
 
@@ -825,8 +834,7 @@ impl PropertyHandle {
                 // Safety: binding is Some so binding_ptr is too
                 let binding_ptr = unsafe { binding_ptr.unwrap_unchecked() };
 
-                // the old nodes are reused for the new ones, and the unused ones dropped
-                let mut pool = unsafe { core::mem::take(&mut *(*binding_ptr).dep_nodes.get()) };
+                let mut pool = unsafe { BindingHolder::take_dep_nodes(binding_ptr) };
                 let r = unsafe {
                     current_binding_storage::set(
                         PooledBindingHolder { binding: binding_ptr, pool: &mut pool },
@@ -1472,10 +1480,9 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
     /// If this is called during the evaluation of another property binding or property tracker, then
     /// any changes to accessed properties will not propagate to the other tracker.
     pub fn evaluate_as_dependency_root<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
-        // the old nodes are reused for the new ones, and the unused ones dropped
-        let mut pool = unsafe { core::mem::take(&mut *self.holder.dep_nodes.get()) };
-
         let holder_ptr = &raw const self.holder as *const BindingHolder;
+        let mut pool = unsafe { BindingHolder::take_dep_nodes(holder_ptr) };
+
         let r = current_binding_storage::set(
             PooledBindingHolder { binding: holder_ptr, pool: &mut pool },
             f,
@@ -1647,6 +1654,125 @@ fn test_property_dirty_handler() {
     prop.as_ref().set(101);
     assert!(tracker.as_ref().is_dirty());
     assert!(!call_flag.get());
+}
+
+#[test]
+fn test_evaluating_again_reuses_nodes_and_drops_the_unread_ones() {
+    fn node_addresses(tracker: &PropertyTracker) -> std::vec::Vec<usize> {
+        // Safety: nothing else accesses the list in this test.
+        unsafe { (*tracker.holder.dep_nodes.get()).iter() }
+            .map(|node| &*node as *const DependencyNode as usize)
+            .collect()
+    }
+
+    let tracker = Box::pin(<PropertyTracker>::default());
+    let mode = Box::pin(Property::new(0));
+    let a = Box::pin(Property::new(0));
+    let b = Box::pin(Property::new(0));
+    let c = Box::pin(Property::new(0));
+    // Mode 0 reads `mode`, `a` and `b`. Mode 1 reads `mode` and `c`. Mode 2 reads all of them.
+    let evaluate = || {
+        tracker.as_ref().evaluate(|| match mode.as_ref().get() {
+            0 => a.as_ref().get() + b.as_ref().get(),
+            1 => c.as_ref().get(),
+            _ => a.as_ref().get() + b.as_ref().get() + c.as_ref().get(),
+        })
+    };
+
+    evaluate();
+    let first = node_addresses(&tracker);
+    assert_eq!(first.len(), 3);
+
+    // Fewer reads: the nodes of the reads are nodes from before, and the others are gone.
+    mode.as_ref().set(1);
+    evaluate();
+    let second = node_addresses(&tracker);
+    assert_eq!(second.len(), 2);
+    assert!(second.iter().all(|node| first.contains(node)));
+
+    // The properties that are not read any more don't notify the tracker.
+    a.as_ref().set(1);
+    b.as_ref().set(1);
+    assert!(!tracker.as_ref().is_dirty());
+    c.as_ref().set(1);
+    assert!(tracker.as_ref().is_dirty());
+
+    // More reads than nodes: the nodes from before are used, and new ones are made.
+    mode.as_ref().set(2);
+    evaluate();
+    let third = node_addresses(&tracker);
+    assert_eq!(third.len(), 4);
+    assert!(second.iter().all(|node| third.contains(node)));
+}
+
+#[test]
+fn test_properties_no_longer_read_dont_notify_while_evaluating() {
+    let notified = std::rc::Rc::new(Cell::new(0));
+    let tracker = Box::pin(PropertyTracker::<false, _>::new_with_dirty_handler({
+        let notified = notified.clone();
+        move || notified.set(notified.get() + 1)
+    }));
+    let before = Box::pin(Property::new(0));
+    let now = Box::pin(Property::new(0));
+
+    tracker.as_ref().evaluate(|| before.as_ref().get());
+
+    // The tracker reads `now` instead of `before`, so changing `before` while it evaluates
+    // must not notify it, as if its nodes from before were dropped first.
+    tracker.as_ref().evaluate(|| {
+        before.as_ref().set(1);
+        now.as_ref().get()
+    });
+    assert_eq!(notified.get(), 0);
+}
+
+#[test]
+fn test_binding_that_switches_its_reads_stops_depending_on_the_old_ones() {
+    use pin_weak::rc::PinWeak;
+    use std::rc::Rc;
+    fn g(prop: &Property<i32>) -> i32 {
+        unsafe { Pin::new_unchecked(prop).get() }
+    }
+
+    #[derive(Default)]
+    struct Component {
+        use_first: Property<bool>,
+        first: Property<i32>,
+        second: Property<i32>,
+        result: Property<i32>,
+        evaluations: Cell<usize>,
+    }
+
+    let compo = Rc::pin(Component::default());
+    compo.use_first.set(true);
+    let w = PinWeak::downgrade(compo.clone());
+    compo.result.set_binding(move || {
+        let compo = w.upgrade().unwrap();
+        compo.evaluations.set(compo.evaluations.get() + 1);
+        if unsafe { Pin::new_unchecked(&compo.use_first) }.get() {
+            g(&compo.first)
+        } else {
+            g(&compo.second)
+        }
+    });
+
+    compo.first.set(5);
+    assert_eq!(g(&compo.result), 5);
+    assert_eq!(compo.evaluations.get(), 1);
+
+    compo.use_first.set(false);
+    compo.second.set(7);
+    assert_eq!(g(&compo.result), 7);
+    assert_eq!(compo.evaluations.get(), 2);
+
+    // `first` is not read any more, so changing it doesn't evaluate the binding again.
+    compo.first.set(9);
+    assert_eq!(g(&compo.result), 7);
+    assert_eq!(compo.evaluations.get(), 2);
+
+    compo.second.set(8);
+    assert_eq!(g(&compo.result), 8);
+    assert_eq!(compo.evaluations.get(), 3);
 }
 
 #[test]
