@@ -157,8 +157,8 @@ impl RenderImage for ImageItem {
         LogicalSize::from_lengths(self.width(), self.height())
     }
 
-    fn source(self: Pin<&Self>) -> crate::graphics::Image {
-        current_frame(&self.animation, self.source())
+    fn source(self: Pin<&Self>, context: &crate::SlintContext) -> crate::graphics::Image {
+        current_frame(&self.animation, self.source(), context)
     }
 
     fn source_clip(self: Pin<&Self>) -> Option<crate::graphics::IntRect> {
@@ -329,8 +329,8 @@ impl RenderImage for ClippedImage {
         LogicalSize::from_lengths(self.width(), self.height())
     }
 
-    fn source(self: Pin<&Self>) -> crate::graphics::Image {
-        current_frame(&self.animation, self.source())
+    fn source(self: Pin<&Self>, context: &crate::SlintContext) -> crate::graphics::Image {
+        current_frame(&self.animation, self.source(), context)
     }
 
     fn source_clip(self: Pin<&Self>) -> Option<crate::graphics::IntRect> {
@@ -370,44 +370,69 @@ impl ItemConsts for ClippedImage {
     > = ClippedImage::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
+/// The animation that plays, with the source it was decoded from.
 #[derive(Default)]
 struct ImageAnimationSlot(
     #[cfg(all(
         feature = "image-decoders",
         any(not(target_arch = "wasm32"), target_os = "emscripten")
     ))]
-    core::cell::RefCell<Option<Pin<Rc<animation::ImageAnimation>>>>,
+    core::cell::RefCell<
+        Option<(crate::graphics::ImageCacheKey, Pin<Rc<animation::ImageAnimation>>)>,
+    >,
 );
 
+/// Returns the animation that `source` shows, with its nine-slice edges.
+#[cfg(all(feature = "image-decoders", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
+fn animated(
+    source: &crate::graphics::Image,
+) -> Option<(&crate::graphics::EncodedImage, Option<[u16; 4]>)> {
+    use crate::graphics::{EncodedImageKind, ImageInner};
+    let (inner, nine_slice_edges) = match &source.0 {
+        ImageInner::NineSlice(nine) => (&nine.0, Some(nine.1)),
+        inner => (inner, None),
+    };
+    match inner {
+        ImageInner::Encoded(encoded) if encoded.kind() == EncodedImageKind::Animated => {
+            Some((encoded, nine_slice_edges))
+        }
+        _ => None,
+    }
+}
+
+/// Returns the frame of `source` to show now.
+/// An animation plays from the image cache of `context`.
 fn current_frame(
     animation: &OnceBox<ImageAnimationSlot>,
     source: crate::graphics::Image,
+    _context: &crate::SlintContext,
 ) -> crate::graphics::Image {
     #[cfg(all(
         feature = "image-decoders",
         any(not(target_arch = "wasm32"), target_os = "emscripten")
     ))]
-    {
+    if let Some((encoded, nine_slice_edges)) = animated(&source) {
         use crate::graphics::{ImageInner, NineSliceImage};
-        let (inner, nine_slice_edges) = match &source.0 {
-            ImageInner::NineSlice(nine) => (&nine.0, Some(nine.1)),
-            inner => (inner, None),
+        let mut slot = animation.get_or_default().0.borrow_mut();
+        let player = match &*slot {
+            Some((playing, player)) if playing == encoded.source() => player.clone(),
+            _ => {
+                let Some(animated) = encoded.animation(Some(_context)) else {
+                    *slot = None;
+                    return source;
+                };
+                let player = animation::ImageAnimation::new(animated);
+                slot.insert((encoded.source().clone(), player)).1.clone()
+            }
         };
-        if let ImageInner::AnimatedImage(animated) = inner {
-            let mut slot = animation.get_or_default().0.borrow_mut();
-            let player = match &*slot {
-                Some(player) if player.shows(animated) => player.clone(),
-                _ => slot.insert(animation::ImageAnimation::new(animated.clone())).clone(),
-            };
-            drop(slot);
-            let frame = player.frame();
-            return match nine_slice_edges {
-                Some(edges) => crate::graphics::Image(ImageInner::NineSlice(vtable::VRc::new(
-                    NineSliceImage(frame.0, edges),
-                ))),
-                None => frame,
-            };
-        }
+        drop(slot);
+        let frame = player.frame();
+        return match nine_slice_edges {
+            Some(edges) => crate::graphics::Image(ImageInner::NineSlice(vtable::VRc::new(
+                NineSliceImage(frame.0, edges),
+            ))),
+            None => frame,
+        };
     }
     stop(animation);
     source

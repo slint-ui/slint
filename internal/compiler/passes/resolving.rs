@@ -415,7 +415,7 @@ pub fn resolve_expressions(
         visit_all_expressions(component, |expression, _| {
             expression.visit_recursive(&mut |expression| {
                 if let Expression::ImageReference {
-                    resource_ref: ImageReference::Source(path),
+                    resource_ref: ImageReference::Source { path, .. },
                     ..
                 } = expression
                 {
@@ -903,7 +903,7 @@ impl Expression {
                     node.source_file.path().parent().join(&s).unwrap_or_else(|| SourcePath::new(&s))
                 }
             };
-            ImageReference::Source(path)
+            ImageReference::Source { path, header: None }
         };
 
         // Slint SC decodes the image at compile time, so only a file on disk
@@ -913,7 +913,7 @@ impl Expression {
             ImageReference::DataUri(_) => {
                 ctx.diag.slint_sc_error("Data URIs in @image-url() are", &node)
             }
-            ImageReference::Source(path) if path.as_native_path().is_none() => {
+            ImageReference::Source { path, .. } if path.as_native_path().is_none() => {
                 ctx.diag.slint_sc_error("URLs in @image-url() are", &node)
             }
             _ => {}

@@ -116,6 +116,7 @@ const-field-offset = { version = "0.2.1", path = "../../helper_crates/const-fiel
 vtable = { workspace = true }
 
 portable-atomic = { version = "1", features = ["critical-section"] }
+by_address = { workspace = true }
 bytemuck = { workspace = true, features = ["derive"] }
 derive_more = { workspace = true, features = ["error", "deref", "deref_mut"] }
 euclid = { workspace = true }

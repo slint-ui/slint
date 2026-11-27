@@ -434,7 +434,7 @@ pub struct SkiaRenderer {
     maybe_window_adapter: RefCell<Option<Weak<dyn WindowAdapter>>>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
     has_rendering_notifier: Cell<bool>,
-    image_cache: ItemCache<Option<skia_safe::Image>>,
+    image_cache: ItemCache<Option<Rc<skia_safe::Image>>>,
     layer_cache: ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
     path_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     box_shadow_cache: itemrenderer::SkiaBoxShadowCache,

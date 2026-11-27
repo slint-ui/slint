@@ -2,98 +2,295 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 /*!
-The cache of what's loaded, parsed, or decoded from images, shared by everything on a thread.
+The cache of what's loaded, parsed, or decoded from images, one per [`SlintContext`].
 
-Entries are keyed by where the image's data is and by the type of what's made from it,
-so renderers can keep what they make from an image next to the loaded image.
+[`Image`](super::Image) values only say where their encoded data is.
+Loading, parsing an SVG, and decoding pixels go through [`cached`],
+keyed by that location and the type of what's made from it.
+Renderers can keep what they make from the pixels there too.
 */
 
-#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
-use super::CachedPath;
-use super::{Image, ImageCacheKey, ImageData, ImageInner, SharedImageBuffer};
-use crate::{SharedString, slice::Slice};
+use super::{ImageCacheKey, SharedImageBuffer};
+use crate::SlintContext;
 use alloc::rc::Rc;
 use core::any::{Any, TypeId};
+use core::hash::{Hash, Hasher};
 use std::collections::HashMap;
 
-/// Bytes of entries that the cache keeps.
-const BUDGET: usize = 5 * 1024 * 1024;
+/// How many windows' worth of pixels the cache keeps of what nothing shows,
+/// so that an image shown again isn't loaded again.
+const UNUSED_WINDOWS: usize = 2;
+
+/// What's cached when making an entry failed, so that it isn't tried again on every use.
+struct Failed;
+
+/// Tells apart what's made of the same type from the same image,
+/// such as the sizes an SVG is rasterized at.
+trait Variant: Any {
+    fn dyn_eq(&self, other: &dyn Variant) -> bool;
+    fn dyn_hash(&self, state: &mut dyn Hasher);
+}
+
+impl<V: Hash + Eq + 'static> Variant for V {
+    fn dyn_eq(&self, other: &dyn Variant) -> bool {
+        (other as &dyn Any).downcast_ref::<V>() == Some(self)
+    }
+    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
+        self.hash(&mut state);
+    }
+}
+
+struct Key {
+    source: ImageCacheKey,
+    /// The type of what's made from the source.
+    data_type: TypeId,
+    variant: Option<Rc<dyn Variant>>,
+}
+
+impl PartialEq for Key {
+    fn eq(&self, other: &Self) -> bool {
+        self.source == other.source
+            && self.data_type == other.data_type
+            && match (&self.variant, &other.variant) {
+                (None, None) => true,
+                (Some(l), Some(r)) => l.dyn_eq(&**r),
+                _ => false,
+            }
+    }
+}
+
+impl Eq for Key {}
+
+impl Hash for Key {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.source.hash(state);
+        self.data_type.hash(state);
+        if let Some(variant) = &self.variant {
+            variant.dyn_hash(state);
+        }
+    }
+}
 
 struct Entry {
+    /// The `T` of the key's `data_type`, or [`Failed`].
     data: Rc<dyn Any>,
     weight: usize,
     last_use: u64,
 }
 
-#[derive(Default)]
-struct ImageCache {
-    entries: HashMap<(ImageCacheKey, TypeId), Entry>,
-    total_weight: usize,
-    clock: u64,
+/// How many bytes of images that nothing holds a cache keeps:
+/// what `SLINT_IMAGE_CACHE_SIZE` sets, or `UNUSED_WINDOWS` times the pixels of the largest
+/// window drawn.
+pub struct UnusedBudget {
+    fixed: Option<usize>,
+    /// The size of the pixels of the largest window drawn, in bytes.
+    largest_window: usize,
 }
 
-impl ImageCache {
-    fn trim(&mut self) {
-        while self.total_weight > BUDGET {
-            let Some(oldest) = self
-                .entries
-                .iter()
-                .min_by_key(|(_, entry)| entry.last_use)
-                .map(|(key, _)| key.clone())
-            else {
-                break;
-            };
-            let entry = self.entries.remove(&oldest).unwrap();
-            self.total_weight -= entry.weight;
+impl Default for UnusedBudget {
+    fn default() -> Self {
+        Self::with_size(size_from_env())
+    }
+}
+
+impl UnusedBudget {
+    /// Makes a budget of `size` bytes, or one that follows the windows drawn.
+    fn with_size(size: Option<usize>) -> Self {
+        Self { fixed: size, largest_window: 0 }
+    }
+
+    /// Notes that a window of `window_size` was drawn.
+    pub fn window_drawn(&mut self, window_size: crate::api::PhysicalSize) {
+        let window = window_size.width as usize * window_size.height as usize * 4;
+        self.largest_window = self.largest_window.max(window);
+    }
+
+    /// Returns the budget in bytes, or `None` to keep everything until a window is drawn.
+    fn get(&self) -> Option<usize> {
+        self.fixed.or((self.largest_window > 0).then(|| self.largest_window * UNUSED_WINDOWS))
+    }
+
+    /// Returns whether entries weighing `total` bytes in all fit in the budget.
+    pub fn fits(&self, total: usize) -> bool {
+        self.get().is_none_or(|budget| total <= budget)
+    }
+
+    /// Takes the `(last_use, weight)` of the entries that nothing holds, and returns the
+    /// `last_use` at and below which they're dropped so that the most recently used fit
+    /// in the budget, or `None` if they all fit.
+    pub fn cutoff(&self, unused: impl Iterator<Item = (u64, usize)>) -> Option<u64> {
+        let budget = self.get()?;
+        let mut unused: alloc::vec::Vec<_> = unused.collect();
+        let mut remaining: usize = unused.iter().map(|(_, weight)| weight).sum();
+        if remaining <= budget {
+            return None;
+        }
+        unused.sort_unstable_by_key(|(last_use, _)| *last_use);
+        unused.into_iter().find_map(|(last_use, weight)| {
+            remaining -= weight;
+            (remaining <= budget).then_some(last_use)
+        })
+    }
+}
+
+#[derive(Default)]
+struct Entries {
+    entries: HashMap<Key, Entry>,
+    total_weight: usize,
+    clock: u64,
+    budget: UnusedBudget,
+}
+
+impl Entries {
+    fn insert(&mut self, key: Key, entry: Entry) {
+        self.total_weight += entry.weight;
+        if let Some(old) = self.entries.insert(key, entry) {
+            self.total_weight -= old.weight;
+        }
+    }
+
+    /// Drops the least recently used entries that nothing holds and that weren't used after
+    /// `kept_since`, beyond the budget.
+    fn trim(&mut self, kept_since: u64) {
+        if self.budget.fits(self.total_weight) {
+            return;
+        }
+        let is_unused =
+            |entry: &Entry| Rc::strong_count(&entry.data) == 1 && entry.last_use <= kept_since;
+        let unused =
+            self.entries.values().filter(|entry| is_unused(entry)).map(|e| (e.last_use, e.weight));
+        let Some(cutoff) = self.budget.cutoff(unused) else { return };
+        let total_weight = &mut self.total_weight;
+        self.entries.retain(|_, entry| {
+            let dropped = is_unused(entry) && entry.last_use <= cutoff;
+            if dropped {
+                *total_weight -= entry.weight;
+            }
+            !dropped
+        });
+    }
+}
+
+/// The image cache of a [`SlintContext`].
+#[derive(Default)]
+pub(crate) struct ImageCache(core::cell::RefCell<Entries>);
+
+/// Returns the size in bytes that `SLINT_IMAGE_CACHE_SIZE` sets in MB.
+fn size_from_env() -> Option<usize> {
+    let value = std::env::var("SLINT_IMAGE_CACHE_SIZE").ok()?;
+    match value.trim().parse::<usize>() {
+        Ok(megabytes) => Some(megabytes.saturating_mul(1024 * 1024)),
+        Err(_) => {
+            crate::debug_log!("Ignoring SLINT_IMAGE_CACHE_SIZE={value}: expected a size in MB");
+            None
         }
     }
 }
 
-crate::thread_local!(static IMAGE_CACHE: core::cell::RefCell<ImageCache> = Default::default());
+impl ImageCache {
+    #[cfg(test)]
+    fn with_size(size: Option<usize>) -> Self {
+        Self(core::cell::RefCell::new(Entries {
+            budget: UnusedBudget::with_size(size),
+            ..Default::default()
+        }))
+    }
+
+    fn cached<T: 'static>(
+        &self,
+        cache_key: Key,
+        create: impl FnOnce() -> Option<(T, usize)>,
+    ) -> Option<Rc<T>> {
+        let cached = {
+            let mut entries = self.0.borrow_mut();
+            entries.clock += 1;
+            let clock = entries.clock;
+            entries.entries.get_mut(&cache_key).map(|entry| {
+                entry.last_use = clock;
+                entry.data.clone().downcast::<T>().ok()
+            })
+        };
+        if let Some(cached) = cached {
+            return cached;
+        }
+        // `create` may use the cache for other entries, so the cache isn't borrowed while it runs.
+        let created = create().map(|(data, weight)| (Rc::new(data), weight));
+        let (data, weight): (Rc<dyn Any>, _) = match &created {
+            Some((data, weight)) => (data.clone(), *weight),
+            None => (Rc::new(Failed), core::mem::size_of::<Entry>()),
+        };
+        let weight = weight + held_bytes(&cache_key.source);
+        let mut entries = self.0.borrow_mut();
+        entries.clock += 1;
+        let last_use = entries.clock;
+        entries.insert(cache_key, Entry { data, weight, last_use });
+        created.map(|(data, _)| data)
+    }
+
+    /// Drops the least recently used entries that nothing holds, beyond the budget.
+    /// It runs after a window of `window_size` is drawn, since that's when renderers release
+    /// images. The largest window sets the budget.
+    /// What was used since the window's previous drawing, at `window_clock`, is kept,
+    /// since the window may draw it again without holding it.
+    pub(crate) fn trim_after_drawing(
+        &self,
+        window_size: crate::api::PhysicalSize,
+        window_clock: &core::cell::Cell<u64>,
+    ) {
+        let mut entries = self.0.borrow_mut();
+        entries.budget.window_drawn(window_size);
+        entries.trim(window_clock.get());
+        window_clock.set(entries.clock);
+    }
+}
+
+/// Like [`cached`], for one of several `T` made from the same image, told apart by `variant`.
+pub fn cached_variant<T: 'static, V: Hash + Eq + 'static>(
+    context: &SlintContext,
+    key: &ImageCacheKey,
+    variant: V,
+    create: impl FnOnce() -> Option<(T, usize)>,
+) -> Option<Rc<T>> {
+    cached_with(Some(context), key, Some(Rc::new(variant)), create)
+}
 
 /// Returns the `T` made from the image at `key`,
 /// or makes it with `create`, which returns it with its size in bytes.
 ///
-/// The cache keeps the most recently used entries within a budget.
-/// Without a valid `key`, or beyond the budget on its own, the result isn't cached.
+/// The result is shared through the cache of `context` for as long as anything holds it.
+/// Afterwards, the cache keeps the most recently used entries within a budget.
+/// A failure is cached too. Without a context, nothing is cached.
 pub fn cached<T: 'static>(
+    context: Option<&SlintContext>,
     key: &ImageCacheKey,
     create: impl FnOnce() -> Option<(T, usize)>,
 ) -> Option<Rc<T>> {
-    if *key == ImageCacheKey::Invalid {
-        return create().map(|(data, _)| Rc::new(data));
+    cached_with(context, key, None, create)
+}
+
+fn cached_with<T: 'static>(
+    context: Option<&SlintContext>,
+    key: &ImageCacheKey,
+    variant: Option<Rc<dyn Variant>>,
+    create: impl FnOnce() -> Option<(T, usize)>,
+) -> Option<Rc<T>> {
+    match context {
+        Some(context) => {
+            let key = Key { source: key.clone(), data_type: TypeId::of::<T>(), variant };
+            context.0.image_cache.cached(key, create)
+        }
+        None => create().map(|(data, _)| Rc::new(data)),
     }
-    let cache_key = (key.clone(), TypeId::of::<T>());
-    let cached = IMAGE_CACHE.with(|cache| {
-        let mut cache = cache.borrow_mut();
-        cache.clock += 1;
-        let clock = cache.clock;
-        let entry = cache.entries.get_mut(&cache_key)?;
-        entry.last_use = clock;
-        entry.data.clone().downcast::<T>().ok()
-    });
-    if cached.is_some() {
-        return cached;
+}
+
+/// Returns the bytes of encoded data that `key` holds.
+fn held_bytes(key: &ImageCacheKey) -> usize {
+    match key {
+        ImageCacheKey::Data(data) => data.len(),
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        ImageCacheKey::URL(url) => url.len(),
+        _ => 0,
     }
-    // `create` may use the cache for other entries, so the cache isn't borrowed while it runs.
-    let (data, weight) = create()?;
-    let data = Rc::new(data);
-    let weight = weight.max(core::mem::size_of::<Entry>());
-    if weight <= BUDGET {
-        IMAGE_CACHE.with(|cache| {
-            let mut cache = cache.borrow_mut();
-            cache.clock += 1;
-            let last_use = cache.clock;
-            cache.total_weight += weight;
-            if let Some(old) =
-                cache.entries.insert(cache_key, Entry { data: data.clone(), weight, last_use })
-            {
-                cache.total_weight -= old.weight;
-            }
-            cache.trim();
-        });
-    }
-    Some(data)
 }
 
 /// Returns the size of the pixels of `buffer` in bytes.
@@ -109,138 +306,130 @@ pub(super) fn buffer_weight(buffer: &SharedImageBuffer) -> usize {
     }
 }
 
-fn image_weight(image: &ImageInner) -> usize {
-    match image {
-        ImageInner::None => 0,
-        ImageInner::EmbeddedImage { buffer, .. } => buffer_weight(buffer),
-        #[cfg(feature = "svg")]
-        ImageInner::Svg(svg) => svg.weight_in_bytes(),
-        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
-        ImageInner::HTMLImage(_) => 512, // Something... the web browser maintainers its own cache. The purpose of this cache is to reduce the amount of DOM elements.
-        ImageInner::StaticTextures(_) => 0,
-        #[cfg(feature = "owned-pre-rendered-resources")]
-        ImageInner::OwnedTextures(textures) => textures.data.len(),
-        ImageInner::BorrowedOpenGLTexture(..) => 0, // Assume storage in GPU memory
-        ImageInner::NineSlice(nine) => image_weight(&nine.0),
-        #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
-        ImageInner::WGPUTexture(..) => 0, // The texture is imported from the application and will never reside in our cache.
-        ImageInner::AnimatedImage(animated) => animated.weight_in_bytes(),
-    }
-}
-
-/// Returns the image loaded from `key`, or loads it with `load`.
-fn load(
-    key: ImageCacheKey,
-    load: impl FnOnce(ImageCacheKey) -> Option<ImageInner>,
-) -> Option<Image> {
-    let image = cached(&key, || {
-        let image = load(key.clone())?;
-        let weight = image_weight(&image);
-        Some((image, weight))
-    })?;
-    Some(Image(ImageInner::clone(&image)))
-}
-
-#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
-pub(crate) fn load_image_from_path(_path: &SharedString) -> Option<Image> {
-    None
-}
-
-#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
-pub(crate) fn load_image_from_path(path: &SharedString) -> Option<Image> {
-    if path.is_empty() {
-        return None;
-    }
-    let cache_key = ImageCacheKey::Path(CachedPath::new(path.as_str()));
-    load(cache_key, |cache_key| {
-        #[cfg(feature = "svg")]
-        if path.ends_with(".svg") || path.ends_with(".svgz") {
-            return Some(ImageInner::Svg(vtable::VRc::new(
-                super::svg::load_from_path(path, cache_key).map_or_else(
-                    |err| {
-                        crate::debug_log!("Error loading SVG from {}: {}", &path, err);
-                        None
-                    },
-                    Some,
-                )?,
-            )));
-        }
-
-        let format = image::ImageFormat::from_path(path.as_str()).ok();
-        let loaded = if format.is_some_and(|format| !super::animated::can_animate(format)) {
-            image::open(path.as_str()).map(|image| ImageInner::EmbeddedImage {
-                cache_key,
-                buffer: super::dynamic_image_to_shared_image_buffer(image),
-            })
-        } else {
-            std::fs::read(path.as_str()).map_err(image::ImageError::IoError).and_then(|data| {
-                let data = crate::SharedVector::from_slice(&data);
-                ImageInner::decode_with_cache_key(cache_key, ImageData::Shared(&data), format)
-            })
-        };
-        loaded.map_err(|err| crate::debug_log!("Error loading image from {}: {}", &path, err)).ok()
-    })
-}
-
-/// Load an image by handing its URL to an `<img>` element for the browser to
-/// fetch. This is a web-only slintpad mechanism, not general network loading.
-#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
-pub(crate) fn load_as_html_image(url: &str) -> Option<Image> {
-    if url.is_empty() {
-        return None;
-    }
-    load(ImageCacheKey::URL(url.into()), |_| {
-        Some(ImageInner::HTMLImage(vtable::VRc::new(super::htmlimage::HTMLImage::new(url))))
-    })
-}
-
-pub(crate) fn load_image_from_embedded_data(
-    data: Slice<'static, u8>,
-    format: Slice<'_, u8>,
-) -> Option<Image> {
-    load(ImageCacheKey::from_embedded_image_data(data.as_slice()), |cache_key| {
-        ImageInner::load_from_data_with_cache_key(
-            cache_key,
-            ImageData::Static(data.as_slice()),
-            format,
-        )
-    })
-}
-
-#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten"), not(feature = "image-decoders")))]
-pub(crate) fn load_image_from_data_uri(uri: &str, data: &[u8], format: &str) -> Option<Image> {
-    load(ImageCacheKey::URL(uri.into()), |cache_key| {
-        ImageInner::load_from_data_with_cache_key(
-            cache_key,
-            ImageData::Borrowed(data),
-            format.as_bytes().into(),
-        )
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn key(n: usize) -> ImageCacheKey {
-        ImageCacheKey::EmbeddedData(n)
+    fn source(n: usize) -> ImageCacheKey {
+        static DATA: [u8; 8] = [0; 8];
+        ImageCacheKey::EmbeddedData(by_address::ByAddress(crate::slice::Slice::from_slice(
+            &DATA[n..=n],
+        )))
     }
 
-    fn is_cached(n: usize) -> bool {
-        IMAGE_CACHE
-            .with(|cache| cache.borrow().entries.contains_key(&(key(n), TypeId::of::<u32>())))
+    fn key(n: usize) -> Key {
+        Key { source: source(n), data_type: TypeId::of::<u32>(), variant: None }
+    }
+
+    fn is_cached(cache: &ImageCache, n: usize) -> bool {
+        cache.0.borrow().entries.contains_key(&key(n))
+    }
+
+    fn window() -> crate::api::PhysicalSize {
+        crate::api::PhysicalSize::new(100, 100)
+    }
+
+    /// The budget of a cache whose largest window is `window()`.
+    const BUDGET: usize = 100 * 100 * 4 * UNUSED_WINDOWS;
+
+    #[test]
+    fn shares_and_evicts_unused_beyond_budget() {
+        let cache = ImageCache::with_size(None);
+        let clock = Default::default();
+        let third = BUDGET / 3 + 1;
+        let first = cache.cached(key(1), || Some((1u32, third))).unwrap();
+        cache.cached(key(2), || Some((2u32, third))).unwrap();
+        assert!(Rc::ptr_eq(&first, &cache.cached(key(1), || None::<(u32, _)>).unwrap()));
+        drop(first);
+        cache.cached(key(3), || Some((3u32, third))).unwrap();
+        // Nothing is evicted before a window is drawn, nor what was used since the last drawing.
+        assert!(is_cached(&cache, 1) && is_cached(&cache, 2) && is_cached(&cache, 3));
+        cache.trim_after_drawing(window(), &clock);
+        assert!(is_cached(&cache, 1) && is_cached(&cache, 2) && is_cached(&cache, 3));
+        cache.trim_after_drawing(window(), &clock);
+        // The least recently used of the three unused images is gone.
+        assert!(is_cached(&cache, 1) && !is_cached(&cache, 2) && is_cached(&cache, 3));
+        // An image in use doesn't count, even beyond the budget.
+        let huge = cache.cached(key(4), || Some((4u32, BUDGET * 2))).unwrap();
+        assert!(is_cached(&cache, 1) && is_cached(&cache, 3) && is_cached(&cache, 4));
+        drop(huge);
+        cache.trim_after_drawing(window(), &clock);
+        cache.trim_after_drawing(window(), &clock);
+        assert!(!is_cached(&cache, 4));
     }
 
     #[test]
-    fn shares_and_evicts_beyond_budget() {
-        let third = BUDGET / 3 + 1;
-        let first = cached(&key(1), || Some((1u32, third))).unwrap();
-        cached(&key(2), || Some((2u32, third))).unwrap();
-        assert!(Rc::ptr_eq(&first, &cached(&key(1), || None::<(u32, _)>).unwrap()));
-        cached(&key(3), || Some((3u32, third))).unwrap();
-        assert!(is_cached(1) && !is_cached(2) && is_cached(3));
-        cached(&key(4), || Some((4u32, BUDGET + 1))).unwrap();
-        assert!(is_cached(1) && is_cached(3) && !is_cached(4));
+    fn what_each_frame_uses_is_kept() {
+        let cache = ImageCache::with_size(Some(0));
+        let clock = Default::default();
+        cache.cached(key(0), || Some((0u32, 1))).unwrap();
+        cache.trim_after_drawing(window(), &clock);
+        assert!(is_cached(&cache, 0));
+        cache.cached(key(0), || None::<(u32, usize)>).unwrap();
+        cache.trim_after_drawing(window(), &clock);
+        assert!(is_cached(&cache, 0));
+        // A frame that doesn't use it lets it go.
+        cache.trim_after_drawing(window(), &clock);
+        assert!(!is_cached(&cache, 0));
+    }
+
+    #[test]
+    fn drawing_another_window_keeps_what_a_window_draws() {
+        let cache = ImageCache::with_size(Some(0));
+        let (first, second) = (Default::default(), Default::default());
+        cache.cached(key(7), || Some((7u32, 1))).unwrap();
+        cache.trim_after_drawing(window(), &first);
+        cache.trim_after_drawing(window(), &second);
+        assert!(is_cached(&cache, 7));
+        cache.trim_after_drawing(window(), &first);
+        assert!(!is_cached(&cache, 7));
+    }
+
+    #[test]
+    fn failures_are_cached() {
+        let cache = ImageCache::default();
+        assert!(cache.cached(key(5), || None::<(u32, usize)>).is_none());
+        assert!(cache.cached::<u32>(key(5), || unreachable!()).is_none());
+    }
+
+    #[test]
+    fn variants_are_separate_entries() {
+        let cache = ImageCache::default();
+        let variant = |size: u32| Key { variant: Some(Rc::new(size)), ..key(6) };
+        let small = cache.cached(variant(16), || Some((16u32, 0))).unwrap();
+        let large = cache.cached(variant(32), || Some((32u32, 0))).unwrap();
+        assert_eq!((*small, *large), (16, 32));
+        assert!(Rc::ptr_eq(&small, &cache.cached(variant(16), || None::<(u32, _)>).unwrap()));
+        assert!(cache.cached(key(6), || None::<(u32, usize)>).is_none());
+    }
+
+    #[cfg(feature = "image-decoders")]
+    #[test]
+    fn only_shared_pixels_are_kept() {
+        static PNG: &[u8] =
+            include_bytes!("../../../../tests/screenshots/cases/image/tiny-1x1.png");
+        let context = SlintContext::new(alloc::boxed::Box::new(crate::testing::NoWindowPlatform));
+        let image = crate::graphics::load_image_from_embedded_data(
+            &context,
+            crate::slice::Slice::from_slice(PNG),
+            crate::slice::Slice::from_slice(b"png"),
+            None,
+        );
+        let has_pixels = || {
+            context
+                .0
+                .image_cache
+                .0
+                .borrow()
+                .entries
+                .keys()
+                .any(|key| key.data_type == TypeId::of::<SharedImageBuffer>())
+        };
+        assert!(image.0.render_to_premultiplied_buffer(None, &context).is_some());
+        assert!(image.0.render_to_buffer(None, Some(&context)).is_some());
+        assert!(!has_pixels());
+        assert!(image.0.decode_shared(&context).is_some());
+        assert!(has_pixels());
     }
 
     #[cfg(feature = "image-decoders")]
@@ -288,5 +477,33 @@ mod tests {
                 .iter()
                 .all(|pixel| *pixel == Rgba8Pixel { r: 0, g: 255, b: 0, a: 255 })
         );
+    }
+
+    #[cfg(feature = "image-decoders")]
+    #[test]
+    fn file_of_another_size_draws_nothing() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("resized.png");
+        image::RgbImage::new(64, 64).save(&path).unwrap();
+        let image = crate::graphics::Image::load_from_path(&path).unwrap();
+        image::RgbImage::new(10, 10).save(&path).unwrap();
+        assert_eq!(image.size(), crate::graphics::IntSize::new(64, 64));
+        assert!(image.to_rgba8().is_none());
+    }
+
+    #[cfg(feature = "image-decoders")]
+    #[test]
+    fn truncated_file_has_a_size_but_no_pixels() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("truncated.png");
+        image::RgbImage::from_fn(64, 64, |x, y| image::Rgb([x as u8, y as u8, 0]))
+            .save(&path)
+            .unwrap();
+        let data = std::fs::read(&path).unwrap();
+        std::fs::write(&path, &data[..data.len() / 2]).unwrap();
+
+        let image = crate::graphics::Image::load_from_path(&path).unwrap();
+        assert_eq!(image.size(), crate::graphics::IntSize::new(64, 64));
+        assert!(image.to_rgba8().is_none());
     }
 }

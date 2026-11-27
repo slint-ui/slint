@@ -1,28 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::{ImageCacheKey, SharedImageBuffer, SharedPixelBuffer};
-#[cfg(all(
-    feature = "image-decoders",
-    any(not(target_arch = "wasm32"), target_os = "emscripten")
-))]
-use crate::SharedString;
+use super::{SharedImageBuffer, SharedPixelBuffer};
 use crate::lengths::PhysicalPx;
 use resvg::{tiny_skia, usvg};
 
+/// A parsed SVG document.
 pub struct ParsedSVG {
     svg_tree: usvg::Tree,
-    cache_key: ImageCacheKey,
     weight_in_bytes: usize,
-}
-
-impl super::OpaqueImage for ParsedSVG {
-    fn size(&self) -> crate::graphics::IntSize {
-        self.size()
-    }
-    fn cache_key(&self) -> ImageCacheKey {
-        self.cache_key.clone()
-    }
 }
 
 impl core::fmt::Debug for ParsedSVG {
@@ -32,22 +18,19 @@ impl core::fmt::Debug for ParsedSVG {
 }
 
 impl ParsedSVG {
-    fn new(svg_tree: usvg::Tree, cache_key: ImageCacheKey, source_size: usize) -> Self {
+    fn new(svg_tree: usvg::Tree, source_size: usize) -> Self {
         // The parsed tree typically costs a few times the source size, and outlining
         // a short `<text>` element expands it far more; charge a generous multiple of
         // the source size, plus a constant for the fixed cost of even a tiny tree,
         // so that the cache stays bounded without measuring the tree.
         let weight_in_bytes = source_size.saturating_mul(16).saturating_add(8192);
-        Self { svg_tree, cache_key, weight_in_bytes }
+        Self { svg_tree, weight_in_bytes }
     }
 
+    /// Returns the size of the document in pixels.
     pub fn size(&self) -> crate::graphics::IntSize {
         let size = self.svg_tree.size().to_int_size();
         [size.width(), size.height()].into()
-    }
-
-    pub fn cache_key(&self) -> &ImageCacheKey {
-        &self.cache_key
     }
 
     /// Approximate number of bytes the parsed tree keeps alive, for cache accounting.
@@ -105,10 +88,7 @@ impl ParsedSVG {
 ///
 /// Gated on `shared-parley`: without Slint's text engine there is no text layout, so
 /// SVG text resolution would be moot.
-#[cfg(all(
-    feature = "shared-parley",
-    any(not(target_arch = "wasm32"), target_os = "emscripten", feature = "image-decoders")
-))]
+#[cfg(feature = "shared-parley")]
 fn svg_options() -> usvg::Options<'static> {
     use i_slint_common::sharedfontique::{self, fontique};
 
@@ -134,28 +114,11 @@ fn svg_options() -> usvg::Options<'static> {
     sharedfontique::svg::options(find_font)
 }
 
-#[cfg(all(
-    not(feature = "shared-parley"),
-    any(not(target_arch = "wasm32"), target_os = "emscripten", feature = "image-decoders")
-))]
+#[cfg(not(feature = "shared-parley"))]
 fn svg_options() -> usvg::Options<'static> {
     usvg::Options::default()
 }
 
-#[cfg(all(feature = "image-decoders", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
-pub fn load_from_path(
-    path: &SharedString,
-    cache_key: ImageCacheKey,
-) -> Result<ParsedSVG, std::io::Error> {
-    let svg_data = std::fs::read(std::path::Path::new(&path.as_str()))?;
-
-    usvg::Tree::from_data(&svg_data, &svg_options())
-        .map(|svg| ParsedSVG::new(svg, cache_key, svg_data.len()))
-        .map_err(std::io::Error::other)
-}
-
-#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten", feature = "image-decoders"))]
-pub fn load_from_data(slice: &[u8], cache_key: ImageCacheKey) -> Result<ParsedSVG, usvg::Error> {
-    usvg::Tree::from_data(slice, &svg_options())
-        .map(|svg| ParsedSVG::new(svg, cache_key, slice.len()))
+pub fn load_from_data(slice: &[u8]) -> Result<ParsedSVG, usvg::Error> {
+    usvg::Tree::from_data(slice, &svg_options()).map(|svg| ParsedSVG::new(svg, slice.len()))
 }

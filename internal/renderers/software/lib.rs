@@ -81,6 +81,9 @@ type TextPoint = euclid::Point2D<i32, PhysicalPx>;
 
 use fonts::with_font;
 
+#[cfg(feature = "std")]
+type DecodedImageCache = i_slint_core::item_rendering::ItemCache<Option<Rc<SharedImageBuffer>>>;
+
 #[derive(Copy, Clone, Debug)]
 struct RotationInfo {
     orientation: RenderingRotation,
@@ -612,6 +615,8 @@ impl SoftwareRenderer {
             rotation,
             #[cfg(feature = "systemfonts")]
             &self.text_layout_cache,
+            #[cfg(feature = "std")]
+            &self.decoded_image_cache,
         );
         let mut renderer = self.partial_rendering_state.create_partial_renderer(buffer_renderer);
         let window_adapter = renderer.window_adapter.clone();
@@ -1137,6 +1142,8 @@ impl RendererSealed for SoftwareRenderer {
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         #[cfg(feature = "systemfonts")]
         self.text_layout_cache.component_destroyed(component);
+        #[cfg(feature = "std")]
+        self.decoded_image_cache.component_destroyed(component);
         self.partial_rendering_state.free_graphics_resources(component, items);
         Ok(())
     }
@@ -1185,6 +1192,8 @@ impl RendererSealed for SoftwareRenderer {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
         #[cfg(feature = "systemfonts")]
         self.text_layout_cache.clear_all();
+        #[cfg(feature = "std")]
+        self.decoded_image_cache.clear_all();
         self.partial_rendering_state.clear_cache();
     }
 
@@ -1465,6 +1474,8 @@ fn record_scanline_scene(
         software_renderer.rotation.get(),
         #[cfg(feature = "systemfonts")]
         &software_renderer.text_layout_cache,
+        #[cfg(feature = "std")]
+        &software_renderer.decoded_image_cache,
     );
     let mut renderer = software_renderer.partial_rendering_state.create_partial_renderer(recorder);
     let window_adapter = renderer.window_adapter.clone();
@@ -2340,6 +2351,8 @@ struct SoftwareItemRenderer<'a, T> {
     rotation: RotationInfo,
     #[cfg(feature = "systemfonts")]
     text_layout_cache: &'a sharedparley::TextLayoutCache,
+    #[cfg(feature = "std")]
+    decoded_image_cache: &'a DecodedImageCache,
 }
 
 impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
@@ -2350,6 +2363,7 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
         raster_commands: T,
         orientation: RenderingRotation,
         #[cfg(feature = "systemfonts")] text_layout_cache: &'a sharedparley::TextLayoutCache,
+        #[cfg(feature = "std")] decoded_image_cache: &'a DecodedImageCache,
     ) -> Self {
         Self {
             raster_commands,
@@ -2369,6 +2383,8 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
             rotation: RotationInfo { orientation, screen_size },
             #[cfg(feature = "systemfonts")]
             text_layout_cache,
+            #[cfg(feature = "std")]
+            decoded_image_cache,
         }
     }
 
@@ -2643,7 +2659,9 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
                 )
                 .round()
                 .cast();
-                if let Some(buffer) = image_inner.render_to_buffer(Some(svg_target_size)) {
+                if let Some(buffer) =
+                    image_inner.render_to_buffer(Some(svg_target_size), Some(self.window.context()))
+                {
                     let buf_size = buffer.size().cast::<f32>();
 
                     let alpha = if colorize.alpha() > 0 {
@@ -3038,15 +3056,25 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
     fn draw_image(
         &mut self,
         image: Pin<&dyn RenderImage>,
-        _: &ItemRc,
+        _self_rc: &ItemRc,
         size: LogicalSize,
         _: &CachedRenderingData,
     ) {
+        let context = self.window.context();
         let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
-            let source = image.source();
+            let source = image.source(context);
 
             let image_inner: &ImageInner = (&source).into();
+            let decoded = cfg_select! {
+                feature = "std" => self
+                    .decoded_image_cache
+                    .get_or_update_cache_entry(_self_rc, || {
+                        <&ImageInner>::from(&image.source(context)).decode_shared(context)
+                    })
+                    .map(|buffer| ImageInner::EmbeddedImage(SharedImageBuffer::clone(&buffer))),
+                _ => None::<ImageInner>,
+            };
             if let ImageInner::NineSlice(nine) = image_inner {
                 let colorize = image.colorize().color();
                 let source_size = source.size();
@@ -3058,7 +3086,7 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
                     image.alignment(),
                     image.tiling(),
                 ) {
-                    self.draw_image_impl(&nine.0, fit, colorize);
+                    self.draw_image_impl(decoded.as_ref().unwrap_or(&nine.0), fit, colorize);
                 }
                 return;
             }
@@ -3080,7 +3108,11 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
                 image.alignment(),
                 image.tiling(),
             ) {
-                self.draw_image_impl(image_inner, fit, image.colorize().color());
+                self.draw_image_impl(
+                    decoded.as_ref().unwrap_or(image_inner),
+                    fit,
+                    image.colorize().color(),
+                );
             }
         }
     }

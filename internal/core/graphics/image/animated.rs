@@ -7,7 +7,7 @@
 Animated GIF, PNG and WebP images, decoded one frame at a time.
 */
 
-use super::{Image, ImageCacheKey, ImageInner, IntSize, OpaqueImage, SharedImageBuffer};
+use super::{Image, ImageInner, IntSize, SharedImageBuffer};
 
 #[cfg(all(
     feature = "image-decoders",
@@ -22,7 +22,6 @@ pub(super) use decoding::{can_animate, load};
 
 /// An image with more than one frame.
 pub struct AnimatedImage {
-    cache_key: ImageCacheKey,
     first_frame: SharedImageBuffer,
     #[cfg(all(
         feature = "image-decoders",
@@ -31,108 +30,43 @@ pub struct AnimatedImage {
     source: decoding::Source,
 }
 
-impl PartialEq for AnimatedImage {
-    fn eq(&self, other: &Self) -> bool {
-        if core::ptr::eq(self, other) {
-            return true;
-        }
-        if self.cache_key != ImageCacheKey::Invalid || other.cache_key != ImageCacheKey::Invalid {
-            return self.cache_key == other.cache_key;
-        }
-        #[cfg(all(
-            feature = "image-decoders",
-            any(not(target_arch = "wasm32"), target_os = "emscripten")
-        ))]
-        return self.source.data() == other.source.data();
-        #[cfg(not(all(
-            feature = "image-decoders",
-            any(not(target_arch = "wasm32"), target_os = "emscripten")
-        )))]
-        false
-    }
-}
-
 impl AnimatedImage {
-    pub(crate) fn source_cache_key(&self) -> &ImageCacheKey {
-        &self.cache_key
-    }
-
     /// Returns the first frame as a still image.
     pub fn first_frame(&self) -> Image {
-        Image(ImageInner::EmbeddedImage {
-            cache_key: ImageCacheKey::Invalid,
-            buffer: self.first_frame.clone(),
-        })
+        Image(ImageInner::EmbeddedImage(self.first_frame.clone()))
     }
 
+    #[cfg(all(
+        feature = "image-decoders",
+        any(not(target_arch = "wasm32"), target_os = "emscripten")
+    ))]
     pub(crate) fn first_frame_buffer(&self) -> &SharedImageBuffer {
         &self.first_frame
     }
 
-    #[cfg(any(
-        feature = "image-decoders",
-        all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
-    ))]
-    pub(crate) fn weight_in_bytes(&self) -> usize {
-        #[cfg(all(
-            feature = "image-decoders",
-            any(not(target_arch = "wasm32"), target_os = "emscripten")
-        ))]
-        let encoded = self.source.heap_size();
-        #[cfg(not(all(
-            feature = "image-decoders",
-            any(not(target_arch = "wasm32"), target_os = "emscripten")
-        )))]
-        let encoded = 0;
-        super::cache::buffer_weight(&self.first_frame) + encoded
-    }
-}
-
-impl OpaqueImage for AnimatedImage {
-    fn size(&self) -> IntSize {
+    /// Returns the size of the frames.
+    pub fn size(&self) -> IntSize {
         self.first_frame.size()
     }
-    fn cache_key(&self) -> ImageCacheKey {
-        self.source_cache_key().clone()
+
+    #[cfg(all(
+        feature = "image-decoders",
+        any(not(target_arch = "wasm32"), target_os = "emscripten")
+    ))]
+    pub(crate) fn weight_in_bytes(&self) -> usize {
+        super::cache::buffer_weight(&self.first_frame) + self.source.heap_size()
     }
 }
 
 #[cfg(all(feature = "image-decoders", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
 mod decoding {
-    use super::super::ImageData;
+    use super::super::EncodedData;
     use super::super::{Rgb8Pixel, Rgba8Pixel, SharedPixelBuffer};
-    use super::{AnimatedImage, ImageCacheKey, SharedImageBuffer};
-    use crate::SharedVector;
-    use crate::graphics::ImageInner;
+    use super::{AnimatedImage, SharedImageBuffer};
     use core::num::NonZeroU32;
     use core::time::Duration;
     use image::{AnimationDecoder as _, ImageDecoder as _, ImageFormat, ImageResult};
     use std::io::Cursor;
-
-    #[derive(Clone)]
-    enum EncodedData {
-        Static(&'static [u8]),
-        Shared(SharedVector<u8>),
-    }
-
-    impl AsRef<[u8]> for EncodedData {
-        fn as_ref(&self) -> &[u8] {
-            match self {
-                Self::Static(data) => data,
-                Self::Shared(data) => data,
-            }
-        }
-    }
-
-    impl From<ImageData<'_>> for EncodedData {
-        fn from(data: ImageData<'_>) -> Self {
-            match data {
-                ImageData::Static(data) => Self::Static(data),
-                ImageData::Borrowed(data) => Self::Shared(SharedVector::from_slice(data)),
-                ImageData::Shared(data) => Self::Shared(data.clone()),
-            }
-        }
-    }
 
     #[derive(Clone, Copy)]
     enum Format {
@@ -150,10 +84,6 @@ mod decoding {
     }
 
     impl Source {
-        pub(super) fn data(&self) -> &[u8] {
-            self.data.as_ref()
-        }
-
         pub(super) fn heap_size(&self) -> usize {
             match &self.data {
                 EncodedData::Static(_) => 0,
@@ -348,22 +278,19 @@ mod decoding {
         SharedImageBuffer::RGB8(rgb)
     }
 
-    /// Loads `data` if it's in a format that supports animation.
+    /// Loads `data` if it has more than one frame.
     ///
-    /// Returns an `AnimatedImage` for files with more than one frame,
-    /// an `EmbeddedImage` for files with only one,
-    /// or `Ok(None)` if the caller should decode `data` as a still image.
+    /// Returns `Ok(None)` if the caller should decode `data` as a still image.
     pub(crate) fn load(
-        cache_key: ImageCacheKey,
-        data: ImageData<'_>,
+        data: EncodedData,
         image_format: ImageFormat,
-    ) -> ImageResult<Option<ImageInner>> {
+    ) -> ImageResult<Option<AnimatedImage>> {
         // The still image decoders report errors in files that aren't animations.
         let Some(Probe { format, plays, has_alpha }) = probe(&data, image_format).ok().flatten()
         else {
             return Ok(None);
         };
-        let mut decoder = FrameDecoder(frames(format, Cursor::new(&*data))?);
+        let mut decoder = FrameDecoder(frames(format, Cursor::new(data.clone()))?);
         let Some(first_frame) = decoder.next_frame() else {
             return Err(image::ImageError::Decoding(image::error::DecodingError::new(
                 image_format.into(),
@@ -372,38 +299,23 @@ mod decoding {
         };
         let first_frame = still_buffer(first_frame.into_pixels(), has_alpha);
         if decoder.next_frame().is_none() {
-            return Ok(Some(ImageInner::EmbeddedImage { cache_key, buffer: first_frame }));
+            return Ok(None);
         }
-        Ok(Some(ImageInner::AnimatedImage(vtable::VRc::new(AnimatedImage {
-            cache_key,
-            first_frame,
-            source: Source { data: data.into(), format, plays },
-        }))))
+        Ok(Some(AnimatedImage { first_frame, source: Source { data, format, plays } }))
     }
 }
 
 #[cfg(all(test, feature = "image-decoders", feature = "image-default-formats"))]
 mod tests {
     use super::super::{
-        ImageCacheKey, ImageData, ImageInner, OpaqueImage, Rgba8Pixel, SharedImageBuffer,
-        SharedPixelBuffer,
+        EncodedData, EncodedImageKind, ImageInner, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
     };
     use super::AnimatedImage;
     use core::time::Duration;
     use std::vec::Vec;
 
-    fn load(data: &'static [u8], format: image::ImageFormat) -> ImageInner {
-        super::load(ImageCacheKey::Invalid, ImageData::Static(data), format).unwrap().unwrap()
-    }
-
-    fn load_animated(
-        data: &'static [u8],
-        format: image::ImageFormat,
-    ) -> vtable::VRc<super::super::OpaqueImageVTable, AnimatedImage> {
-        match load(data, format) {
-            ImageInner::AnimatedImage(animated) => animated,
-            _ => panic!("expected an animated image"),
-        }
+    fn load_animated(data: &'static [u8], format: image::ImageFormat) -> AnimatedImage {
+        super::load(EncodedData::Static(data), format).unwrap().expect("expected an animated image")
     }
 
     fn top_left_pixel(buffer: &SharedPixelBuffer<Rgba8Pixel>) -> [u8; 3] {
@@ -446,7 +358,7 @@ mod tests {
             load_animated(include_bytes!("testdata/frames.gif"), image::ImageFormat::Gif);
         assert_eq!(animated.size(), [8, 8].into());
         assert_eq!(
-            still_top_left_pixel(&animated.first_frame().0.render_to_buffer(None).unwrap()),
+            still_top_left_pixel(&animated.first_frame().0.render_to_buffer(None, None).unwrap()),
             [255, 0, 0]
         );
         assert_eq!(frames(&animated), expected_frames());
@@ -515,9 +427,8 @@ mod tests {
         assert_eq!(&webp[12..16], b"VP8X");
         webp[24..30].copy_from_slice(&[0x1F, 0x4E, 0x00, 0x1F, 0x4E, 0x00]);
         for (data, format) in [(gif, image::ImageFormat::Gif), (webp, image::ImageFormat::WebP)] {
-            assert!(
-                super::load(ImageCacheKey::Invalid, ImageData::Borrowed(&data), format).is_err()
-            );
+            let shared = EncodedData::Shared(crate::SharedVector::from_slice(&data));
+            assert!(super::load(shared, format).is_err());
             assert!(super::super::Image::load_from_data(&data, None).is_err());
         }
     }
@@ -527,42 +438,32 @@ mod tests {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("graphics/image/testdata/twice.png");
         let image = super::super::Image::load_from_path(&path).unwrap();
-        assert!(matches!(image.0, ImageInner::AnimatedImage(_)));
+        assert!(
+            matches!(&image.0, ImageInner::Encoded(e) if e.kind() == EncodedImageKind::Animated)
+        );
         assert_eq!(image.path(), Some(path.as_path()));
     }
 
     #[test]
-    fn loads_of_the_same_data_are_equal() {
-        let load = |data: &[u8]| super::super::Image::load_from_data(data, Some("png")).unwrap();
-        let twice = include_bytes!("testdata/twice.png");
-        assert!(load(twice) == load(twice));
-        assert!(load(twice) != load(include_bytes!("testdata/forever.png")));
-    }
-
-    #[test]
-    fn uncached_loads_of_a_file_are_equal() {
+    fn loads_of_the_same_file_are_equal() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("graphics/image/testdata/twice.png");
-        let load = || {
-            let data = std::fs::read(&path).unwrap();
-            let key = ImageCacheKey::Path(super::super::CachedPath::new(path.to_str().unwrap()));
-            ImageInner::decode_with_cache_key(key, super::super::ImageData::Borrowed(&data), None)
-                .unwrap()
-        };
-        let (first, second) = (load(), load());
-        let (ImageInner::AnimatedImage(l), ImageInner::AnimatedImage(r)) = (&first, &second) else {
-            panic!("expected animations")
-        };
-        assert!(!vtable::VRc::ptr_eq(l, r));
-        assert!(first == second);
+        let load = || super::super::Image::load_from_path(&path).unwrap();
+        assert!(load() == load());
+        let data = include_bytes!("testdata/twice.png");
+        let from_data = super::super::Image::load_from_data(data, Some("png")).unwrap();
+        assert!(from_data == from_data.clone());
+        assert!(from_data != load());
     }
 
     #[test]
     fn single_frame_gif_is_a_still_image() {
-        let image = load(include_bytes!("testdata/single.gif"), image::ImageFormat::Gif);
+        let gif = include_bytes!("testdata/single.gif");
+        assert!(matches!(super::load(EncodedData::Static(gif), image::ImageFormat::Gif), Ok(None)));
+        let image = super::super::Image::load_from_data(gif, None).unwrap();
         assert!(matches!(
-            image,
-            ImageInner::EmbeddedImage { buffer: SharedImageBuffer::RGBA8Premultiplied(_), .. }
+            image.0,
+            ImageInner::EmbeddedImage(SharedImageBuffer::RGBA8Premultiplied(_))
         ));
     }
 
@@ -572,8 +473,8 @@ mod tests {
         image::RgbImage::new(2, 2)
             .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
             .unwrap();
-        let result =
-            super::load(ImageCacheKey::Invalid, ImageData::Borrowed(&png), image::ImageFormat::Png);
+        let png = EncodedData::Shared(crate::SharedVector::from_slice(&png));
+        let result = super::load(png, image::ImageFormat::Png);
         assert!(matches!(result, Ok(None)));
     }
 }

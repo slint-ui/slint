@@ -156,6 +156,7 @@ impl NativeButton {
     fn actual_icon(
         self: Pin<&Self>,
         standard_button_kind: ActualStandardButtonKind,
+        self_rc: &ItemRc,
     ) -> qttypes::QPixmap {
         let style_icon = match standard_button_kind {
             Some(StandardButtonKind::Ok) => QStyle_StandardPixmap_SP_DialogOkButton,
@@ -172,8 +173,13 @@ impl NativeButton {
             _ => {
                 let icon_size = self.icon_size().get().round() as u32;
                 let source_size = Some(euclid::Size2D::new(icon_size, icon_size));
-                return crate::qt_window::image_to_pixmap((&self.icon()).into(), source_size)
-                    .unwrap_or_default();
+                let context = self_rc.slint_context();
+                return crate::qt_window::image_to_pixmap(
+                    (&self.icon()).into(),
+                    source_size,
+                    &context,
+                )
+                .unwrap_or_default();
             }
         };
         let widget_ptr: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
@@ -224,11 +230,11 @@ impl Item for NativeButton {
         orientation: Orientation,
         _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
     ) -> LayoutInfo {
         let standard_button_kind = self.actual_standard_button_kind();
         let mut text: qttypes::QString = self.actual_text(standard_button_kind);
-        let icon: qttypes::QPixmap = self.actual_icon(standard_button_kind);
+        let icon: qttypes::QPixmap = self.actual_icon(standard_button_kind, self_rc);
         let icon_size = self.icon_size().get() as i32;
         let widget_ptr: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
         let size = cpp!(unsafe [
@@ -377,12 +383,12 @@ impl Item for NativeButton {
         }
     }
 
-    fn_render! { this size painter widget initial_state =>
+    fn_render! { this size painter widget initial_state item_rc =>
         let down: bool = this.pressed();
         let checked: bool = this.checked();
         let standard_button_kind = this.actual_standard_button_kind();
         let text: qttypes::QString = this.actual_text(standard_button_kind);
-        let icon: qttypes::QPixmap = this.actual_icon(standard_button_kind);
+        let icon: qttypes::QPixmap = this.actual_icon(standard_button_kind, item_rc);
         let enabled = this.enabled();
         let has_focus = this.has_focus();
         let has_hover = this.has_hover();

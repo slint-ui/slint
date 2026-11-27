@@ -56,7 +56,11 @@ macro_rules! get_size {
 
 macro_rules! fn_render {
     ($this:ident $size:ident $painter:ident $widget:ident $initial_state:ident => $($tt:tt)*) => {
+        fn_render!($this $size $painter $widget $initial_state _item_rc => $($tt)*);
+    };
+    ($this:ident $size:ident $painter:ident $widget:ident $initial_state:ident $item_rc:ident => $($tt:tt)*) => {
         fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer, item_rc: &ItemRc, size: LogicalSize) -> RenderingResult {
+            let $item_rc = item_rc;
             let scale_factor: f32 = backend.scale_factor().get();
             let $widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
             let initial_state = |active: bool| {

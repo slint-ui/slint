@@ -302,6 +302,8 @@ pub async fn run_passes(
     remove_aliases::remove_aliases(doc, diag);
     remove_return::remove_return(doc, &symbol_counters);
 
+    embed_images::read_image_headers(doc, &type_loader.compiler_config, diag);
+
     doc.visit_all_used_components(|component| {
         if !diag.has_errors() {
             // binding loop causes panics in const_propagation

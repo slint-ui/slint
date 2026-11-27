@@ -4,6 +4,7 @@
 // cSpell: ignore COLR rrect skpath
 
 use std::pin::Pin;
+use std::rc::Rc;
 
 use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 use i_slint_core::graphics::ApproxEq;
@@ -24,7 +25,7 @@ use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, Color, SharedString};
 use skia_safe::{Matrix, TileMode};
 
-pub type SkiaBoxShadowCache = BoxShadowCache<skia_safe::Image>;
+pub type SkiaBoxShadowCache = BoxShadowCache<Rc<skia_safe::Image>>;
 
 #[derive(Clone, Copy)]
 struct RenderState {
@@ -44,7 +45,7 @@ pub struct SkiaItemRenderer<'a> {
     surface: Option<&'a dyn crate::Surface>,
     state_stack: Vec<SavedState>,
     current_state: RenderState,
-    image_cache: &'a ItemCache<Option<skia_safe::Image>>,
+    image_cache: &'a ItemCache<Option<Rc<skia_safe::Image>>>,
     layer_cache: &'a ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
     path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     text_layout_cache: &'a sharedparley::TextLayoutCache,
@@ -62,7 +63,7 @@ impl<'a> SkiaItemRenderer<'a> {
         canvas: &'a skia_safe::Canvas,
         window: &'a i_slint_core::api::Window,
         surface: Option<&'a dyn crate::Surface>,
-        image_cache: &'a ItemCache<Option<skia_safe::Image>>,
+        image_cache: &'a ItemCache<Option<Rc<skia_safe::Image>>>,
         layer_cache: &'a ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
         path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
         text_layout_cache: &'a sharedparley::TextLayoutCache,
@@ -390,7 +391,7 @@ impl<'a> SkiaItemRenderer<'a> {
 
     fn colorize_image(
         &mut self,
-        image: skia_safe::Image,
+        image: &skia_safe::Image,
         colorize_brush: Brush,
     ) -> Option<skia_safe::Image> {
         let image_info = crate::image_info(
@@ -428,17 +429,17 @@ impl<'a> SkiaItemRenderer<'a> {
         item: Pin<&dyn RenderImage>,
         dest_rect: PhysicalRect,
     ) {
+        let context = WindowInner::from_pub(self.window).context();
         let tiling = item.tiling();
         let image_fit =
             || if tiling != Default::default() { ImageFit::Preserve } else { item.image_fit() };
         let transform_scale = self.canvas.local_to_device_as_3x3().max_scale();
         let scale_factor = self.scale_factor;
 
-        // TODO: avoid doing creating an SkImage multiple times when the same source is used in multiple image elements
         let skia_image = self.image_cache.get_or_update_cache_entry_unless(
             item_rc,
             || {
-                let image = item.source();
+                let image = item.source(context);
                 super::cached_image::as_skia_image(
                     image,
                     &|| item.target_size(),
@@ -447,11 +448,12 @@ impl<'a> SkiaItemRenderer<'a> {
                     transform_scale,
                     self.canvas,
                     self.surface,
+                    context,
                 )
                 .and_then(|skia_image| {
                     let brush = item.colorize();
                     if !brush.is_transparent() {
-                        self.colorize_image(skia_image, brush)
+                        self.colorize_image(&skia_image, brush).map(Rc::new)
                     } else {
                         Some(skia_image)
                     }
@@ -465,7 +467,7 @@ impl<'a> SkiaItemRenderer<'a> {
                             cached.width() as _,
                             cached.height() as _,
                         ),
-                        &item.source(),
+                        &item.source(context),
                         image_fit(),
                         item.target_size(),
                         scale_factor,
@@ -475,7 +477,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 })
             },
         );
-        let source = item.source();
+        let source = item.source(context);
 
         let Some(skia_image) = skia_image else { return };
         let source_size = source.size();
@@ -544,7 +546,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 // raster canvas: the whole image is used as it is, and a subset is taken from a
                 // raster copy.
                 let tile = if src == skia_image.bounds() {
-                    Some(skia_image.clone())
+                    Some(skia_safe::Image::clone(&skia_image))
                 } else {
                     skia_image
                         .make_subset(
@@ -931,6 +933,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 } else {
                     Self::render_drop_shadow_image(self.canvas, shadow_options)
                 }
+                .map(Rc::new)
             },
         );
 
@@ -1056,7 +1059,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                     width as usize * 4,
                 );
             });
-            cached_image
+            cached_image.map(Rc::new)
         });
         let skia_image = match skia_image {
             Some(img) => img,
@@ -1085,6 +1088,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             1.,
             self.canvas,
             self.surface,
+            self.window().context(),
         );
 
         let skia_image = match skia_image {

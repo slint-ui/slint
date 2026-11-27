@@ -262,16 +262,33 @@ impl<E> RadialGradientShape<E> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ImageReference {
     None,
-    Source(crate::source_path::SourcePath),
+    /// A file that isn't embedded.
+    Source {
+        path: crate::source_path::SourcePath,
+        /// Set for an image that the runtime loads without reading it.
+        header: Option<ImageHeader>,
+    },
     /// An inline `data:` URI carrying the image content.
     DataUri(SmolStr),
     EmbeddedData {
         resource_id: crate::embedded_resources::EmbeddedResourcesIdx,
         extension: String,
+        /// Set for an image that the runtime loads without reading the data.
+        header: Option<ImageHeader>,
     },
     EmbeddedTexture {
         resource_id: crate::embedded_resources::EmbeddedResourcesIdx,
     },
+}
+
+/// What the compiler reads from an image file.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct ImageHeader {
+    pub width: u32,
+    pub height: u32,
+    /// Whether the image has more than one frame.
+    pub animated: bool,
 }
 
 impl ImageReference {
@@ -283,7 +300,7 @@ impl ImageReference {
         if url.scheme() == "data" {
             Self::DataUri(url.as_str().into())
         } else {
-            Self::Source(url.into())
+            Self::Source { path: url.into(), header: None }
         }
     }
 }

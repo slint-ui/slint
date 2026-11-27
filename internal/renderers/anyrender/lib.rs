@@ -65,7 +65,7 @@ mod vello;
 #[cfg(feature = "vello-cpu")]
 mod vello_cpu;
 
-pub use imagecache::{ImageConversionCache, SharedImageData};
+pub use imagecache::SharedImageData;
 pub use itemrenderer::AnyrenderItemRenderer;
 pub use recording::RecordingWindowRenderer;
 #[cfg(feature = "vello")]
@@ -175,7 +175,6 @@ type MaybeMetricsCollector = RefCell<Option<Rc<RenderingMetricsCollector>>>;
 pub struct AnyrenderSlintRenderer<W: SlintWindowRenderer> {
     maybe_window_adapter: RefCell<Option<Weak<dyn WindowAdapter>>>,
     window_renderer: RefCell<W>,
-    image_cache: RefCell<ImageConversionCache>,
     item_image_cache: ItemCache<Option<SharedImageData>>,
     text_layout_cache: sharedparley::TextLayoutCache,
     rendering_metrics_collector: MaybeMetricsCollector,
@@ -193,7 +192,6 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
         Self {
             maybe_window_adapter: Default::default(),
             window_renderer: RefCell::new(window_renderer),
-            image_cache: Default::default(),
             item_image_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
@@ -297,7 +295,7 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
             kurbo::Affine::IDENTITY
         };
 
-        let result = self.window_renderer.borrow_mut().slint_render(
+        self.window_renderer.borrow_mut().slint_render(
             surface_size,
             base_color,
             &mut notify,
@@ -309,7 +307,6 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
                             surface_size.width,
                             surface_size.height,
                             window,
-                            &self.image_cache,
                             &self.item_image_cache,
                             &self.text_layout_cache,
                             initial_transform,
@@ -338,11 +335,7 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
                     })
                     .unwrap_or(Ok(()))
             },
-        );
-
-        self.image_cache.borrow_mut().drain();
-
-        result
+        )
     }
 
     fn try_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
@@ -443,7 +436,7 @@ impl<W: SlintWindowRenderer> RendererSealed for AnyrenderSlintRenderer<W> {
             .map_err(|_| "take_snapshot can't be called while the window is rendering")?;
         let texture_importer = window_renderer.texture_importer();
 
-        let result = window_renderer.slint_take_snapshot(window_size, base_color, |painter| {
+        window_renderer.slint_take_snapshot(window_size, base_color, |painter| {
             window_inner
                 .draw_contents(|components, post_render| -> Result<(), PlatformError> {
                     let mut item_renderer = AnyrenderItemRenderer::new(
@@ -451,7 +444,6 @@ impl<W: SlintWindowRenderer> RendererSealed for AnyrenderSlintRenderer<W> {
                         window_size.width,
                         window_size.height,
                         window,
-                        &self.image_cache,
                         &self.item_image_cache,
                         &self.text_layout_cache,
                     )
@@ -470,11 +462,7 @@ impl<W: SlintWindowRenderer> RendererSealed for AnyrenderSlintRenderer<W> {
                     Ok(())
                 })
                 .unwrap_or(Ok(()))
-        });
-
-        self.image_cache.borrow_mut().drain();
-
-        result
+        })
     }
 
     fn supports_transformations(&self) -> bool {

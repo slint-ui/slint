@@ -318,7 +318,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
 
                 // Delete any images and layer images (and their FBOs) before making the context not current anymore, to
                 // avoid GPU memory leaks.
-                self.texture_cache.borrow_mut().drain();
+                self.texture_cache.borrow_mut().drain(window_size);
                 drop(item_renderer);
                 Ok(())
             })

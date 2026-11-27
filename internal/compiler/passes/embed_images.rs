@@ -1,11 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore ANMF IDAT
+
 use crate::EmbedResourcesKind;
 use crate::diagnostics::BuildDiagnostics;
 use crate::embedded_resources::*;
 use crate::expression_tree::Expression;
-use crate::expression_types::ImageReference;
+use crate::expression_types::{ImageHeader, ImageReference};
 use crate::object_tree::*;
 use crate::source_path::SourcePath;
 #[cfg(feature = "renderer-software")]
@@ -15,6 +17,7 @@ use image::GenericImageView;
 use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::io::SeekFrom;
 use typed_index_collections::TiVec;
 use url::Url;
 
@@ -86,13 +89,67 @@ pub async fn embed_images(
     }
 }
 
+/// Reads the header of each image file that the generated code makes the image from,
+/// so that const propagation can use its size.
+///
+/// It doesn't on the web, where the browser loads the images,
+/// nor in the interpreter, which loads the files at runtime.
+/// The software renderer's textures have no header,
+/// and a resource mapper may replace a file with another resource.
+pub fn read_image_headers(
+    doc: &Document,
+    config: &crate::CompilerConfiguration,
+    diag: &BuildDiagnostics,
+) {
+    let only_builtin = match config.embed_resources {
+        EmbedResourcesKind::EmbedAllResources => false,
+        EmbedResourcesKind::OnlyBuiltinResources => true,
+        _ => return,
+    };
+    if !config.const_image_sizes || config.resource_url_mapper.is_some() || diag.is_slint_sc() {
+        return;
+    }
+    let mut resource_ids = ResourceIds::default();
+    doc.visit_all_used_components(|component| {
+        visit_all_expressions(component, |e, _| {
+            e.visit_recursive_mut(&mut |e| {
+                if let Expression::ImageReference {
+                    resource_ref: ImageReference::Source { path, header },
+                    ..
+                } = e
+                    && (!only_builtin || path.is_builtin() || path.as_native_path().is_some())
+                {
+                    *header = resource_ids.image_header(path);
+                }
+            })
+        });
+    });
+}
+
 /// The resources already embedded, so that each is embedded once.
 #[derive(Default)]
 struct ResourceIds {
     by_path: HashMap<SourcePath, EmbeddedResourcesIdx>,
     by_data_uri: HashMap<SmolStr, EmbeddedResourcesIdx>,
+    headers: HashMap<SourcePath, Option<ImageHeader>>,
     #[cfg(feature = "renderer-software")]
     animated: std::collections::HashSet<EmbeddedResourcesIdx>,
+}
+
+impl ResourceIds {
+    /// Returns [`image_header`] of the file at `path`, read once per path.
+    fn image_header(&mut self, path: &SourcePath) -> Option<ImageHeader> {
+        *self.headers.entry(path.clone()).or_insert_with(|| {
+            let extension = path.extension().unwrap_or_default();
+            match path {
+                SourcePath::File(native) => {
+                    let file = std::fs::File::open(native).ok()?;
+                    image_header(std::io::BufReader::new(file), extension)
+                }
+                _ => image_header(std::io::Cursor::new(path.read().ok()?), extension),
+            }
+        })
+    }
 }
 
 #[cfg(feature = "renderer-software")]
@@ -118,7 +175,7 @@ impl ResourceIds {
 /// already-embedded references) returns `None` and is left untouched.
 fn reference_mapper_url(resource_ref: &ImageReference) -> Option<Url> {
     match resource_ref {
-        ImageReference::Source(path) => path.to_url(),
+        ImageReference::Source { path, .. } => path.to_url(),
         _ => None,
     }
 }
@@ -177,7 +234,10 @@ fn embed_images_from_expression(
                     *resource_ref = image_ref;
                 }
             }
-            ImageReference::Source(path) => {
+            ImageReference::Source { path, header } => {
+                if let Some(header) = header {
+                    resource_ids.headers.entry(path.clone()).or_insert(Some(*header));
+                }
                 let is_builtin = path.is_builtin();
                 // Slint SC rejected URL references when resolving @image-url(),
                 // so only paths are left to embed there.
@@ -199,6 +259,10 @@ fn embed_images_from_expression(
                     if embed_files != EmbedResourcesKind::ListAllResources {
                         *resource_ref = image_ref;
                     }
+                } else if embed_files == EmbedResourcesKind::OnlyBuiltinResources
+                    && path.as_native_path().is_some()
+                {
+                    *header = resource_ids.image_header(path);
                 }
             }
             ImageReference::None
@@ -245,7 +309,11 @@ fn embed_image(
             EmbeddedResourcesKind::StaticPixels { .. } => {
                 ImageReference::EmbeddedTexture { resource_id }
             }
-            _ => ImageReference::EmbeddedData { resource_id, extension: extension() },
+            _ => ImageReference::EmbeddedData {
+                resource_id,
+                extension: extension(),
+                header: resource_ids.image_header(path),
+            },
         };
     }
 
@@ -314,7 +382,132 @@ fn embed_image(
     }
 
     let resource_id = push(EmbeddedResourcesKind::FileData);
-    ImageReference::EmbeddedData { resource_id, extension: extension() }
+    let header = resource_ids.image_header(path);
+    ImageReference::EmbeddedData { resource_id, extension: extension(), header }
+}
+
+/// Returns the header of a PNG, JPEG, GIF, or WebP image whose file `extension` names its format.
+fn image_header(
+    mut reader: impl std::io::BufRead + std::io::Seek,
+    extension: &str,
+) -> Option<ImageHeader> {
+    use imagesize::ImageType;
+    let image_type = imagesize::reader_type(&mut reader).ok()?;
+    let extensions: &[&str] = match image_type {
+        ImageType::Png => &["png"],
+        ImageType::Jpeg => &["jpg", "jpeg"],
+        ImageType::Gif => &["gif"],
+        ImageType::Webp => &["webp"],
+        _ => return None,
+    };
+    if !extensions.iter().any(|known| known.eq_ignore_ascii_case(extension)) {
+        return None;
+    }
+    // The size is read from where the type detection leaves the reader.
+    let size = image_type.reader_size(&mut reader).ok()?;
+    let animated = match image_type {
+        ImageType::Png => is_animated_png(&mut reader),
+        ImageType::Gif => is_animated_gif(&mut reader),
+        ImageType::Webp => is_animated_webp(&mut reader),
+        _ => false,
+    };
+    Some(ImageHeader {
+        width: size.width.try_into().ok()?,
+        height: size.height.try_into().ok()?,
+        animated,
+    })
+}
+
+/// Returns whether a PNG's APNG animation control chunk, which precedes the pixels,
+/// counts more than one frame.
+fn is_animated_png(mut reader: impl std::io::Read + std::io::Seek) -> bool {
+    let mut animated = || -> std::io::Result<bool> {
+        reader.seek(SeekFrom::Start(8))?;
+        loop {
+            let mut chunk = [0; 8];
+            reader.read_exact(&mut chunk)?;
+            let [length @ .., _, _, _, _] = chunk;
+            match &chunk[4..] {
+                b"acTL" => return Ok(read_array(&mut reader).map(u32::from_be_bytes)? > 1),
+                b"IDAT" => return Ok(false),
+                // The chunk's data, then its CRC.
+                _ => reader.seek(SeekFrom::Current(i64::from(u32::from_be_bytes(length)) + 4))?,
+            };
+        }
+    };
+    animated().unwrap_or(false)
+}
+
+/// Returns whether a GIF has more than one image.
+fn is_animated_gif(mut reader: impl std::io::Read + std::io::Seek) -> bool {
+    fn skip_color_table(reader: &mut impl std::io::Seek, flags: u8) -> std::io::Result<()> {
+        if flags & 0x80 != 0 {
+            reader.seek(SeekFrom::Current(3 << ((flags & 7) + 1)))?;
+        }
+        Ok(())
+    }
+    fn skip_sub_blocks(reader: &mut (impl std::io::Read + std::io::Seek)) -> std::io::Result<()> {
+        loop {
+            match read_array(reader)? {
+                [0] => return Ok(()),
+                [length] => reader.seek(SeekFrom::Current(length.into()))?,
+            };
+        }
+    }
+    let mut animated = || -> std::io::Result<bool> {
+        reader.seek(SeekFrom::Start(0))?;
+        let screen: [u8; 13] = read_array(&mut reader)?;
+        skip_color_table(&mut reader, screen[10])?;
+        let mut images = 0;
+        loop {
+            match read_array(&mut reader)? {
+                // An extension: its label, then its data.
+                [0x21] => {
+                    read_array::<1>(&mut reader)?;
+                }
+                [0x2C] => {
+                    images += 1;
+                    if images == 2 {
+                        return Ok(true);
+                    }
+                    let descriptor: [u8; 9] = read_array(&mut reader)?;
+                    skip_color_table(&mut reader, descriptor[8])?;
+                    // The LZW minimum code size, then the pixels.
+                    read_array::<1>(&mut reader)?;
+                }
+                _ => return Ok(false),
+            }
+            skip_sub_blocks(&mut reader)?;
+        }
+    };
+    animated().unwrap_or(false)
+}
+
+/// Returns whether a WebP image has more than one animation frame.
+fn is_animated_webp(mut reader: impl std::io::Read + std::io::Seek) -> bool {
+    let mut animated = || -> std::io::Result<bool> {
+        reader.seek(SeekFrom::Start(12))?;
+        let mut frames = 0;
+        while let Ok(chunk) = read_array::<8>(&mut reader) {
+            if &chunk[..4] == b"ANMF" {
+                frames += 1;
+                if frames == 2 {
+                    return Ok(true);
+                }
+            }
+            let length = u32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]);
+            // Chunks are padded to an even length.
+            reader.seek(SeekFrom::Current(i64::from(length) + i64::from(length % 2)))?;
+        }
+        Ok(false)
+    };
+    animated().unwrap_or(false)
+}
+
+fn read_array<const N: usize>(reader: &mut impl std::io::Read) -> std::io::Result<[u8; N]> {
+    let mut array = [0; N];
+    reader.read_exact(&mut array)?;
+    Ok(array)
 }
 
 #[cfg(feature = "renderer-software")]
@@ -649,8 +842,9 @@ fn embed_data_uri(
             EmbeddedResourcesKind::TextureData { .. } => {
                 ImageReference::EmbeddedTexture { resource_id }
             }
-            EmbeddedResourcesKind::DataUriPayload(_, ext) => {
-                ImageReference::EmbeddedData { resource_id, extension: ext.clone() }
+            EmbeddedResourcesKind::DataUriPayload(data, ext) => {
+                let header = image_header(std::io::Cursor::new(data), ext);
+                ImageReference::EmbeddedData { resource_id, extension: ext.clone(), header }
             }
             _ => ImageReference::None,
         };
@@ -701,7 +895,8 @@ fn embed_data_uri(
         }
     }
 
+    let header = image_header(std::io::Cursor::new(&decoded_data), &extension);
     let resource_id = push(EmbeddedResourcesKind::DataUriPayload(decoded_data, extension.clone()));
 
-    ImageReference::EmbeddedData { resource_id, extension }
+    ImageReference::EmbeddedData { resource_id, extension, header }
 }

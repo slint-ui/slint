@@ -38,6 +38,7 @@ std = [
   "dep:itertools",
   "dep:url",
   "dep:indexmap",
+  "dep:imagesize",
   "dep:serde_json",
   "dep:data-url",
   "once_cell/std",
@@ -123,6 +124,7 @@ by_address = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 url = { version = "2.2.1", optional = true }
 indexmap = { version = "2.14", optional = true }
+imagesize = { version = "0.15.0", optional = true, default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 typed-index-collections = { workspace = true, features = ["alloc"] }
 either = { version = "1.13", default-features = false }
 once_cell = { version = "1.5", default-features = false, features = ["critical-section"] }

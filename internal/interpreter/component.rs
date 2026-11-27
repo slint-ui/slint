@@ -454,7 +454,7 @@ async fn load_images(
         i_slint_compiler::object_tree::visit_all_expressions(component, |expression, _| {
             expression.visit_recursive(&mut |expression| {
                 if let Expression::ImageReference {
-                    resource_ref: ImageReference::Source(path),
+                    resource_ref: ImageReference::Source { path, .. },
                     source_location,
                     ..
                 } = expression
