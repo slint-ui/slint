@@ -704,6 +704,11 @@ pub struct WindowInner {
     pub focus_item: RefCell<crate::item_tree::ItemWeak>,
     focus_item_visibility_tracker: ChangeTracker,
     focus_item_position_tracker: ChangeTracker,
+    /// Scene under [`Self::software_cursor_position`]. Re-hit-tests when it changes so a
+    /// stationary pointer picks up a `TouchArea` that moved, appeared, or changed `mouse-cursor`.
+    pointer_scene_tracker: ChangeTracker,
+    /// Set while the tracker dispatches the synthetic move, so that dispatch cannot re-enter it.
+    refreshing_pointer_scene: Cell<bool>,
     /// The last text that was sent to the input method
     pub(crate) last_ime_text: RefCell<SharedString>,
     /// Don't let ComponentContainers's instantiation change the focus.
@@ -741,6 +746,40 @@ impl Drop for WindowInner {
             existing_blinker.stop();
         }
     }
+}
+
+#[derive(Clone, PartialEq)]
+struct PointerSceneItem {
+    x: u32,
+    y: u32,
+    w: u32,
+    h: u32,
+    /// `mouse-cursor` when this item is a `TouchArea`. Other items contribute geometry only.
+    cursor: Option<MouseCursorInner>,
+}
+
+fn collect_pointer_scene(component: &ItemTreeRc, scene: &mut alloc::vec::Vec<PointerSceneItem>) {
+    crate::item_tree::visit_items(
+        component,
+        crate::item_tree::TraversalOrder::BackToFront,
+        |tree, _item, index, _| {
+            let item = ItemRc::new(tree.clone(), index);
+            let geometry = item.geometry();
+            let origin = item.map_to_native_window(geometry.origin);
+            let cursor = item
+                .downcast::<crate::items::TouchArea>()
+                .map(|area| area.as_pin_ref().mouse_cursor());
+            scene.push(PointerSceneItem {
+                x: origin.x.to_bits(),
+                y: origin.y.to_bits(),
+                w: geometry.width().to_bits(),
+                h: geometry.height().to_bits(),
+                cursor,
+            });
+            crate::item_tree::ItemVisitorResult::Continue(())
+        },
+        (),
+    );
 }
 
 impl WindowInner {
@@ -796,6 +835,8 @@ impl WindowInner {
             focus_item: Default::default(),
             focus_item_visibility_tracker: Default::default(),
             focus_item_position_tracker: Default::default(),
+            pointer_scene_tracker: Default::default(),
+            refreshing_pointer_scene: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
             cursor_blink_suspended: Default::default(),
@@ -1270,6 +1311,7 @@ impl WindowInner {
             WindowInner::from_pub(parent_adapter.window()).close_popup(popup_id);
         }
 
+        self.track_pointer_scene();
         self.ensure_tree_instantiated();
         if let Some(position) = hover_position_after_drop {
             self.process_mouse_input(MouseEvent::Moved {
@@ -1697,6 +1739,69 @@ impl WindowInner {
                 crate::input::FocusEventResult::FocusAccepted // We were removing the focus, treat that as OK
             }
         }
+    }
+
+    /// Geometry and `mouse-cursor` of every item the stationary pointer might rest on.
+    /// Reading them subscribes the change tracker: a later edit re-hit-tests the pointer.
+    fn pointer_scene_snapshot(&self) -> alloc::vec::Vec<PointerSceneItem> {
+        let _popups = self.popups_generation();
+        let mut scene = alloc::vec::Vec::new();
+        if let Some(component) = self.try_component() {
+            collect_pointer_scene(&component, &mut scene);
+        }
+        let popups = self
+            .active_popups
+            .borrow()
+            .iter()
+            .map(|popup| popup.component.clone())
+            .collect::<alloc::vec::Vec<_>>();
+        for component in popups {
+            collect_pointer_scene(&component, &mut scene);
+        }
+        scene
+    }
+
+    fn track_pointer_scene(&self) {
+        if self.refreshing_pointer_scene.get() {
+            return;
+        }
+        let Some(position) = self.software_cursor_position.get() else {
+            self.pointer_scene_tracker.clear();
+            return;
+        };
+        let weak = self.window_adapter_weak.clone();
+        self.pointer_scene_tracker.init(
+            weak,
+            |weak| {
+                let Some(adapter) = weak.upgrade() else { return alloc::vec::Vec::new() };
+                WindowInner::from_pub(adapter.window()).pointer_scene_snapshot()
+            },
+            move |weak, _scene| {
+                let Some(adapter) = weak.upgrade() else { return };
+                let window = WindowInner::from_pub(adapter.window());
+                if window.refreshing_pointer_scene.get() {
+                    return;
+                }
+                if window.software_cursor_position.get() != Some(position) {
+                    return;
+                }
+                let state = window.mouse_input_state.take();
+                let blocked =
+                    state.is_grabbed() || state.drag_data.is_some() || state.has_delayed_event();
+                window.mouse_input_state.set(state);
+                if blocked {
+                    return;
+                }
+                window.refreshing_pointer_scene.set(true);
+                let _ = window.process_mouse_input(MouseEvent::Moved {
+                    position,
+                    touch_finger_id: 0,
+                    event_time: None,
+                    history: Default::default(),
+                });
+                window.refreshing_pointer_scene.set(false);
+            },
+        );
     }
 
     fn track_focus_item(&self, item: &ItemRc) {

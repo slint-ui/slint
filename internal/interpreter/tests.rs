@@ -9,6 +9,60 @@ use i_slint_compiler::source_path::SourcePath;
 #[allow(unused_imports)]
 use i_slint_core::api::ComponentHandle;
 
+#[test]
+fn stationary_pointer_cursor_follows_touch_area() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, Value};
+    use i_slint_core::api::LogicalPosition;
+    use i_slint_core::cursor::MouseCursorInner;
+    use i_slint_core::items::BuiltInMouseCursor;
+    use i_slint_core::platform::WindowEvent;
+
+    let code = r#"
+        export component MainWindow inherits Window {
+            in-out property <length> area-x: 0px;
+            area := TouchArea {
+                x: root.area-x;
+                y: 0px;
+                width: 40px;
+                height: 40px;
+                mouse-cursor: pointer;
+            }
+        }
+    "#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result =
+        i_slint_compiler::poll_ready(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let instance = result.component("MainWindow").unwrap().create().unwrap();
+    let cursor =
+        || i_slint_backend_testing::access_testing_window(instance.window(), |w| w.mouse_cursor());
+    let pointer = MouseCursorInner::BuiltIn(BuiltInMouseCursor::Pointer);
+    let default_cursor = MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default);
+
+    instance
+        .window()
+        .dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(10., 10.) });
+    assert_eq!(cursor(), pointer, "hovering the touch area sets the pointer cursor");
+
+    instance.set_property("area-x", Value::Number(200.)).unwrap();
+    i_slint_backend_testing::mock_elapsed_time(0);
+    assert_eq!(
+        cursor(),
+        default_cursor,
+        "a stationary pointer keeps the pointer cursor after the touch area moves away"
+    );
+
+    instance.set_property("area-x", Value::Number(0.)).unwrap();
+    i_slint_backend_testing::mock_elapsed_time(0);
+    assert_eq!(
+        cursor(),
+        pointer,
+        "a stationary pointer stays on the default cursor after a touch area slides underneath"
+    );
+}
+
 #[cfg(feature = "internal")]
 #[test]
 fn reuse_window() {
