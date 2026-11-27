@@ -40,7 +40,6 @@ impl<V: Hash + Eq + 'static> Variant for V {
     }
 }
 
-#[derive(Clone)]
 struct Key {
     source: ImageCacheKey,
     /// The type of what's made from the source.
@@ -79,14 +78,67 @@ struct Entry {
     last_use: u64,
 }
 
+/// How many bytes of images that nothing holds a cache keeps:
+/// what `SLINT_IMAGE_CACHE_SIZE` sets, or `UNUSED_WINDOWS` times the pixels of the largest
+/// window drawn.
+pub struct UnusedBudget {
+    fixed: Option<usize>,
+    /// The size of the pixels of the largest window drawn, in bytes.
+    largest_window: usize,
+}
+
+impl Default for UnusedBudget {
+    fn default() -> Self {
+        Self::with_size(size_from_env())
+    }
+}
+
+impl UnusedBudget {
+    /// Makes a budget of `size` bytes, or one that follows the windows drawn.
+    fn with_size(size: Option<usize>) -> Self {
+        Self { fixed: size, largest_window: 0 }
+    }
+
+    /// Notes that a window of `window_size` was drawn.
+    pub fn window_drawn(&mut self, window_size: crate::api::PhysicalSize) {
+        let window = window_size.width as usize * window_size.height as usize * 4;
+        self.largest_window = self.largest_window.max(window);
+    }
+
+    /// Returns the budget in bytes, or `None` to keep everything until a window is drawn.
+    fn get(&self) -> Option<usize> {
+        self.fixed.or((self.largest_window > 0).then(|| self.largest_window * UNUSED_WINDOWS))
+    }
+
+    /// Returns whether entries weighing `total` bytes in all fit in the budget.
+    pub fn fits(&self, total: usize) -> bool {
+        self.get().is_none_or(|budget| total <= budget)
+    }
+
+    /// Takes the `(last_use, weight)` of the entries that nothing holds, and returns the
+    /// `last_use` at and below which they're dropped so that the most recently used fit
+    /// in the budget, or `None` if they all fit.
+    pub fn cutoff(&self, unused: impl Iterator<Item = (u64, usize)>) -> Option<u64> {
+        let budget = self.get()?;
+        let mut unused: alloc::vec::Vec<_> = unused.collect();
+        let mut remaining: usize = unused.iter().map(|(_, weight)| weight).sum();
+        if remaining <= budget {
+            return None;
+        }
+        unused.sort_unstable_by_key(|(last_use, _)| *last_use);
+        unused.into_iter().find_map(|(last_use, weight)| {
+            remaining -= weight;
+            (remaining <= budget).then_some(last_use)
+        })
+    }
+}
+
 #[derive(Default)]
 struct Entries {
     entries: HashMap<Key, Entry>,
     total_weight: usize,
     clock: u64,
-    fixed_budget: Option<usize>,
-    /// The size of the pixels of the largest window drawn, in bytes.
-    largest_window: usize,
+    budget: UnusedBudget,
 }
 
 impl Entries {
@@ -97,53 +149,31 @@ impl Entries {
         }
     }
 
-    /// Returns the bytes of entries that nothing holds that are kept,
-    /// or `None` to keep them all until a window is drawn.
-    fn budget(&self) -> Option<usize> {
-        self.fixed_budget
-            .or((self.largest_window > 0).then(|| self.largest_window * UNUSED_WINDOWS))
-    }
-
     /// Drops the least recently used entries that nothing holds and that weren't used after
     /// `kept_since`, beyond the budget.
     fn trim(&mut self, kept_since: u64) {
-        let Some(budget) = self.budget() else { return };
-        if self.total_weight <= budget {
+        if self.budget.fits(self.total_weight) {
             return;
         }
         let is_unused =
             |entry: &Entry| Rc::strong_count(&entry.data) == 1 && entry.last_use <= kept_since;
-        let mut unused_weight: usize =
-            self.entries.values().filter(|entry| is_unused(entry)).map(|entry| entry.weight).sum();
-        if unused_weight <= budget {
-            return;
-        }
-        let mut unused: alloc::vec::Vec<_> = self
-            .entries
-            .iter()
-            .filter(|(_, entry)| is_unused(entry))
-            .map(|(key, entry)| (entry.last_use, entry.weight, key.clone()))
-            .collect();
-        unused.sort_unstable_by_key(|(last_use, ..)| *last_use);
-        for (_, weight, key) in unused {
-            self.entries.remove(&key);
-            self.total_weight -= weight;
-            unused_weight -= weight;
-            if unused_weight <= budget {
-                break;
+        let unused =
+            self.entries.values().filter(|entry| is_unused(entry)).map(|e| (e.last_use, e.weight));
+        let Some(cutoff) = self.budget.cutoff(unused) else { return };
+        let total_weight = &mut self.total_weight;
+        self.entries.retain(|_, entry| {
+            let dropped = is_unused(entry) && entry.last_use <= cutoff;
+            if dropped {
+                *total_weight -= entry.weight;
             }
-        }
+            !dropped
+        });
     }
 }
 
 /// The image cache of a [`SlintContext`].
+#[derive(Default)]
 pub(crate) struct ImageCache(core::cell::RefCell<Entries>);
-
-impl Default for ImageCache {
-    fn default() -> Self {
-        Self::with_size(size_from_env())
-    }
-}
 
 /// Returns the size in bytes that `SLINT_IMAGE_CACHE_SIZE` sets in MB.
 fn size_from_env() -> Option<usize> {
@@ -158,10 +188,12 @@ fn size_from_env() -> Option<usize> {
 }
 
 impl ImageCache {
-    /// Makes a cache that keeps `size` bytes of what nothing holds,
-    /// or a size that follows the windows drawn.
+    #[cfg(test)]
     fn with_size(size: Option<usize>) -> Self {
-        Self(core::cell::RefCell::new(Entries { fixed_budget: size, ..Default::default() }))
+        Self(core::cell::RefCell::new(Entries {
+            budget: UnusedBudget::with_size(size),
+            ..Default::default()
+        }))
     }
 
     fn cached<T: 'static>(
@@ -206,8 +238,7 @@ impl ImageCache {
         window_clock: &core::cell::Cell<u64>,
     ) {
         let mut entries = self.0.borrow_mut();
-        let window = window_size.width as usize * window_size.height as usize * 4;
-        entries.largest_window = entries.largest_window.max(window);
+        entries.budget.window_drawn(window_size);
         entries.trim(window_clock.get());
         window_clock.set(entries.clock);
     }

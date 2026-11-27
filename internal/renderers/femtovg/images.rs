@@ -224,8 +224,8 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     .unwrap()
             }
             _ => {
-                let buffer =
-                    image.render_to_buffer(target_size_for_scalable_source, Some(context))?;
+                let buffer = image
+                    .render_to_premultiplied_buffer(target_size_for_scalable_source, context)?;
                 // femtovg has no 16-bit texture format; expand to RGB8 for the upload.
                 #[cfg(feature = "image-pixel-format-rgb565")]
                 let buffer = if let SharedImageBuffer::RGB565(b) = &buffer {
@@ -276,54 +276,102 @@ impl TextureCacheKey {
     }
 }
 
-// Cache used to avoid repeatedly decoding images from disk. Entries with a count
-// of 1 are drained after flushing the renderer commands to the screen.
-pub struct TextureCache<R: femtovg::Renderer + TextureImporter>(
-    HashMap<TextureCacheKey, Rc<Texture<R>>>,
-);
+struct CachedTexture<R: femtovg::Renderer + TextureImporter> {
+    texture: Rc<Texture<R>>,
+    last_use: u64,
+    /// The size in bytes, or `None` for a web image that's still loading.
+    weight: Option<usize>,
+}
+
+/// The textures made from images, so that an image isn't decoded and uploaded on every frame.
+/// It keeps the textures that items hold, plus the most recently used others within a budget.
+pub struct TextureCache<R: femtovg::Renderer + TextureImporter> {
+    textures: HashMap<TextureCacheKey, CachedTexture<R>>,
+    /// The sum of the known weights of the textures.
+    total_weight: usize,
+    clock: u64,
+    /// The `clock` when the cache was last drained.
+    drained_at: u64,
+    budget: i_slint_core::graphics::cache::UnusedBudget,
+}
 
 impl<R: femtovg::Renderer + TextureImporter> Default for TextureCache<R> {
     fn default() -> Self {
-        Self(Default::default())
+        Self {
+            textures: HashMap::new(),
+            total_weight: 0,
+            clock: 0,
+            drained_at: 0,
+            budget: Default::default(),
+        }
     }
 }
 
+/// Returns the size in bytes of `texture`, or `None` while it's loading.
+fn texture_weight<R: femtovg::Renderer + TextureImporter>(texture: &Texture<R>) -> Option<usize> {
+    let size = texture.size()?;
+    Some(size.width as usize * size.height as usize * 4)
+}
+
 impl<R: femtovg::Renderer + TextureImporter> TextureCache<R> {
-    // Look up the given image cache key in the image cache and upgrade the weak reference to a strong one if found,
-    // otherwise a new image is created/loaded from the given callback.
+    /// Returns the texture of `cache_key`, or makes it with `image_create_fn`.
     pub(crate) fn lookup_image_in_cache_or_create(
         &mut self,
         cache_key: TextureCacheKey,
         image_create_fn: impl Fn() -> Option<Rc<Texture<R>>>,
     ) -> Option<Rc<Texture<R>>> {
-        Some(match self.0.entry(cache_key) {
-            std::collections::hash_map::Entry::Occupied(existing_entry) => {
-                existing_entry.get().clone()
+        self.clock += 1;
+        let last_use = self.clock;
+        match self.textures.entry(cache_key) {
+            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().last_use = last_use;
+                Some(entry.get().texture.clone())
             }
-            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                let new_image = image_create_fn()?;
-                vacant_entry.insert(new_image.clone());
-                new_image
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                let texture = image_create_fn()?;
+                let weight = texture_weight(&texture);
+                self.total_weight += weight.unwrap_or(0);
+                entry.insert(CachedTexture { texture: texture.clone(), last_use, weight });
+                Some(texture)
             }
-        })
+        }
     }
 
-    pub(crate) fn drain(&mut self) {
-        self.0.retain(|_, cached_image| {
-            // * Retain images that are used by elements, so that they can be effectively
-            // shared (one image element refers to foo.png, another element is created
-            // and refers to the same -> share).
-            // * Also retain images that are still loading (async HTML), where the size
-            // is not known yet. Otherwise we end up in a loop where an image is not loaded
-            // yet, we report (0, 0) to the layout, the image gets removed here, the closure
-            // still triggers a load and marks the layout as dirt, which loads the
-            // image again, etc.
-            Rc::strong_count(cached_image) > 1 || cached_image.size().is_none()
+    /// Drops the least recently used textures that nothing holds, beyond the budget,
+    /// after a window of `window_size` was drawn.
+    /// It keeps the textures used while drawing it, and the images that are still loading
+    /// on the web, whose size isn't known yet.
+    pub(crate) fn drain(&mut self, window_size: i_slint_core::api::PhysicalSize) {
+        self.budget.window_drawn(window_size);
+        let drained_at = core::mem::replace(&mut self.drained_at, self.clock);
+        for cached in self.textures.values_mut().filter(|cached| cached.weight.is_none()) {
+            cached.weight = texture_weight(&cached.texture);
+            self.total_weight += cached.weight.unwrap_or(0);
+        }
+        if self.budget.fits(self.total_weight) {
+            return;
+        }
+        // The size in bytes of a texture that may be dropped.
+        let droppable = |cached: &CachedTexture<R>| {
+            let unused = Rc::strong_count(&cached.texture) == 1 && cached.last_use <= drained_at;
+            unused.then_some(cached.weight).flatten()
+        };
+        let unused =
+            self.textures.values().filter_map(|cached| Some((cached.last_use, droppable(cached)?)));
+        let Some(cutoff) = self.budget.cutoff(unused) else { return };
+        let total_weight = &mut self.total_weight;
+        self.textures.retain(|_, cached| {
+            let dropped = cached.last_use <= cutoff && droppable(cached).is_some();
+            if dropped {
+                *total_weight -= cached.weight.unwrap_or(0);
+            }
+            !dropped
         });
     }
 
     pub(crate) fn clear(&mut self) {
-        self.0.clear();
+        self.textures.clear();
+        self.total_weight = 0;
     }
 }
 
