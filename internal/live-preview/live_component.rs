@@ -178,15 +178,9 @@ impl LiveReloadingComponent {
 
     /// Reload the properties and callbacks after a reload()
     pub fn reload_properties_and_callbacks(&self) {
-        // Set the properties
-        for (name, value) in self.properties.borrow_mut().iter() {
-            let result = if let Some((global, prop)) = name.split_once('.') {
-                self.instance().set_global_property(global, prop, value.clone())
-            } else {
-                self.instance().set_property(name, value.clone())
-            };
-            if let Err(e) = result {
-                (self.error_hook)(format!("Cannot set property {name}: {e}"));
+        for (name, value) in self.properties.borrow().iter() {
+            if let Err(error) = self.write_property(name, value.clone()) {
+                (self.error_hook)(format!("Cannot restore property '{name}': {error}"));
             }
         }
         for (name, callback) in self.callbacks.borrow_mut().iter() {
@@ -227,6 +221,52 @@ impl LiveReloadingComponent {
     /// Return the instance
     pub fn instance(&self) -> &ComponentInstance {
         self.instance.as_ref().expect("always set after Self is created from Rc::new_cyclic")
+    }
+
+    fn write_property(&self, name: &str, value: Value) -> Result<(), SetPropertyError> {
+        if let Some((global, property)) = name.split_once('.') {
+            self.instance().set_global_property(global, property, value)
+        } else {
+            self.instance().set_property(name, value)
+        }
+    }
+
+    /// Store a generated Rust setter's value even when the current UI can't accept it.
+    pub fn set_rust_property(&self, name: &str, value: Value) {
+        if let Err(error) = self.write_property(name, value.clone()) {
+            eprintln!(
+                "Warning: Live preview could not set '{name}': {error}. Keeping the Rust value for a later reload."
+            );
+        }
+        self.properties.borrow_mut().insert(name.into(), value);
+    }
+
+    /// Read a property using the type of the generated Rust getter.
+    pub fn get_rust_property<T, Error>(
+        &self,
+        name: &str,
+        convert: impl Fn(Value) -> Result<T, Error>,
+        default: impl FnOnce() -> T,
+    ) -> T {
+        let value = if let Some((global, property)) = name.split_once('.') {
+            self.instance().get_global_property(global, property).ok()
+        } else {
+            self.instance().get_property(name).ok()
+        };
+        if let Some(value) = value.and_then(|value| convert(value).ok()) {
+            return value;
+        }
+        let cached = self.properties.borrow().get(name).cloned();
+        if let Some(value) = cached.and_then(|value| convert(value).ok()) {
+            eprintln!(
+                "Warning: Live preview could not read '{name}' with the compiled Rust type. Returning the cached Rust value."
+            );
+            return value;
+        }
+        eprintln!(
+            "Warning: Live preview could not read '{name}' with the compiled Rust type. Returning its default value."
+        );
+        default()
     }
 
     /// Set a property and remember its value for when the component is reloaded
