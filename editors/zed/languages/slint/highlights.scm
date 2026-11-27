@@ -259,6 +259,10 @@
 (implement_statement
   "implement" @keyword)
 
+(slot_declaration
+  _ @keyword
+  (#any-of? @keyword "default" "slot"))
+
 (enum_definition
   "enum" @keyword)
 
