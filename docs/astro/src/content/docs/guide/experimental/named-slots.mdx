@@ -407,6 +407,53 @@ Views hold weak references to their supplied instances; removing an entry doesn'
 Once the instance is destroyed, writes and calls have no effect.
 Property reads and calls with return values return the type's default value.
 
+### Reading an Entry by Index
+
+Use `entries[index].property` to read an exposed property outside a collection loop.
+For model-backed entries, the read follows the entry currently at that index after edits to the model.
+An out-of-bounds index returns the property's type default.
+Indexed access is read-only and exposes individual properties.
+
+```slint
+import { Button } from "std-widgets.slint";
+
+component ItemGroup {
+    default slot <[Text]> items;
+    in property <int> selected-index;
+    out property <string> selected-title: items[root.selected-index].text;
+
+    VerticalLayout {
+        for item in items: item { }
+    }
+}
+
+export component App inherits Window {
+    in-out property <int> selected-index: 0;
+
+    VerticalLayout {
+        padding: 12px;
+        spacing: 6px;
+
+        group := ItemGroup {
+            selected-index: root.selected-index;
+            Text { text: "One"; }
+            Text { text: "Two"; }
+        }
+
+        Text { text: "Selected: \{group.selected-title}"; }
+        Button {
+            text: "Next Index";
+            clicked => {
+                root.selected-index = root.selected-index == 2 ? 0 : root.selected-index + 1;
+            }
+        }
+    }
+}
+```
+
+Click **Next Index** to cycle through indices 0, 1, and 2.
+There are only two entries, so index 2 is out of range and `selected-title` is an empty string.
+
 ## Current limitations
 
 The named slot feature is in its early stages. The following restrictions apply:

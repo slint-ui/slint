@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Item {
+    in property <string> title;
+}
+
+component Group {
+    default slot <[Item]> entries;
+    out property <string> selected-title: entries[1].title;
+    for entry in entries: entry { }
+}
+
+export component Test inherits Window {
+    Group {
+        Item { title: "Static"; }
+        for title in ["Repeated"]: Item { title: title; }
+//                                 >   <error{A 'for' loop must be the only child in a collection slot}
+    }
+}
