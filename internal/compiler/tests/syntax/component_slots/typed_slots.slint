@@ -24,10 +24,30 @@ export component StructuralImplementation {
     }
 }
 
-export component WrongSlotType {
-    slot <Rectangle> control;
-//        >       <error{Slot type 'Rectangle' must be an interface}
+component NominalHost {
+    slot <Text> control;
     control { }
+}
+
+export component WrongSlotType {
+    NominalHost { control << Rectangle { } }
+//                           >        <error{Slot 'control' requires 'Text' or a component inheriting it, but got 'Rectangle'}
+}
+
+export component IncompatibleForwarding {
+    slot <Rectangle> content;
+    NominalHost { control << content; }
+//                           >     <error{Forwarded slot 'content' has an incompatible type}
+}
+
+component WildcardHost {
+    slot <*> content;
+    content { }
+}
+
+export component ListInSingleSlot {
+    WildcardHost { content << [Rectangle { }] }
+//                            >             <error{A list of elements can only be used with a collection slot}
 }
 
 export component NoChildrenInPlaceholder {
@@ -35,6 +55,7 @@ export component NoChildrenInPlaceholder {
     control {
         Rectangle { }
 //      >           <error{Typed slot placeholders only accept property bindings and callback connections}
+
     }
 }
 
@@ -47,6 +68,7 @@ export component WrongForwarding {
     Host {
         control << input;
 //                 >   <error{Forwarded slot 'input' has an incompatible interface}
+
     }
 
     input { }
@@ -58,6 +80,7 @@ export component CannotReadExtraMembers {
 
     out property <int> secret: control.secret;
 //                                     >    <error{Element 'Interaction' does not have a property 'secret'}
+
 }
 
 export component CannotWriteOutput {
@@ -65,5 +88,6 @@ export component CannotWriteOutput {
     control {
         pressed: true;
 //      >     <error{Cannot assign to 'out' property 'pressed'}
+
     }
 }

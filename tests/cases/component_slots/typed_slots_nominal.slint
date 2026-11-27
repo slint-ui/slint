@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Meter {
+    in-out property <int> value;
+    public pure function doubled() -> int { return root.value * 2; }
+}
+
+component DecoratedMeter inherits Meter { }
+
+component MeterHost {
+    slot <Meter> meter;
+    out property <int> reading: meter.doubled();
+    meter { value: 7; }
+}
+
+component ForwardingHost {
+    slot <DecoratedMeter> content;
+    out property <int> reading: host.reading;
+    host := MeterHost { meter << content; }
+}
+
+component TextHost {
+    slot <Text> label;
+    out property <string> caption: label.text;
+    label { text: "Built-in"; }
+}
+
+component EditorHost {
+    slot <TextInput> editor;
+    out property <bool> focused: editor.has-focus;
+    public function focus-editor() { editor.focus(); }
+    editor { }
+}
+
+component WildcardHost inherits Rectangle {
+    slot <*> content << Text { text: "Default"; }
+    content { }
+}
+
+export component TestCase inherits Window {
+    out property <bool> test: direct.reading == 14 && forwarded.reading == 14
+        && builtin.caption == "Built-in" && replacement.text == "Replacement";
+    out property <bool> editor-focused: editor-host.focused;
+    public function focus-editor() { editor-host.focus-editor(); }
+
+    direct := MeterHost { meter << DecoratedMeter { } }
+    forwarded := ForwardingHost { content << DecoratedMeter { } }
+    builtin := TextHost { label << Text { } }
+    editor-host := EditorHost { editor << TextInput { } }
+    WildcardHost { content << replacement := Text { text: "Replacement"; } }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.invoke_focus_editor();
+assert!(instance.get_editor_focused());
+```
+*/

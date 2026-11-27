@@ -303,18 +303,27 @@ module.exports = grammar({
 
     slot_declaration: ($) =>
       seq(
+        optional("default"),
         "slot",
         optional(seq(
           "<",
-          field("type", $.user_type_identifier),
-          repeat(seq(".", $.user_type_identifier)),
+          choice(
+            "*",
+            $._slot_type,
+            seq("[", choice("*", $._slot_type), "]"),
+          ),
           ">",
         )),
         field("name", $.simple_identifier),
-        choice(";", seq("<<", field("default", $.component))),
+        choice(";", seq("<<", field("default", choice($.component, $.slot_element_list)))),
       ),
 
-    // `slot` and `match` are contextual keywords and stay valid identifiers elsewhere.
+    _slot_type: ($) => seq(
+      field("type", $.user_type_identifier),
+      repeat(seq(".", $.user_type_identifier)),
+    ),
+
+    // `slot`, `default`, and `match` are contextual keywords and stay valid identifiers elsewhere.
     // `slot` only introduces a slot declaration when a name or type annotation follows it.
     // `match` only introduces a match element when an expression follows it.
     // As with "changed" in $.callback_event, the lexer would otherwise always prefer a
@@ -324,6 +333,7 @@ module.exports = grammar({
       choice(
         $.simple_identifier,
         alias("slot", $.simple_identifier),
+        alias("default", $.simple_identifier),
         alias("match", $.simple_identifier),
       ),
 
@@ -331,6 +341,7 @@ module.exports = grammar({
       choice(
         $.user_type_identifier,
         alias("slot", $.user_type_identifier),
+        alias("default", $.user_type_identifier),
         alias("match", $.user_type_identifier),
       ),
 
@@ -338,8 +349,10 @@ module.exports = grammar({
       seq(
         field("name", $._statement_identifier),
         "<<",
-        choice($.component, seq("{", "}")),
+        choice($.component, seq("{", "}"), $.slot_element_list),
       ),
+
+    slot_element_list: ($) => seq("[", repeat($.component), "]"),
 
     // After `<<`, a component named `match` can also follow, so the lexer reads `match`
     // as the keyword rather than an identifier.

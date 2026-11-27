@@ -83,7 +83,9 @@ pub fn ensure_window(
         slot_target: None,
         slot_default: None,
         empty_slot_assignments: Vec::new(),
-        typed_slot_interface: None,
+        is_typed_slot: false,
+        slot_collection: false,
+        slot_expansion: None,
         forwarded_slots: Vec::new(),
     };
     let new_root = new_root.make_rc();

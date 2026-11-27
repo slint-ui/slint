@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry { in property <int> value; }
+export component InterfaceEntries {
+    default slot <[Entry]> entries;
+    for entry in entries: entry { }
+}
+export component WildcardDefault {
+    slot <[*]> entries << [Rectangle { } Text { }]
+    for entry in entries: entry { }
+}
+component NamedEntries {
+    slot <[*]> entries;
+    for entry in entries: entry { }
+}
+export component DuplicateAssignment {
+    NamedEntries {
+        entries << [Rectangle { }]
+        entries << []
+//      >     <error{Duplicate assignment to slot 'entries'}
+    }
+}
+export component MissingList {
+    NamedEntries { entries << Rectangle { } }
+//                 >                      <error{Use 'entries << [...]' to assign a collection slot}
+}
+export component MissingDefaultList {
+    slot <[*]> entries << Rectangle { }
+//                        >           <error{Use '[...]' for collection slot defaults}
+    for entry in entries: entry { }
+}
+export component Nested {
+    Rectangle { slot <[Entry]> items; }
+//                             >   <error{Declare collection slots on a component root}
+}
+export component Duplicate {
+    default slot <[Entry]> first;
+    default slot <[Entry]> second;
+//                         >    <error{A component can only declare one default slot}
+    for item in first: item { }
+}
+export component InvalidBody {
+    default slot <[Entry]> items;
+    for item in items: item { Rectangle { } }
+//                            >           <error{Slot expansions only accept property bindings and callback connections}
+}
+export component MissingExpansion { default slot <[Entry]> items; }
+//                                                         >   <error{Place collection slot 'items' with a 'for' loop}
+export component DuplicateExpansion {
+    default slot <[Entry]> items;
+    for item in items: item { }
+//                     >      <note{The slot 'items' is already used here}
+    for item in items: item { }
+//  >                         <error{The slot 'items' can only appear once in an element}
+}
+export component ScalarDefault {
+    default slot <Entry> item;
+//  >                        <error{A default slot must have a collection type, such as '<[*]>'}
+    item { }
+}
+export component Base {
+    default slot <[Entry]> items;
+    for item in items: item { }
+}
+export component Redeclared inherits Base { default slot <[Entry]> items; }
+//                                                                 >   <error{A component can only declare one default slot}
+export component Test inherits Window { }

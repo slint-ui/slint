@@ -13,6 +13,7 @@ It generalizes the built-in `@children` placeholder: instead of a single anonymo
 ## Declaring a slot
 
 Use the `slot` keyword inside a component to declare a slot, then render it at the desired location by writing the slot's name as an empty element.
+Both `slot header;` and `slot <*> header;` accept any element.
 
 ```slint
 export component Base inherits Rectangle {
@@ -47,7 +48,7 @@ export component App inherits Rectangle {
 
 Assigning an untyped slot is optional.
 An unassigned untyped slot renders its [default content](#default-content), or nothing if it has none.
-[Typed slots](#typed-slots) require a supplied component.
+[Scalar typed slots](#typed-slots) require a supplied component.
 
 ## Default Content
 
@@ -106,7 +107,7 @@ For shared state, declare a property on the component and bind both the default 
 
 A slot that's forwarded to another component's slot can't have default content.
 Set the default on the target slot instead.
-Typed slots don't support default content yet.
+Scalar typed slots don't support default content yet.
 
 ### Filling Inherited Slots
 
@@ -141,7 +142,7 @@ The slot keeps the position its base component gives it.
 
 ## Referencing a slot
 
-The name bound to a slot is a regular element reference, so its properties can be read like any other element.
+The name bound to a scalar slot is a regular element reference, so its properties can be read like any other element.
 
 ```slint no-test
 export component App inherits Rectangle {
@@ -200,7 +201,9 @@ export component App inherits Window {
 
 ## Typed Slots
 
-Declare `slot <InterfaceName> name;` when a component needs to interact with supplied content through an [interface](./interface).
+Declare `slot <Type> name;` to constrain the supplied component.
+An [interface](./interface) constraint accepts a component that provides its members.
+A component or built-in type constraint, such as `slot <Rectangle> item;`, accepts the named type and components that inherit it.
 
 The host can bind interface inputs, read outputs, modify `in-out` properties, call public functions, and connect callbacks.
 Members outside the interface aren't available through the host's slot reference.
@@ -252,20 +255,115 @@ Members can be declared directly, inherited, or delegated with `implement Action
 A typed slot requires exactly one component when its host is instantiated.
 A derived component can leave the slot open for its caller.
 Unlike an untyped slot, a typed slot that a derived component fills is closed to that component's callers.
-When forwarding between two typed slots, both must declare the same interface.
+When forwarding between two typed slots, the source type must satisfy the destination constraint.
+Two interface slots must declare the same interface.
 
 Typed placeholders accept property bindings, callback connections, and property change handlers, but not child elements or new declarations.
 Defining handlers for the same callback in both the placeholder and supplied component is an error.
 Property bindings follow the existing priorities; more local bindings take precedence.
 
+## Collection Slots
+
+Declare `slot <[Type]> entries;` to accept multiple elements using the same [type constraints](#typed-slots).
+Enable both `named-slots` and `interfaces` to run the interface-based examples.
+
+| Declaration | Accepted Children |
+| --- | --- |
+| `slot <[*]> entries;` | Any element. |
+| `slot <[Entry]> entries;` | Components that satisfy the `Entry` interface. |
+| `slot <[Rectangle]> entries;` | `Rectangle` and components that inherit it. |
+
+Wildcard entries expose the standard element properties; typed entries also expose their constraint's public members.
+
+The `default` qualifier routes ordinary children into the collection instead of `@children`.
+Fill a named collection with a single assignment, such as `entries << [EntryView { } EntryView { }]`.
+A component can declare multiple collection slots, including one default collection.
+
+### Placing Supplied Entries
+
+Enable `named-slots` to run this example.
+`ItemGroup` places its supplied children in a vertical layout and exposes their count.
+
+```slint
+component ItemGroup {
+    default slot <[*]> items;
+    out property <int> count: items.length;
+
+    VerticalLayout {
+        for item in items: item { }
+    }
+}
+
+export component App inherits Window {
+    VerticalLayout {
+        padding: 12px;
+        spacing: 6px;
+
+        Text { text: "Entries: \{group.count}"; }
+        group := ItemGroup {
+            Text { text: "One"; }
+            Text { text: "Two"; }
+        }
+    }
+}
+```
+
+The window shows the two supplied entries and a count of two.
+
+### Collection Defaults
+
+List the defaults with `<< [...]` in the declaration, for example `slot <[Text]> entries << [Text { } Text { }]`.
+Omit the assignment to keep the defaults.
+An assignment replaces the whole list, and `entries << []` clears it.
+Entries supplied by a derived component become defaults that its callers can replace or clear.
+For a default collection, ordinary children in the derived component also form its default list.
+References to default entries must stay inside that default content, as with other named slots.
+
+### Binding Entry Properties
+
+Expand the supplied components with `for`, applying bindings and callback handlers to each component:
+
+```slint
+interface Entry {
+    in property <int> position;
+    in property <bool> selected;
+    callback activated();
+}
+
+component EntryGroup {
+    in-out property <int> current-index: -1;
+    out property <int> count: entries.length;
+    default slot <[Entry]> entries;
+
+    HorizontalLayout {
+        for entry[index] in entries: entry {
+            position: index;
+            selected: index == root.current-index;
+            activated => { root.current-index = index; }
+        }
+    }
+}
+```
+
+The expansion places existing supplied components without replacing their type or visuals.
+The child and optional index variables are available only inside the expansion.
+`entries.length` tracks the number of supplied components.
+Collection lengths and indexes are read-only.
+
+Property bindings on a supplied component take precedence over bindings from the expansion.
+Property change handlers from both sides are combined.
+Defining handlers for the same callback in both the expansion and supplied component is an error.
+
 ## Current limitations
 
 The named slot feature is in its early stages. The following restrictions apply:
 
-- The name `children` is reserved for the default slot. Use `@children` to render it.
+- The name `children` is reserved for the default slot. Use `@children`, or declare a default collection slot.
 
-- A declared slot must be rendered exactly once, and it may not be placed inside a `for`, `if`, or `match` element.
+- A slot must be rendered exactly once, and it may not be placed inside a `for`, `if`, or `match` element.
+
+- A collection slot must be rendered by a `for` loop.
 
 - A slot cannot be placed inside a `PopupWindow` or a `ComponentContainer`.
 
-- Slot assignment and forwarding are only valid on components, and each slot may be assigned at most once.
+- Slot assignment and forwarding are only valid on components, and each scalar slot may be assigned at most once.
