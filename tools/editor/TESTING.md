@@ -22,9 +22,10 @@
   Repeat combinations when their interaction exercises different behavior.
 - Reproduce failures; never weaken assertions, add skips, or replace screenshot references merely to pass.
 - Inspect renders for visual changes and account for logical-to-physical pixel scaling.
-- Run focused tests during development, then all non-skipped editor UI/Rust tests before committing code changes.
-  Run `mise run ci:autofix:fix` and CI's strict Clippy check.
-  Report failures and remaining skips.
+- Before committing editor code changes locally, run focused Rust and UI tests that cover the affected behavior.
+  Report failures and remaining skips from those checks.
+- Run `mise run ci:autofix:fix` and CI's strict Clippy check.
+- Require the full Visual Editor Rust and UI suites to pass in [CI](../../.github/workflows/ci.yaml) before merging.
 
 Build the UI test binary from the repository root:
 
@@ -33,14 +34,15 @@ SLINT_EMIT_DEBUG_INFO=1 SLINT_ENABLE_EXPERIMENTAL_FEATURES=interfaces,shadowable
   cargo build --release --locked -p slint-editor --all-features --features slint/mcp
 ```
 
-From `tools/editor/ui-tests`, use its installed test environment:
+From `tools/editor/ui-tests`, pass the relevant test files or a `-k` filter to the runner.
 
 ```sh
-SLINT_EDITOR_UI_TEST_BACKEND=headless-skia ./run-tests.sh
+SLINT_EDITOR_UI_TEST_BACKEND=headless-skia ./run-tests.sh tests/test_canvas_zoom.py
 ```
 
 Set `SLINT_EDITOR_BINARY` when using a different build profile or output directory.
-Use [CI](../../.github/workflows/ci.yaml) for current Rust test and lint commands.
+Use the Visual Editor CI job for current Rust test and lint commands.
+Pass a test name filter to `cargo test` for a focused run.
 
 ## Retrying Assertions
 
