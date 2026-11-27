@@ -56,36 +56,7 @@ pub(crate) fn validate_children(
 ) -> bool {
     let mut valid = true;
     for child in children {
-        if let Some(interface) = &slot.interface {
-            let node = child.borrow().debug[0].node.clone();
-            valid &= interfaces::validate_interface_implementation(
-                &child.borrow(),
-                &interface.root_element,
-                &interface.id,
-                &node.into(),
-                &interfaces::ImplementBinding::OnSelf,
-                diag,
-            );
-        }
-        if let Some(expected) = &slot.component_type {
-            let mut actual = child.borrow().base_type.clone();
-            while &actual != expected {
-                let ElementType::Component(component) = actual else { break };
-                actual = component.root_element.borrow().base_type.clone();
-            }
-            if &actual != expected {
-                diag.push_error(
-                    format!(
-                        "Collection slot '{}' requires '{expected}' or a component inheriting it, \
-                         but got '{}'",
-                        slot.name,
-                        child.borrow().base_type,
-                    ),
-                    &*child.borrow(),
-                );
-                valid = false;
-            }
-        }
+        valid &= typed_slots::validate_child(slot, child, diag);
     }
     valid
 }

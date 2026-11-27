@@ -520,8 +520,7 @@ impl Snapshotter {
         target_element.slot_default = elem.slot_default.clone();
         target_element.empty_slot_assignments = elem.empty_slot_assignments.clone();
         target_element.forwarded_slots = elem.forwarded_slots.clone();
-        target_element.typed_slot_interface =
-            elem.typed_slot_interface.as_ref().map(|c| self.use_component(c).upgrade().unwrap());
+        target_element.is_typed_slot = elem.is_typed_slot;
         target_element.slot_collection = elem.slot_collection;
         target_element.slot_expansion = elem.slot_expansion.clone();
         target_element.implement_statements =
@@ -3100,7 +3099,7 @@ fn slot_collections_requires_its_feature() {
     let source = r#"
         interface Entry { in property <int> value; }
         component Group {
-            default slot <[implements Entry]> items;
+            default slot <[Entry]> items;
             for item[index] in items: item { value: index; }
         }
         component Item { in property <int> value; }

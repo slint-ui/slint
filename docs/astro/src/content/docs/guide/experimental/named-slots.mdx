@@ -13,6 +13,7 @@ It generalizes the built-in `@children` placeholder: instead of a single anonymo
 ## Declaring a slot
 
 Use the `slot` keyword inside a component to declare a slot, then render it at the desired location by writing the slot's name as an empty element.
+Both `slot header;` and `slot <*> header;` accept any element.
 
 ```slint
 export component Base inherits Rectangle {
@@ -51,7 +52,7 @@ An unassigned untyped slot renders its [default content](#default-content), or n
 
 ## Default Content
 
-Give an untyped slot or collection slot default content with `<<` in its declaration.
+Give an untyped slot default content with `<<` in its declaration.
 The component shows the default until a caller assigns the slot.
 An assignment replaces the whole default, including its layout constraints.
 
@@ -110,7 +111,7 @@ Scalar typed slots don't support default content yet.
 
 ### Filling Inherited Slots
 
-A derived component fills an inherited untyped slot or collection slot with `<<` at its root.
+A derived component fills an inherited untyped slot with `<<` at its root.
 The assignment becomes the slot's default content: the slot stays open, and callers of the derived component can replace it.
 Assigning `{ }` removes the inherited default and also leaves the slot open.
 
@@ -200,7 +201,9 @@ export component App inherits Window {
 
 ## Typed Slots
 
-Declare `slot <InterfaceName> name;` when a component needs to interact with supplied content through an [interface](./interface).
+Declare `slot <Type> name;` to constrain the supplied component.
+An [interface](./interface) constraint accepts a component that provides its members.
+A component or built-in type constraint, such as `slot <Rectangle> item;`, accepts the named type and components that inherit it.
 
 The host can bind interface inputs, read outputs, modify `in-out` properties, call public functions, and connect callbacks.
 Members outside the interface aren't available through the host's slot reference.
@@ -252,7 +255,8 @@ Members can be declared directly, inherited, or delegated with `implement Action
 A typed slot requires exactly one component when its host is instantiated.
 A derived component can leave the slot open for its caller.
 Unlike an untyped slot, a typed slot that a derived component fills is closed to that component's callers.
-When forwarding between two typed slots, both must declare the same interface.
+When forwarding between two typed slots, the source type must satisfy the destination constraint.
+Two interface slots must declare the same interface.
 
 Typed placeholders accept property bindings, callback connections, and property change handlers, but not child elements or new declarations.
 Defining handlers for the same callback in both the placeholder and supplied component is an error.
@@ -260,22 +264,19 @@ Property bindings follow the existing priorities; more local bindings take prece
 
 ## Collection Slots
 
-Declare `slot <[implements Entry]> entries;` to accept multiple components that implement an interface.
+Declare `slot <[Type]> entries;` to accept multiple elements using the same [type constraints](#typed-slots).
 Enable both `named-slots` and `interfaces` to run the interface-based examples.
-Collection slots support three constraints:
 
 | Declaration | Accepted Children |
 | --- | --- |
-| `slot <[*]> entries;` | Any component, without an interface requirement. |
-| `slot <[implements Entry]> entries;` | Any component satisfying the `Entry` interface. |
-| `slot <[Entry]> entries;` | The component or built-in element type `Entry`, including components inheriting it. |
+| `slot <[*]> entries;` | Any element. |
+| `slot <[Entry]> entries;` | Components that satisfy the `Entry` interface. |
+| `slot <[Rectangle]> entries;` | `Rectangle` and components that inherit it. |
 
-An unrelated component with matching properties doesn't satisfy a component type constraint.
-An interface constraint doesn't require explicit `implement` declarations.
 Wildcard entries expose the standard element properties; typed entries also expose their constraint's public members.
 
 The `default` qualifier routes ordinary children into the collection instead of `@children`.
-Fill named collections with repeated assignments such as `entries << EntryView { }`.
+Fill a named collection with a single assignment, such as `entries << [EntryView { } EntryView { }]`.
 A component can declare multiple collection slots, including one default collection.
 
 ### Placing Supplied Entries
@@ -311,10 +312,9 @@ The window shows the two supplied entries and a count of two.
 
 ### Collection Defaults
 
-Collections follow the same default-content rules as named slots.
-The declaration can provide one default element; a derived component can provide several default entries.
-Omitting an assignment keeps the default; supplying entries replaces the whole default list, and `entries << { }` clears it.
-All entries supplied at the same inheritance level form one list.
+List the defaults with `<< [...]` in the declaration, for example `slot <[Text]> entries << [Text { } Text { }]`.
+Omit the assignment to keep the defaults.
+An assignment replaces the whole list, and `entries << []` clears it.
 Entries supplied by a derived component become defaults that its callers can replace or clear.
 For a default collection, ordinary children in the derived component also form its default list.
 References to default entries must stay inside that default content, as with other named slots.
@@ -333,7 +333,7 @@ interface Entry {
 component EntryGroup {
     in-out property <int> current-index: -1;
     out property <int> count: entries.length;
-    default slot <[implements Entry]> entries;
+    default slot <[Entry]> entries;
 
     HorizontalLayout {
         for entry[index] in entries: entry {
@@ -350,7 +350,7 @@ The child and optional index variables are available only inside the expansion.
 `entries.length` tracks the number of supplied components.
 Collection lengths and indexes are read-only.
 
-Property bindings follow the same priorities as scalar typed slots; more local bindings take precedence.
+Property bindings on a supplied component take precedence over bindings from the expansion.
 Property change handlers from both sides are combined.
 Defining handlers for the same callback in both the expansion and supplied component is an error.
 

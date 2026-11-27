@@ -214,9 +214,7 @@ fn inline_element(
     if Rc::ptr_eq(elem, &root_component.root_element) {
         for slot in inlined_component.declared_slots.borrow().iter() {
             let slot_name = slot.insertion_name();
-            if (slot.interface.is_some()
-                && !slot.is_collection
-                && children_by_slot.contains_key(slot_name))
+            if (slot.is_typed() && !slot.is_collection && children_by_slot.contains_key(slot_name))
                 || elem_mut.forwarded_slots.iter().any(|f| f.target.as_str() == slot_name)
             {
                 continue;
@@ -232,7 +230,7 @@ fn inline_element(
                         insertion_index: cip.insertion_index,
                         node: cip.node.clone(),
                     });
-                    if slot.interface.is_none() || slot.is_collection {
+                    if !slot.is_typed() || slot.is_collection {
                         reexported.insert(SmolStr::new(slot_name));
                     }
                 }
@@ -704,7 +702,7 @@ fn duplicate_element_with_mapping(
         slot_target: elem.slot_target.clone(),
         slot_default: elem.slot_default.clone(),
         empty_slot_assignments: elem.empty_slot_assignments.clone(),
-        typed_slot_interface: elem.typed_slot_interface.clone(),
+        is_typed_slot: elem.is_typed_slot,
         slot_collection: elem.slot_collection,
         slot_expansion: elem.slot_expansion.clone(),
         forwarded_slots: elem.forwarded_slots.clone(),

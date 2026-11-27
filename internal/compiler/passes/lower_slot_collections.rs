@@ -129,7 +129,7 @@ pub(super) fn lower_slot_collections(
             if seen.insert(Rc::as_ptr(element))
                 && contracts.iter().any(|c| {
                     inherits(element, &c.owner)
-                        || c.slot.default.is_some() && Rc::ptr_eq(element, &c.owner.root_element)
+                        || !c.slot.defaults.is_empty() && Rc::ptr_eq(element, &c.owner.root_element)
                 })
             {
                 groups.push(element.clone());

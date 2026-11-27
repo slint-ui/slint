@@ -308,13 +308,14 @@ module.exports = grammar({
         optional(seq(
           "<",
           choice(
+            "*",
             $._slot_type,
-            seq("[", choice("*", seq(optional("implements"), $._slot_type)), "]"),
+            seq("[", choice("*", $._slot_type), "]"),
           ),
           ">",
         )),
         field("name", $.simple_identifier),
-        choice(";", seq("<<", field("default", $.component))),
+        choice(";", seq("<<", field("default", choice($.component, $.slot_element_list)))),
       ),
 
     _slot_type: ($) => seq(
@@ -348,8 +349,10 @@ module.exports = grammar({
       seq(
         field("name", $._statement_identifier),
         "<<",
-        choice($.component, seq("{", "}")),
+        choice($.component, seq("{", "}"), $.slot_element_list),
       ),
+
+    slot_element_list: ($) => seq("[", repeat($.component), "]"),
 
     // After `<<`, a component named `match` can also follow, so the lexer reads `match`
     // as the keyword rather than an identifier.

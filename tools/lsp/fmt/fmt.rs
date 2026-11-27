@@ -173,6 +173,9 @@ fn format_node(
         SyntaxKind::SlotAssignment => {
             return format_slot_assignment(node, writer, state);
         }
+        SyntaxKind::SlotElementList => {
+            return format_slot_element_list(node, writer, state);
+        }
         SyntaxKind::SlotForwarding => {
             return format_slot_forwarding(node, writer, state);
         }
@@ -1311,23 +1314,10 @@ fn format_slot_declaration(
         if collection {
             whitespace_to(&mut sub, SyntaxKind::LBracket, writer, state, "")?;
         }
-        let implements = node
-            .children_with_tokens()
-            .filter_map(|n| n.into_token())
-            .any(|t| t.text() == "implements");
-        if implements {
-            whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
-        }
         if node.child_token(SyntaxKind::Star).is_some() {
             whitespace_to(&mut sub, SyntaxKind::Star, writer, state, "")?;
         } else {
-            whitespace_to(
-                &mut sub,
-                SyntaxKind::QualifiedName,
-                writer,
-                state,
-                if implements { " " } else { "" },
-            )?;
+            whitespace_to(&mut sub, SyntaxKind::QualifiedName, writer, state, "")?;
         }
         if collection {
             whitespace_to(&mut sub, SyntaxKind::RBracket, writer, state, "")?;
@@ -1335,15 +1325,15 @@ fn format_slot_declaration(
         whitespace_to(&mut sub, SyntaxKind::RAngle, writer, state, "")?;
     }
     whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
-    let has_default = node.child_node(SyntaxKind::SubElement).is_some();
-    if has_default {
+    let content = slot_content_kind(node);
+    if let Some(content) = content {
         whitespace_to(&mut sub, SyntaxKind::DoubleLess, writer, state, " ")?;
-        whitespace_to(&mut sub, SyntaxKind::SubElement, writer, state, " ")?;
+        whitespace_to(&mut sub, content, writer, state, " ")?;
     } else {
         whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
     }
     finish_node(sub, writer, state)?;
-    if !has_default {
+    if content.is_none() {
         state.new_line();
     }
     Ok(())
@@ -1357,15 +1347,44 @@ fn format_slot_assignment(
     let mut sub = node.children_with_tokens();
     whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, "")?;
     whitespace_to(&mut sub, SyntaxKind::DoubleLess, writer, state, " ")?;
-    if node.child_node(SyntaxKind::SubElement).is_none() {
+    if let Some(content) = slot_content_kind(node) {
+        whitespace_to(&mut sub, content, writer, state, " ")?;
+        finish_node(sub, writer, state)?;
+    } else {
         whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?;
         whitespace_to(&mut sub, SyntaxKind::RBrace, writer, state, " ")?;
         finish_node(sub, writer, state)?;
         state.new_line();
-    } else {
-        whitespace_to(&mut sub, SyntaxKind::SubElement, writer, state, " ")?;
-        finish_node(sub, writer, state)?;
     }
+    Ok(())
+}
+
+fn slot_content_kind(node: &SyntaxNode) -> Option<SyntaxKind> {
+    node.children()
+        .map(|child| child.kind())
+        .find(|kind| matches!(kind, SyntaxKind::SubElement | SyntaxKind::SlotElementList))
+}
+
+fn format_slot_element_list(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::LBracket, writer, state, "")?;
+    if node.first_child().is_some() {
+        state.indentation_level += 1;
+        state.new_line();
+        for _ in node.children() {
+            whitespace_to(&mut sub, SyntaxKind::SubElement, writer, state, "")?;
+        }
+        state.indentation_level -= 1;
+        state.whitespace_to_add = None;
+        state.new_line();
+    }
+    whitespace_to(&mut sub, SyntaxKind::RBracket, writer, state, "")?;
+    finish_node(sub, writer, state)?;
+    state.new_line();
     Ok(())
 }
 
@@ -2609,6 +2628,14 @@ mod tests {
         assert_formatting(
             "component Host { slot header << label:=Text{}\nslot footer; header{} footer{} }",
             "component Host {\n    slot header << label := Text { }\n    slot footer;\n\n    header { }\n\n    footer { }\n}\n",
+        );
+    }
+
+    #[test]
+    fn slot_element_list() {
+        assert_formatting(
+            "component Host { slot < * > decoration; slot <[Entry]> entries<<[Entry{} Entry{}] Group{ items<<[ ] } }",
+            "component Host {\n    slot <*> decoration;\n    slot <[Entry]> entries << [\n        Entry { }\n        Entry { }\n    ]\n\n    Group {\n        items << []\n    }\n}\n",
         );
     }
 
@@ -4309,8 +4336,8 @@ export component MainWindow2 inherits Rectangle {
     #[test]
     fn slot_collections() {
         assert_formatting(
-            "component Group { default slot < [ implements   Entry ] > items; HorizontalLayout {for item[index] in items: item{value:index;}} }",
-            "component Group {\n    default slot <[implements Entry]> items;\n\n    HorizontalLayout {\n        for item[index] in items: item {\n            value: index;\n        }\n    }\n}\n",
+            "component Group { default slot < [   Entry ] > items; HorizontalLayout {for item[index] in items: item{value:index;}} }",
+            "component Group {\n    default slot <[Entry]> items;\n\n    HorizontalLayout {\n        for item[index] in items: item {\n            value: index;\n        }\n    }\n}\n",
         );
         assert_formatting(
             "component Group {slot< [ * ] > items;for item in items:item{}}",
