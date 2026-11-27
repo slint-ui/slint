@@ -45,7 +45,7 @@ fn collect_subcomponents_recursive(
         }
         result.push(base_comp);
     });
-    for popup in component.popup_windows.borrow().iter() {
+    for popup in component.sub_windows.borrow().iter() {
         collect_subcomponents_recursive(&popup.component, result, hash);
     }
 }

@@ -1410,7 +1410,7 @@ fn generate_child_item_trees(
         RustGeneratorContext { global_access: quote!(_self.globals()) },
         parent_ctx,
     );
-    let popups = component.popup_windows.iter().map(|popup| {
+    let popups = component.sub_windows.iter().map(|popup| {
         generate_item_tree(&popup.item_tree, root, Some(&ParentScope::new(&ctx, None)), None, true)
     });
     let menus = component.menu_item_trees.iter().map(|tree| {
@@ -1826,7 +1826,7 @@ fn generate_sub_component_body(
     }
 
     let popup_id_names = component
-        .popup_windows
+        .sub_windows
         .iter()
         .enumerate()
         .map(|(i, _)| internal_popup_id(i))
@@ -4917,7 +4917,8 @@ fn compile_builtin_function_call(
                     &local_reference.sub_component_path,
                     |parent_ctx| {
                 let popup = &ctx.compilation_unit.sub_components[parent_ctx.sub_component]
-                    .popup_windows[*popup_index as usize];
+                    .sub_windows[*popup_index as usize];
+                let llr::SubWindowKind::Popup { position, is_tooltip } = &popup.kind;
                 let popup_window_id =
                     inner_component_id(&ctx.compilation_unit.sub_components[popup.item_tree.root]);
                 let popup_ctx = EvaluationContext::new_sub_component(
@@ -4926,10 +4927,10 @@ fn compile_builtin_function_call(
                     RustGeneratorContext { global_access: quote!(_self.globals()) },
                     Some(&parent_ctx),
                 );
-                let position = compile_expression(&popup.position.borrow(), &popup_ctx);
+                let position = compile_expression(&position.borrow(), &popup_ctx);
                 let close_policy = compile_expression(close_policy, ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
-                let window_kind = if popup.is_tooltip {
+                let window_kind = if *is_tooltip {
                     quote!(sp::WindowKind::ToolTip)
                 } else {
                     quote!(sp::WindowKind::Popup)

@@ -10,7 +10,7 @@ use i_slint_core::{SharedString, api::LogicalPosition};
 use slint_interpreter::{ComponentHandle, Value};
 use std::rc::Rc;
 
-fn popup_windows(window: &i_slint_core::api::Window) -> Vec<Rc<dyn WindowAdapter>> {
+fn sub_windows(window: &i_slint_core::api::Window) -> Vec<Rc<dyn WindowAdapter>> {
     WindowInner::from_pub(window)
         .active_popups()
         .iter()
@@ -59,23 +59,23 @@ fn context_menu_is_native_popup() {
     let button = PointerEventButton::Right;
     instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
     instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
-    let [menu] = &popup_windows(instance.window())[..] else { panic!("one menu") };
+    let [menu] = &sub_windows(instance.window())[..] else { panic!("one menu") };
 
     key(menu.window(), Key::UpArrow);
     key(menu.window(), Key::RightArrow);
-    let [sub_menu] = &popup_windows(menu.window())[..] else { panic!("one sub-menu") };
+    let [sub_menu] = &sub_windows(menu.window())[..] else { panic!("one sub-menu") };
     let parent = sub_menu.internal(i_slint_core::InternalToken).and_then(|i| i.get_parent());
     assert!(parent.is_some_and(|p| Rc::ptr_eq(&p, menu)), "the menu is the sub-menu's parent");
 
     // Escape closes only the sub-menu.
     key(sub_menu.window(), Key::Escape);
-    assert!(popup_windows(menu.window()).is_empty());
-    assert_eq!(popup_windows(instance.window()).len(), 1);
+    assert!(sub_windows(menu.window()).is_empty());
+    assert_eq!(sub_windows(instance.window()).len(), 1);
 
     key(menu.window(), Key::RightArrow);
-    let [sub_menu] = &popup_windows(menu.window())[..] else { panic!("one sub-menu") };
+    let [sub_menu] = &sub_windows(menu.window())[..] else { panic!("one sub-menu") };
     key(sub_menu.window(), Key::DownArrow);
     key(sub_menu.window(), Key::Return);
     assert_eq!(instance.get_property("result").unwrap(), Value::String("SubEntry;".into()));
-    assert!(popup_windows(instance.window()).is_empty());
+    assert!(sub_windows(instance.window()).is_empty());
 }

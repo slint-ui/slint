@@ -48,6 +48,7 @@ fn previous_focus_item(item: ItemRc) -> ItemRc {
 
 /// The window kind when creating a new child window
 #[repr(u8)]
+#[derive(Clone, Copy)]
 pub enum WindowKind {
     /// Tooltip
     ToolTip,
@@ -55,6 +56,15 @@ pub enum WindowKind {
     Popup,
     /// Popup Menu
     Menu,
+}
+
+impl WindowKind {
+    /// Returns true if a window of this kind is a popup.
+    pub fn is_popup(self) -> bool {
+        match self {
+            WindowKind::ToolTip | WindowKind::Popup | WindowKind::Menu => true,
+        }
+    }
 }
 
 /// This trait represents the adaptation layer between the [`Window`] API and then
@@ -239,6 +249,9 @@ pub trait WindowAdapterInternal: core::any::Any {
     fn get_parent(&self) -> Option<Rc<dyn WindowAdapter>> {
         None
     }
+
+    /// Calls `visitor` for each direct child window of this window.
+    fn visit_children(&self, _visitor: &mut dyn FnMut(&Rc<dyn WindowAdapter>)) {}
 
     /// Create a window for a popup.
     /// This function will create only the window adapter but does not show the popup it self
@@ -723,6 +736,7 @@ pub struct WindowInner {
     next_popup_id: Cell<NonZeroU32>,
     overlays: RefCell<Vec<ItemTreeRc>>,
     had_popup_on_press: Cell<bool>,
+    kind: Cell<Option<WindowKind>>,
     /// Bit mask of the buttons whose press an open menu blocked, indexed by `PointerEventButton as u8`.
     buttons_blocked_by_menu: Cell<u8>,
     close_requested: Callback<(), CloseRequestResponse>,
@@ -741,6 +755,31 @@ impl Drop for WindowInner {
             existing_blinker.stop();
         }
     }
+}
+
+/// Collects the popups that a press closes in `window_adapter` and in its child windows.
+/// Only set `walk_own_popups` when the press can't be inside the top popup of `window_adapter`,
+/// because the walk doesn't look at the press position.
+fn collect_popups_to_close(
+    window_adapter: &WindowAdapterRc,
+    walk_own_popups: bool,
+    to_close: &mut Vec<(WindowAdapterRc, NonZeroU32)>,
+) {
+    if walk_own_popups {
+        to_close.extend(
+            WindowInner::from_pub(window_adapter.window()).outermost_auto_close_popup_in_chain(),
+        );
+    }
+    // Reaches popups of child windows that aren't popups themselves,
+    // such as a non-modal dialog: main window -> dialog -> popup.
+    // A press in the main window then closes the dialog's popup.
+    let Some(internal) = window_adapter.internal(crate::InternalToken) else { return };
+    internal.visit_children(&mut |child| {
+        // A popup window is on the chain that its parent walks.
+        let is_popup =
+            WindowInner::from_pub(child.window()).kind.get().is_some_and(WindowKind::is_popup);
+        collect_popups_to_close(child, !is_popup, to_close);
+    });
 }
 
 impl WindowInner {
@@ -803,6 +842,7 @@ impl WindowInner {
             next_popup_id: Cell::new(NonZeroU32::MIN),
             overlays: Default::default(),
             had_popup_on_press: Default::default(),
+            kind: Default::default(),
             buttons_blocked_by_menu: Default::default(),
             close_requested: Default::default(),
             click_state: ClickState::default(),
@@ -1060,11 +1100,14 @@ impl WindowInner {
             }
         }
 
-        let parent_adapter = self.parent_window_adapter().unwrap_or_else(|| window_adapter.clone());
-        let active_popups = &WindowInner::from_pub(parent_adapter.window()).active_popups;
-        let native_popup_index =
-            active_popups.borrow().iter().position(|p| p.is_native_window(&window_adapter));
-
+        // Select correct window adapter. If this is not a popup we must not use the parent
+        // because this is already the parent of all its popups
+        let is_native_popup = self.kind.get().is_some_and(WindowKind::is_popup);
+        let to_check_window_adapter = is_native_popup
+            .then(|| self.parent_window_adapter())
+            .flatten()
+            .unwrap_or_else(|| window_adapter.clone());
+        let active_popups = &WindowInner::from_pub(to_check_window_adapter.window()).active_popups;
         if pressed_event {
             self.had_popup_on_press.set(!active_popups.borrow().is_empty());
         }
@@ -1079,7 +1122,7 @@ impl WindowInner {
                             .contains(pos - coordinates.to_vector())
                     })
                 } else {
-                    native_popup_index.is_some_and(|idx| idx == active_popups.borrow().len() - 1)
+                    popup.is_native_window(&window_adapter)
                         && event.position().is_none_or(|pos| {
                             ItemTreeRc::borrow_pin(&item_tree)
                                 .as_ref()
@@ -1100,6 +1143,46 @@ impl WindowInner {
             .then_some(popup.popup_id)
         });
 
+        // A press closes popups from the top down to the topmost no-auto-close popup:
+        // the popups shown inside this window that it lands outside of,
+        // and the native popups opened from this window when it lands outside them.
+        let mut popups_to_close = Vec::new();
+        if pressed_event {
+            let top_is_native = {
+                let popups = active_popups.borrow();
+                let outside_in_window_popup = |p: &&PopupWindow| match &p.location {
+                    PopupWindowLocation::ChildWindow(coordinates) => {
+                        event.position().is_some_and(|pos| {
+                            !ItemTreeRc::borrow_pin(&p.component)
+                                .as_ref()
+                                .item_geometry(0)
+                                .contains(pos - coordinates.to_vector())
+                        })
+                    }
+                    PopupWindowLocation::TopLevel(_) => false,
+                };
+                popups_to_close.extend(
+                    popups
+                        .iter()
+                        .rev()
+                        .take_while(outside_in_window_popup)
+                        .take_while(|p| p.close_policy != PopupClosePolicy::NoAutoClose)
+                        .map(|p| (to_check_window_adapter.clone(), p.popup_id)),
+                );
+                popups
+                    .last()
+                    .is_some_and(|p| matches!(p.location, PopupWindowLocation::TopLevel(_)))
+            };
+            if !is_native_popup || !top_is_native {
+                popup_to_close = None;
+            }
+            collect_popups_to_close(
+                &window_adapter,
+                is_native_popup || top_is_native,
+                &mut popups_to_close,
+            );
+        }
+
         let grab_result =
             crate::input::handle_mouse_grab(&event, &window_adapter, &mut mouse_input_state);
         let grab_accepted = grab_result.accepted;
@@ -1114,7 +1197,7 @@ impl WindowInner {
             let mut offset = LogicalPoint::default();
             let mut menubar_item = None;
             let mut blocked_by_menu = false;
-            for (idx, popup) in active_popups.borrow().iter().enumerate().rev() {
+            for popup in active_popups.borrow().iter().rev() {
                 if matches!(popup.window_kind, WindowKind::ToolTip) {
                     continue;
                 }
@@ -1131,7 +1214,7 @@ impl WindowInner {
                         offset = *coordinates;
                         break;
                     }
-                } else if native_popup_index.is_some_and(|i| i == idx) {
+                } else if popup.is_native_window(&window_adapter) {
                     item_tree = self.component.borrow().upgrade();
                     break;
                 }
@@ -1267,7 +1350,10 @@ impl WindowInner {
         }
 
         if let Some(popup_id) = popup_to_close {
-            WindowInner::from_pub(parent_adapter.window()).close_popup(popup_id);
+            WindowInner::from_pub(to_check_window_adapter.window()).close_popup(popup_id);
+        }
+        for (window_adapter, popup_id) in popups_to_close {
+            WindowInner::from_pub(window_adapter.window()).close_popup(popup_id);
         }
 
         self.ensure_tree_instantiated();
@@ -2396,6 +2482,7 @@ impl WindowInner {
             } else {
                 let popup_window = popup_window_adapter.window();
                 WindowInner::from_pub(popup_window).set_component(popup_componentrc);
+                WindowInner::from_pub(popup_window).kind.set(Some(window_kind));
                 popup_window.set_position(LogicalPosition::from_euclid(position));
                 popup_window.set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
 
@@ -2486,6 +2573,8 @@ impl WindowInner {
                 }
             }
             PopupWindowLocation::TopLevel(adapter) => {
+                WindowInner::from_pub(adapter.window()).close_all_popups();
+                WindowInner::from_pub(adapter.window()).kind.set(None);
                 let _ = adapter.set_visible(false);
             }
         }
@@ -2550,6 +2639,31 @@ impl WindowInner {
         for popup in popups {
             self.close_popup_impl(&popup);
         }
+    }
+
+    /// Returns the outermost popup that can auto-close and sits above the
+    /// topmost no-auto-close popup in the chain of native popups.
+    fn outermost_auto_close_popup_in_chain(&self) -> Option<(WindowAdapterRc, NonZeroU32)> {
+        let mut to_close = None;
+        let mut window_adapter = self.window_adapter();
+        loop {
+            let next = {
+                let window = WindowInner::from_pub(window_adapter.window());
+                let popups = window.active_popups.borrow();
+                let Some(popup) = popups.last() else { break };
+                if popup.close_policy == PopupClosePolicy::NoAutoClose {
+                    to_close = None;
+                } else if to_close.is_none() {
+                    to_close = Some((window_adapter.clone(), popup.popup_id));
+                }
+                match &popup.location {
+                    PopupWindowLocation::TopLevel(adapter) => adapter.clone(),
+                    PopupWindowLocation::ChildWindow(_) => break,
+                }
+            };
+            window_adapter = next;
+        }
+        to_close
     }
 
     /// Close the top-most popup.

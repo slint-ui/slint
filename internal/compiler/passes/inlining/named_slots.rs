@@ -403,7 +403,7 @@ export component PopupSuppliedForPopup inherits Window {
         let roots = exported_roots();
         for id in ["Replaced", "Forwarded", "Cleared", "DerivedCleared"] {
             let component = root(&roots, id);
-            assert_eq!(component.popup_windows.borrow().len(), 0, "{id}");
+            assert_eq!(component.sub_windows.borrow().len(), 0, "{id}");
             assert_eq!(component.timers.borrow().len(), 0, "{id}");
             assert_eq!(component.menu_item_tree.borrow().len(), 0, "{id}");
             assert_eq!(init_count(&component, "default init"), 0, "{id}");
@@ -414,7 +414,7 @@ export component PopupSuppliedForPopup inherits Window {
     #[test]
     fn derived_content_drops_what_the_base_default_created() {
         let component = root(&exported_roots(), "DerivedKept");
-        assert_eq!(component.popup_windows.borrow().len(), 0);
+        assert_eq!(component.sub_windows.borrow().len(), 0);
         assert_eq!(component.menu_item_tree.borrow().len(), 0);
         assert_eq!(init_count(&component, "default init"), 0);
         assert_eq!(optimized_default_ids(&component), Vec::<String>::new());
@@ -425,7 +425,7 @@ export component PopupSuppliedForPopup inherits Window {
     #[test]
     fn replaced_derived_content_drops_what_it_created() {
         let component = root(&exported_roots(), "DerivedReplaced");
-        assert_eq!(component.popup_windows.borrow().len(), 0);
+        assert_eq!(component.sub_windows.borrow().len(), 0);
         assert_eq!(component.timers.borrow().len(), 0);
         assert_eq!(component.menu_item_tree.borrow().len(), 0);
         assert_eq!(init_count(&component, "default init"), 0);
@@ -463,7 +463,7 @@ export component PopupSuppliedForPopup inherits Window {
     #[test]
     fn kept_default_keeps_what_it_created() {
         let component = root(&exported_roots(), "Kept");
-        assert_eq!(component.popup_windows.borrow().len(), 1);
+        assert_eq!(component.sub_windows.borrow().len(), 1);
         assert_eq!(component.timers.borrow().len(), 2);
         assert_eq!(component.menu_item_tree.borrow().len(), 1);
         assert_eq!(init_count(&component, "default init"), 1);
@@ -484,7 +484,7 @@ export component PopupSuppliedForPopup inherits Window {
 
     fn popup_ids(component: &Component) -> Vec<String> {
         component
-            .popup_windows
+            .sub_windows
             .borrow()
             .iter()
             .map(|p| p.component.root_element.borrow().id.to_string())
@@ -511,7 +511,7 @@ export component PopupSuppliedForPopup inherits Window {
         ] {
             let component = root(&roots, id);
             assert_eq!(component.timers.borrow().len(), timers, "{id}");
-            assert_eq!(component.popup_windows.borrow().len(), popups, "{id}");
+            assert_eq!(component.sub_windows.borrow().len(), popups, "{id}");
             assert_eq!(optimized_default_ids(&component).len(), timers, "{id}");
         }
     }
@@ -529,7 +529,7 @@ export component PopupSuppliedForPopup inherits Window {
         }
         let component = root(&roots, "SuppliedPopup");
         assert_eq!(component.timers.borrow().len(), 0);
-        assert_eq!(component.popup_windows.borrow().len(), 1);
+        assert_eq!(component.sub_windows.borrow().len(), 1);
         for (id, popup) in
             [("PopupDerivedKept", "derived-popup"), ("PopupSuppliedForPopup", "caller-popup")]
         {

@@ -61,7 +61,7 @@ pub fn ensure_window(
         child_of_layout: false,
         child_of_flexbox: false,
         parent_box_layout_orientation: None,
-        has_popup_child: false,
+        has_sub_window_child: false,
         layout_info_prop: Default::default(),
         layout_info_v_with_constraint: Default::default(),
         layout_info_h_at_own_height: Default::default(),
@@ -230,7 +230,7 @@ pub fn check_sc_window_background(component: &Rc<Component>, diag: &mut BuildDia
     }
 }
 
-// Note: This pass must run before lower_popups, as that introduces additional Window elements.
+// Note: This pass must run before lower_sub_windows, as that introduces additional Window elements.
 pub fn warn_about_child_windows(doc: &crate::object_tree::Document, diag: &mut BuildDiagnostics) {
     for component in &doc.inner_components {
         crate::object_tree::recurse_elem_including_sub_components(

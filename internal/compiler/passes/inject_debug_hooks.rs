@@ -250,7 +250,7 @@ fn add_hooks_for_non_existent_bindings(
     // Elements that are (or will become) the root of a component are never wrapped by the
     // property-to-element lowerings, and their geometry is managed specially (runtime-managed
     // for windows, set after inlining otherwise) — treat them all like the component root below.
-    // A `PopupWindow` is still an ordinary child element at this point, but the lower_popups
+    // A `PopupWindow` is still an ordinary child element at this point, but the lower_sub_windows
     // pass later turns it into the root of its own component. `builtin_type()` walks through
     // component bases, so instances of `component MyPopup inherits PopupWindow` are covered.
     let becomes_root =

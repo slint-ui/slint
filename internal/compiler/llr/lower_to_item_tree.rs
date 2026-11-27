@@ -794,11 +794,11 @@ fn lower_sub_component(
         }
     });
 
-    sub_component.popup_windows = component
-        .popup_windows
+    sub_component.sub_windows = component
+        .sub_windows
         .borrow()
         .iter()
-        .map(|popup| lower_popup_component(popup, &mut ctx, compiler_config))
+        .map(|sub_window| lower_sub_window(sub_window, &mut ctx, compiler_config))
         .collect();
 
     sub_component.menu_item_trees = component
@@ -837,7 +837,7 @@ fn new_sub_component(
         items: Default::default(),
         repeated: Default::default(),
         component_containers: Default::default(),
-        popup_windows: Default::default(),
+        sub_windows: Default::default(),
         menu_item_trees: Vec::new(),
         timers: Default::default(),
         sub_components: Default::default(),
@@ -1434,26 +1434,31 @@ fn lower_repeated_component_body(
     }
 }
 
-fn lower_popup_component(
-    popup: &object_tree::PopupWindow,
+fn lower_sub_window(
+    sub_window: &object_tree::SubWindow,
     ctx: &mut ExpressionLoweringCtx,
     compiler_config: &CompilerConfiguration,
-) -> PopupWindow {
-    let sc = lower_sub_component(&popup.component, ctx.state, Some(&ctx.inner), compiler_config);
-    use super::Expression::PropertyReference as PR;
-    let position = super::lower_expression::make_struct(
-        BuiltinStruct::LogicalPosition,
-        [
-            ("x", PR(sc.mapping.map_property_reference(&popup.x, ctx.state))),
-            ("y", PR(sc.mapping.map_property_reference(&popup.y, ctx.state))),
-        ],
-    );
-
+) -> SubWindow {
+    let sc =
+        lower_sub_component(&sub_window.component, ctx.state, Some(&ctx.inner), compiler_config);
+    let kind = match &sub_window.kind {
+        object_tree::SubWindowKind::Popup(popup) => {
+            use super::Expression::PropertyReference as PR;
+            let position = super::lower_expression::make_struct(
+                BuiltinStruct::LogicalPosition,
+                [
+                    ("x", PR(sc.mapping.map_property_reference(&popup.x, ctx.state))),
+                    ("y", PR(sc.mapping.map_property_reference(&popup.y, ctx.state))),
+                ],
+            );
+            SubWindowKind::Popup { position: position.into(), is_tooltip: popup.is_tooltip }
+        }
+    };
     let item_tree = ItemTree {
-        tree: make_tree(ctx.state, &popup.component.root_element, &sc, &[]),
+        tree: make_tree(ctx.state, &sub_window.component.root_element, &sc, &[]),
         root: ctx.state.push_sub_component(sc),
     };
-    PopupWindow { item_tree, position: position.into(), is_tooltip: popup.is_tooltip }
+    SubWindow { item_tree, kind }
 }
 
 fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionLoweringCtx) -> Timer {

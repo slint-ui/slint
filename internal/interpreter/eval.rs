@@ -131,7 +131,7 @@ fn static_ancestor(
                 .repeated
                 .iter()
                 .map(|r| r.sub_tree.root)
-                .chain(sc.popup_windows.iter().map(|p| p.item_tree.root))
+                .chain(sc.sub_windows.iter().map(|p| p.item_tree.root))
                 .chain(sc.menu_item_trees.iter().map(|t| t.root));
             roots.any(|root| root == current).then_some(idx)
         })?;

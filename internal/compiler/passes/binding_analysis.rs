@@ -269,7 +269,7 @@ fn analyze_element(
         component.root_constraints.borrow_mut().visit_named_references(&mut |nr| {
             process_property(&nr.clone().into(), P, context, reverse_aliases, diag);
         });
-        component.popup_windows.borrow().iter().for_each(|p| {
+        component.sub_windows.borrow().iter().filter_map(|p| p.as_popup()).for_each(|p| {
             process_property(&p.x.clone().into(), P, context, reverse_aliases, diag);
             process_property(&p.y.clone().into(), P, context, reverse_aliases, diag);
         });
