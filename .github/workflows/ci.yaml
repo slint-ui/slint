@@ -1241,11 +1241,18 @@ jobs:
                     - board: native_sim/native/64
                       toolchain: nightly
                       target: x86_64-unknown-linux-gnu
+                      demo: printerdemo
                       extra-cmake-args: ''
                     - board: mimxrt1170_evk@B/mimxrt1176/cm7
                       toolchain: stable
                       target: thumbv7em-none-eabihf
+                      demo: printerdemo
                       extra-cmake-args: -DSHIELD=rk055hdmipi4ma0
+                    - board: frdm_mcxn947/mcxn947/cpu0
+                      toolchain: stable
+                      target: thumbv8m.main-none-eabihf
+                      demo: printerdemo_mcu
+                      extra-cmake-args: -DSHIELD=lcd_par_s035_8080
             fail-fast: false
         # native_sim compiles against the host's glibc headers,
         # which Zephyr's `__unused` macro breaks on Ubuntu 26.04.
@@ -1274,7 +1281,7 @@ jobs:
             run: west zephyr-export
           - name: Build for ${{matrix.board}}
             run: |
-                west build -b ${{matrix.board}} -p always slint/demos/printerdemo/zephyr -- -DCMAKE_BUILD_TYPE=Release ${{matrix.extra-cmake-args}}
+                west build -b ${{matrix.board}} -p always slint/demos/${{matrix.demo}}/zephyr -- -DCMAKE_BUILD_TYPE=Release ${{matrix.extra-cmake-args}}
 
     uefi-demo:
         if: ${{ inputs.full }}

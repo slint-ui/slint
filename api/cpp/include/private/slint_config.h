@@ -11,6 +11,12 @@
 #    define SLINT_TARGET_64
 #endif
 
+// Rust's target_has_atomic = "ptr". GCC and Clang report 2 when pointer atomics are always
+// lock-free. Other compilers only target platforms that have them.
+#if !defined(__GCC_ATOMIC_POINTER_LOCK_FREE) || __GCC_ATOMIC_POINTER_LOCK_FREE == 2
+#    define SLINT_TARGET_HAS_ATOMIC_PTR
+#endif
+
 #if !defined(DOXYGEN)
 #    if defined(_MSC_VER)
 #        define SLINT_DLL_IMPORT __declspec(dllimport)

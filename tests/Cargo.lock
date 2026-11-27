@@ -2359,7 +2359,6 @@ dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
  "chrono",
- "clru",
  "const-field-offset",
  "derive_more",
  "euclid",
@@ -5317,6 +5316,7 @@ dependencies = [
  "i-slint-renderer-anyrender",
  "i-slint-renderer-femtovg",
  "i-slint-renderer-skia",
+ "i-slint-renderer-software",
  "image",
  "kurbo",
  "peniko",
@@ -5805,7 +5805,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vtable"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "const-field-offset",
  "portable-atomic",
@@ -5815,7 +5815,7 @@ dependencies = [
 
 [[package]]
 name = "vtable-macro"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "proc-macro2",
  "quote",

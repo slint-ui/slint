@@ -15,8 +15,9 @@ use sha2::Digest as _;
 
 use super::pairing::{Confirmation, Element, Handshake, Role, Secrets, Token, TokenId};
 use super::{
-    LspToPreviewMessage, PairingRejection, PreviewComponent, PreviewToLspMessage, VersionedUrl,
-    session,
+    DebuggerToPreviewMessage, DebuggerToPreviewNotification, LspToPreviewMessage, PairingRejection,
+    PreviewComponent, PreviewToDebuggerMessage, PreviewToDebuggerNotification, PreviewToLspMessage,
+    SystemTestMessage, VersionedUrl, session,
 };
 
 const SNAPSHOTS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/protocol/snapshots.txt");
@@ -96,6 +97,33 @@ fn wire_format_matches_snapshots() {
         element: Element::for_test(vec![1, 2, 3]),
         confirmation: Confirmation::for_test(7),
     });
+
+    snapshots.assert_roundtrip(L::Debugger {
+        id: 7,
+        message: DebuggerToPreviewMessage::SystemTestRequest(SystemTestMessage(vec![1, 2, 3])),
+    });
+    for enabled in [true, false] {
+        snapshots.assert_roundtrip(L::DebuggerNotification(
+            DebuggerToPreviewNotification::SetInspectMode { enabled },
+        ));
+    }
+    for response in [Ok(SystemTestMessage(vec![1, 2, 3])), Err("disabled".into())] {
+        snapshots.assert_roundtrip(P::Debugger {
+            id: 7,
+            message: PreviewToDebuggerMessage::SystemTestResponse(response),
+        });
+    }
+    snapshots.assert_roundtrip(P::DebuggerNotification(
+        PreviewToDebuggerNotification::SubscriptionNotification(SystemTestMessage(vec![1, 2, 3])),
+    ));
+    snapshots.assert_roundtrip(P::DebuggerNotification(PreviewToDebuggerNotification::Reloaded {
+        success: true,
+    }));
+    for source in [Some((url(), 1000)), None] {
+        snapshots.assert_roundtrip(P::DebuggerNotification(
+            PreviewToDebuggerNotification::InspectSelected { handle: (300, 7), source },
+        ));
+    }
 
     let mut sealer = session::Sealer::new([7; 32]);
     let frames = [sealer.seal(b"a".to_vec()).unwrap(), sealer.seal(b"b".to_vec()).unwrap()];

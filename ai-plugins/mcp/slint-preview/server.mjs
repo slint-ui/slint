@@ -64,6 +64,15 @@ const icons = [
     },
 ];
 
+const widgetStyles = [
+    ...["fluent", "material", "cupertino", "cosmic"].flatMap((style) => [
+        style,
+        `${style}-light`,
+        `${style}-dark`,
+    ]),
+    "native",
+];
+
 const headlessTools = [
     {
         name: "check_slint",
@@ -106,7 +115,7 @@ const headlessTools = [
                 },
                 style: {
                     type: "string",
-                    enum: ["fluent", "material", "cupertino", "cosmic"],
+                    enum: widgetStyles,
                     description: "Widget style for std-widgets.slint.",
                 },
             },
@@ -345,13 +354,16 @@ const toolCalls = {
         if (headless && args.prepare_preview !== undefined) {
             throw rpcError(-32602, "'prepare_preview' is unavailable in headless mode");
         }
-        if (
-            args.style !== undefined &&
-            !["fluent", "material", "cupertino", "cosmic"].includes(args.style)
-        ) {
+        if (args.style === "qt") {
             throw rpcError(
                 -32602,
-                "'style' must be fluent, material, cupertino, or cosmic",
+                "The Qt style requires a Qt backend, which the Wasm checker does not have",
+            );
+        }
+        if (args.style !== undefined && !widgetStyles.includes(args.style)) {
+            throw rpcError(
+                -32602,
+                `'style' must be one of: ${widgetStyles.join(", ")}`,
             );
         }
         let checked;
