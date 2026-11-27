@@ -561,17 +561,14 @@ fn parse_property_binding(p: &mut impl Parser) {
 /// expression ;
 /// {expression }
 /// {object: 42};
+/// {..base};
 /// {};
 /// ```
 fn parse_binding_expression(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::BindingExpression);
-    // Tell a code block from an object literal, which is '{};' or '{ identifier:'
-    if p.nth(0).kind() == SyntaxKind::LBrace
-        && !matches!(
-            (p.nth(1).kind(), p.nth(2).kind()),
-            (_, SyntaxKind::Colon) | (SyntaxKind::RBrace, SyntaxKind::Semicolon)
-        )
-    {
+    let empty_literal =
+        p.nth(1).kind() == SyntaxKind::RBrace && p.nth(2).kind() == SyntaxKind::Semicolon;
+    if p.nth(0).kind() == SyntaxKind::LBrace && !empty_literal && !starts_struct_literal(&mut *p) {
         parse_code_block(&mut *p);
         p.test(SyntaxKind::Semicolon);
         true
@@ -581,6 +578,18 @@ fn parse_binding_expression(p: &mut impl Parser) -> bool {
         p.test(SyntaxKind::Semicolon);
         false
     }
+}
+
+fn starts_struct_literal(p: &mut impl Parser) -> bool {
+    if p.nth(1).kind() == SyntaxKind::DotDot {
+        return true;
+    }
+    let mut next = 2;
+    while p.nth(next).kind() == SyntaxKind::Dot && p.nth(next + 1).kind() == SyntaxKind::Identifier
+    {
+        next += 2;
+    }
+    p.nth(next).kind() == SyntaxKind::Colon
 }
 
 #[cfg_attr(test, parser_test)]
@@ -628,7 +637,7 @@ fn parse_callback_connection(p: &mut impl Parser) {
         p.expect(SyntaxKind::RParent);
     }
     p.expect(SyntaxKind::FatArrow);
-    if p.nth(0).kind() == SyntaxKind::LBrace && p.nth(2).kind() != SyntaxKind::Colon {
+    if p.nth(0).kind() == SyntaxKind::LBrace && !starts_struct_literal(&mut *p) {
         parse_code_block(&mut *p);
         p.test(SyntaxKind::Semicolon);
     } else if parse_expression(&mut *p) {
@@ -900,7 +909,7 @@ fn parse_changed_callback(p: &mut impl Parser) {
     }
     p.expect(SyntaxKind::FatArrow);
 
-    if p.nth(0).kind() == SyntaxKind::LBrace && p.nth(2).kind() != SyntaxKind::Colon {
+    if p.nth(0).kind() == SyntaxKind::LBrace && !starts_struct_literal(&mut *p) {
         parse_code_block(&mut *p);
         p.test(SyntaxKind::Semicolon);
     } else if parse_expression(&mut *p) {

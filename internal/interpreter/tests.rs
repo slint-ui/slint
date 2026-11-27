@@ -133,11 +133,52 @@ fn ensure_instantiated(instance: &crate::component::ComponentInstanceInner) {
     instance.0.ensure_instantiated();
 }
 
+#[test]
+fn struct_update_missing_native_fields() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Struct, Value};
+
+    let instance = llr_compile_with_features(
+        r#"
+            export struct Data { number: int = 42, label: string = "default" }
+            export component TestCase {
+                in property <Data> base;
+                out property <Data> updated: { label: "updated", ..root.base };
+                out property <int> direct: root.base.number;
+            }
+        "#,
+        "TestCase",
+        i_slint_compiler::ExperimentalFeature::StructUpdates.into(),
+    );
+    for (fields, expected) in [
+        (vec![], 42.),
+        (vec![("label".into(), Value::String("native".into()))], 42.),
+        (vec![("number".into(), Value::Number(0.))], 0.),
+    ] {
+        instance.set_property("base", Struct::from_iter(fields).into()).unwrap();
+        let Some(Value::Struct(updated)) = instance.get_property("updated") else {
+            panic!("expected a struct");
+        };
+        assert_eq!(updated.get_field("number"), Some(&Value::Number(expected)));
+        assert_eq!(updated.get_field("label"), Some(&Value::String("updated".into())));
+        assert_eq!(instance.get_property("direct"), Some(Value::Number(expected)));
+    }
+}
+
 /// Compile and create a runtime instance of a single component for tests.
 fn llr_compile(code: &str, name: &str) -> crate::component::ComponentInstanceInner {
-    let config = i_slint_compiler::CompilerConfiguration::new(
+    llr_compile_with_features(code, name, Default::default())
+}
+
+fn llr_compile_with_features(
+    code: &str,
+    name: &str,
+    features: i_slint_compiler::ExperimentalFeatures,
+) -> crate::component::ComponentInstanceInner {
+    let mut config = i_slint_compiler::CompilerConfiguration::new(
         i_slint_compiler::generator::OutputFormat::Interpreter,
     );
+    config.experimental_features = features;
     let result = i_slint_compiler::poll_ready(crate::component::build_from_source(
         code.into(),
         Default::default(),

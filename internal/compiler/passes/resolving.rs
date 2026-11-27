@@ -12,6 +12,7 @@
 use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::element_type::{ElementType, PropertyLookupMode};
+use crate::experimental_features::ExperimentalFeature;
 use crate::expression_tree::*;
 use crate::expression_types::{
     ImageReference, OperatorClass, RadialGradientShape, Unit, operator_class,
@@ -21,7 +22,8 @@ use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable}
 use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
 use crate::parser::{
-    NodeOrToken, SyntaxKind, SyntaxNode, TextRange, identifier_text, syntax_nodes,
+    NodeOrToken, SyntaxKind, SyntaxNode, TextRange, identifier_text, struct_field_path,
+    syntax_nodes,
 };
 use crate::source_path::SourcePath;
 use crate::symbol_counters::SymbolCounters;
@@ -35,10 +37,138 @@ use unicode_segmentation::UnicodeSegmentation;
 
 mod remove_noop;
 
+#[derive(Default)]
+struct StructOverrides(BTreeMap<SmolStr, StructOverride>);
+
+enum StructOverride {
+    Value(Expression),
+    Nested(StructOverrides),
+}
+
+impl StructOverrides {
+    fn insert(&mut self, path: &[SmolStr], value: Expression) -> Result<(), &'static str> {
+        use std::collections::btree_map::Entry;
+        let (field, rest) = path.split_first().unwrap();
+        let entry = self.0.entry(field.clone());
+        if rest.is_empty() {
+            return match entry {
+                Entry::Vacant(entry) => {
+                    entry.insert(StructOverride::Value(value));
+                    Ok(())
+                }
+                Entry::Occupied(entry) => Err(match entry.get() {
+                    StructOverride::Value(_) => "is overridden more than once",
+                    StructOverride::Nested(_) => "overlaps another override",
+                }),
+            };
+        }
+        match entry.or_insert_with(|| StructOverride::Nested(Self::default())) {
+            StructOverride::Nested(fields) => fields.insert(rest, value),
+            StructOverride::Value(_) => Err("overlaps another override"),
+        }
+    }
+
+    fn apply(
+        mut self,
+        ty: Arc<Struct>,
+        base_name: SmolStr,
+        statements: &mut Vec<Expression>,
+        symbols: &SymbolCounters,
+    ) -> Expression {
+        let values = ty
+            .fields
+            .iter()
+            .map(|(field, field_ty)| {
+                let override_value = self.0.remove(field);
+                if let Some(StructOverride::Value(value)) = override_value {
+                    return (field.clone(), value);
+                }
+                let access = Expression::StructFieldAccess {
+                    base: Box::new(Expression::ReadLocalVariable {
+                        name: base_name.clone(),
+                        ty: Type::Struct(ty.clone()),
+                    }),
+                    name: field.clone(),
+                };
+                let Some(StructOverride::Nested(fields)) = override_value else {
+                    return (field.clone(), access);
+                };
+                let Type::Struct(field_ty) = field_ty else { unreachable!() };
+                let name = symbols.generate_name("struct_update_");
+                statements.push(Expression::StoreLocalVariable {
+                    name: name.clone(),
+                    value: Box::new(access),
+                });
+                (field.clone(), fields.apply(field_ty.clone(), name, statements, symbols))
+            })
+            .collect();
+        Expression::Struct { ty, values }
+    }
+}
+
 /// This represents a scope for the Component, where Component is the repeated component, but
 /// does not represent a component in the .slint file
 #[derive(Clone)]
 struct ComponentScope(Vec<ElementRc>);
+
+fn struct_override_type(
+    ty: &Type,
+    path: &[SmolStr],
+    node: &SyntaxNode,
+    diag: &mut BuildDiagnostics,
+) -> Option<Type> {
+    if path.is_empty() {
+        // The parser already reported the missing identifier.
+        return None;
+    }
+    let mut field_ty = ty;
+    for field in path {
+        let Type::Struct(fields) = field_ty else {
+            diag.push_error(
+                format!("Cannot follow '{}' through a non-struct field", path.join(".")),
+                node,
+            );
+            return None;
+        };
+        let Some(next_ty) = fields.fields.get(field) else {
+            diag.push_error(format!("Unknown field '{field}' in struct update"), node);
+            return None;
+        };
+        field_ty = next_ty;
+    }
+    Some(field_ty.clone())
+}
+
+fn lower_struct_update(
+    ty: Arc<Struct>,
+    base: Expression,
+    fields: Vec<(Vec<SmolStr>, Type, Expression, SyntaxNode)>,
+    symbols: &SymbolCounters,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    if fields.is_empty() {
+        return base;
+    }
+
+    let name = symbols.generate_name("struct_update_");
+    let mut statements =
+        vec![Expression::StoreLocalVariable { name: name.clone(), value: Box::new(base) }];
+    let mut overrides = StructOverrides::default();
+    for (path, ty, value, node) in fields {
+        let override_name = symbols.generate_name("struct_override_");
+        statements.push(Expression::StoreLocalVariable {
+            name: override_name.clone(),
+            value: Box::new(value),
+        });
+        let value = Expression::ReadLocalVariable { name: override_name, ty };
+        if let Err(reason) = overrides.insert(&path, value) {
+            diag.push_error(format!("Field '{}' {reason}", path.join(".")), &node);
+        }
+    }
+    let result = overrides.apply(ty, name, &mut statements, symbols);
+    statements.push(result);
+    Expression::CodeBlock(statements)
+}
 
 fn resolve_expression(
     elem: &ElementRc,
@@ -2382,6 +2512,22 @@ impl Expression {
         node: syntax_nodes::ObjectLiteral,
         ctx: &mut LookupCtx,
     ) -> Expression {
+        if let Some(update) = node.ObjectUpdate() {
+            return Self::from_object_update_node(node, update, ctx);
+        }
+        if let Some(member) = node.ObjectMember().find(|m| m.child_token(SyntaxKind::Dot).is_some())
+        {
+            if !crate::reject_experimental_feature(
+                ctx.diag,
+                ctx.type_register,
+                ExperimentalFeature::StructUpdates,
+                "struct updates",
+                &member,
+            ) {
+                ctx.diag.push_error("Dotted fields require a '..base' expression".into(), &member);
+            }
+            return Expression::Invalid;
+        }
         let values: BTreeMap<SmolStr, Expression> = node
             .ObjectMember()
             .map(|n| {
@@ -2401,6 +2547,56 @@ impl Expression {
             StructName::None,
         ));
         Expression::Struct { ty, values }
+    }
+
+    fn from_object_update_node(
+        node: syntax_nodes::ObjectLiteral,
+        update: syntax_nodes::ObjectUpdate,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        #[cfg(feature = "slint-sc")]
+        ctx.diag.slint_sc_error("Struct update expressions are", &update);
+
+        if crate::reject_experimental_feature(
+            ctx.diag,
+            ctx.type_register,
+            ExperimentalFeature::StructUpdates,
+            "struct updates",
+            &update,
+        ) {
+            return Expression::Invalid;
+        }
+        let node_base = update.Expression();
+        let mut base = Self::from_expression_node(node_base.clone(), ctx);
+        if matches!(base, Expression::Struct { .. }) && matches!(ctx.expected_type, Type::Struct(_))
+        {
+            base = base.maybe_convert_to(
+                ctx.expected_type.clone(),
+                Some(&node_base.clone().into()),
+                ctx.diag,
+                &ctx.symbol_counters,
+            );
+        }
+        let base_ty = base.ty();
+        let Type::Struct(ty) = &base_ty else {
+            if base_ty != Type::Invalid {
+                ctx.diag.push_error(
+                    "The '..base' expression must have a struct type".into(),
+                    &node_base,
+                );
+            }
+            return Expression::Invalid;
+        };
+        let mut fields = Vec::new();
+        for member in node.ObjectMember() {
+            let path = struct_field_path(&member);
+            let Some(field_ty) = struct_override_type(&base_ty, &path, &member, ctx.diag) else {
+                continue;
+            };
+            let value = Self::from_expression_node_as(member.Expression(), field_ty.clone(), ctx);
+            fields.push((path, field_ty, value, member.into()));
+        }
+        lower_struct_update(ty.clone(), base, fields, &ctx.symbol_counters, ctx.diag)
     }
 
     fn from_array_node(node: syntax_nodes::Array, ctx: &mut LookupCtx) -> Expression {
