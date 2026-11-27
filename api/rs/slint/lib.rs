@@ -480,10 +480,7 @@ pub mod platform {
     /// This module contains the [`femtovg_renderer::FemtoVGRenderer`] and related types.
     ///
     /// It is only enabled when the `renderer-femtovg` Slint feature is enabled.
-    #[cfg(all(
-        not(target_os = "android"),
-        any(feature = "renderer-femtovg", feature = "renderer-femtovg-wgpu")
-    ))]
+    #[cfg(any(feature = "renderer-femtovg", feature = "renderer-femtovg-wgpu"))]
     pub mod femtovg_renderer {
         #[cfg(feature = "renderer-femtovg")]
         pub use i_slint_renderer_femtovg::FemtoVGOpenGLRenderer as FemtoVGRenderer;
