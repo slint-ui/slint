@@ -121,26 +121,45 @@ test("Headless Wasm renders text, an SVG, and a raster image in plain Node", asy
 });
 
 test("Headless Wasm reports a resource that fails while an earlier one loads", async () => {
-    const png = await readFile(
-        new URL("examples/iot-dashboard/images/up.png", repository),
-    );
-    const compilation = await interpreter.compile_from_string_with_style(
-        'export component Preview inherits Window {\n    Image { source: @image-url("a.png"); }\n    Image { source: @image-url("b.png"); }\n}',
-        new URL("preview.slint", repository).href,
-        "",
-        async () => null,
-        (url) =>
-            url.endsWith("a.png")
-                ? new Promise((resolve) => setTimeout(resolve, 50, png))
-                : Promise.reject(new Error("File not found")),
-        undefined,
-        undefined,
-    );
-    assert.equal(compilation.component, undefined);
-    assert.equal(compilation.diagnostics.length, 1);
-    assert.match(
-        compilation.diagnostics[0].message,
-        /Cannot load image .*b\.png: File not found/,
-    );
-    compilation.free();
+    const files = {
+        png: await readFile(
+            new URL("examples/iot-dashboard/images/up.png", repository),
+        ),
+        ttf: await readFile(
+            new URL("tests/screenshots/fonts/NotoSans-Regular.ttf", repository),
+        ),
+    };
+    for (const [extension, source, level, message] of [
+        [
+            "png",
+            'export component Preview inherits Window {\n    Image { source: @image-url("a.png"); }\n    Image { source: @image-url("b.png"); }\n}',
+            0,
+            /Cannot load image .*b\.png: File not found/,
+        ],
+        [
+            "ttf",
+            'import "a.ttf";\nimport "b.ttf";\nexport component Preview inherits Window {}',
+            1,
+            /Cannot load the font: File not found/,
+        ],
+    ]) {
+        const compilation = await interpreter.compile_from_string_with_style(
+            source,
+            new URL("preview.slint", repository).href,
+            "",
+            async () => null,
+            (url) =>
+                url.endsWith(`a.${extension}`)
+                    ? new Promise((resolve) =>
+                          setTimeout(resolve, 50, files[extension]),
+                      )
+                    : Promise.reject(new Error("File not found")),
+            undefined,
+            undefined,
+        );
+        assert.equal(compilation.diagnostics.length, 1);
+        assert.match(compilation.diagnostics[0].message, message);
+        assert.equal(compilation.diagnostics[0].level, level);
+        compilation.free();
+    }
 });
