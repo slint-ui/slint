@@ -166,6 +166,12 @@ pub(crate) fn load_image_from_path(path: &SharedString) -> Option<Image> {
             )));
         }
 
+        #[cfg(not(feature = "svg"))]
+        if path.ends_with(".svg") || path.ends_with(".svgz") {
+            crate::debug_log!("Error loading SVG from {}: {}", &path, super::SVG_DISABLED_MESSAGE);
+            return None;
+        }
+
         let format = image::ImageFormat::from_path(path.as_str()).ok();
         let loaded = if format.is_some_and(|format| !super::animated::can_animate(format)) {
             image::open(path.as_str()).map(|image| ImageInner::EmbeddedImage {

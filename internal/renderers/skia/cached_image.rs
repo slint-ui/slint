@@ -22,6 +22,8 @@ fn shared_pixel_data<Pixel: Clone + bytemuck::Pod + Send + Sync>(
 
 /// `transform_scale` is how much the canvas transform magnifies the image,
 /// see [`i_slint_core::graphics::transformed_scalable_render_size`].
+// Without `svg`, only the recursive calls use the size arguments.
+#[cfg_attr(not(feature = "svg"), allow(clippy::only_used_in_recursion))]
 pub(crate) fn as_skia_image(
     image: Image,
     target_size_fn: &dyn Fn() -> LogicalSize,
@@ -42,6 +44,7 @@ pub(crate) fn as_skia_image(
             })?;
             Some(skia_safe::Image::clone(&image))
         }
+        #[cfg(feature = "svg")]
         ImageInner::Svg(svg) => {
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
             let target_size = i_slint_core::graphics::transformed_scalable_render_size(
