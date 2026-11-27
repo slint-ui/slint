@@ -3055,6 +3055,7 @@ impl WindowAdapterInternal for QtWindow {
         let props = match request {
             i_slint_core::window::InputMethodRequest::Enable(props) => {
                 cpp! {unsafe [widget_ptr as "QWidget*"] {
+                    QGuiApplication::inputMethod()->reset();
                     widget_ptr->setAttribute(Qt::WA_InputMethodEnabled, true);
                 }};
                 props

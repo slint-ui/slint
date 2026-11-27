@@ -1252,6 +1252,12 @@ impl Item for TextInput {
 
         *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Text);
 
+        if matches!(event, MouseEvent::Pressed { .. })
+            && self.commit_preedit(window_adapter, self_rc)
+        {
+            self.enable_input_method(window_adapter, self_rc);
+        }
+
         match event {
             MouseEvent::Pressed {
                 position, button: PointerEventButton::Left, click_count, ..
@@ -1618,11 +1624,7 @@ impl Item for TextInput {
                 });
                 // FIXME: This should be tracked by a PropertyTracker in window and toggled when read_only() toggles.
                 if !self.read_only() {
-                    if let Some(w) = window_adapter.internal(crate::InternalToken) {
-                        w.input_method_request(InputMethodRequest::Enable(
-                            self.ime_properties(window_adapter, self_rc),
-                        ));
-                    }
+                    self.enable_input_method(window_adapter, self_rc);
 
                     // Like line edits on Windows and Linux.
                     if cfg!(not(target_vendor = "apple"))
@@ -1642,28 +1644,7 @@ impl Item for TextInput {
                         .set(self.as_ref().cursor_position_byte_offset());
                 }
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
-                // commit the preedit text on android
-                #[cfg(target_os = "android")]
-                if let Some(access) = self.user_edit_access() {
-                    let preedit_text = self.preedit_text();
-                    if !preedit_text.is_empty() {
-                        let mut text = String::from(self.text());
-                        let cursor_position = self.cursor_position(&text);
-                        text.insert_str(cursor_position, &preedit_text);
-                        self.set_text_internal(access, text.into());
-                        let new_pos = (cursor_position + preedit_text.len()) as i32;
-                        self.anchor_position_byte_offset.set(new_pos);
-                        self.set_cursor_position(
-                            new_pos,
-                            false,
-                            TextChangeNotify::TriggerCallbacks,
-                            window_adapter,
-                            self_rc,
-                        );
-                        Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
-                    }
-                }
-                self.preedit_text.set(Default::default());
+                self.commit_preedit(window_adapter, self_rc);
             }
         }
         FocusEventResult::FocusAccepted
@@ -2682,6 +2663,35 @@ impl TextInput {
         window_adapter.renderer().text_input_byte_offset_for_position(self, self_rc, pos)
     }
 
+    /// Inserts the composition in progress into the text, as typed.
+    /// Returns whether there was one to commit.
+    fn commit_preedit(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) -> bool {
+        let preedit_text = self.preedit_text();
+        if preedit_text.is_empty() {
+            return false;
+        }
+        self.preedit_text.set(Default::default());
+        let Some(access) = self.user_edit_access() else { return false };
+        self.insert(access, &preedit_text, window_adapter, self_rc);
+        true
+    }
+
+    fn enable_input_method(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        if let Some(w) = window_adapter.internal(crate::InternalToken) {
+            w.input_method_request(InputMethodRequest::Enable(
+                self.ime_properties(window_adapter, self_rc),
+            ));
+        }
+    }
+
     /// When pressing the mouse (or releasing the finger, on android) we should take the focus if we don't have it already.
     /// Setting the focus will show the virtual keyboard, otherwise we should make sure that the keyboard is shown if it was hidden by the user
     fn ensure_focus_and_ime(
@@ -2695,12 +2705,8 @@ impl TextInput {
                 true,
                 FocusReason::PointerClick,
             );
-        } else if !self.read_only()
-            && let Some(w) = window_adapter.internal(crate::InternalToken)
-        {
-            w.input_method_request(InputMethodRequest::Enable(
-                self.ime_properties(window_adapter, self_rc),
-            ));
+        } else if !self.read_only() {
+            self.enable_input_method(window_adapter, self_rc);
         }
     }
 

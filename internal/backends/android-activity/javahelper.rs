@@ -498,6 +498,7 @@ impl JavaHelper {
         scale_factor: f32,
         show_cursor_handles: bool,
         new_client: bool,
+        end_composition: bool,
     ) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let mut text = data.text.to_string();
@@ -517,7 +518,7 @@ impl JavaHelper {
             let to_utf16 = |x| byte_offset_to_utf16_offset(&text, x as usize) as i32;
             let mut last_known = self.3.borrow_mut();
             // Slint doesn't track the composition, which input methods keep in the text, so their
-            // composing region is kept until the text changes.
+            // composing region is kept until the text changes or the composition ends.
             let composing = if !data.preedit_text.is_empty() {
                 (
                     to_utf16(data.preedit_offset),
@@ -526,7 +527,7 @@ impl JavaHelper {
             } else {
                 last_known
                     .as_ref()
-                    .filter(|known| !new_client && known.text == text)
+                    .filter(|known| !end_composition && known.text == text)
                     .map_or((-1, -1), |known| known.composing)
             };
             let state = ImeEditState::new(

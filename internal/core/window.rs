@@ -352,6 +352,9 @@ pub trait WindowAdapterInternal: core::any::Any {
 #[derive(Debug, Clone)]
 pub enum InputMethodRequest {
     /// Enables the input method with the specified properties.
+    ///
+    /// Ends any composition in progress without committing it,
+    /// since the text input has committed it already.
     Enable(InputMethodProperties),
     /// Updates the input method with new properties.
     Update(InputMethodProperties),
@@ -711,6 +714,8 @@ pub struct WindowInner {
     /// init code for the component might have code that sets the focus, but we don't want that
     /// for the ComponentContainer
     pub(crate) prevent_focus_change: Cell<bool>,
+    /// True while the focus moves between items.
+    focus_changing: Cell<bool>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
     cursor_blink_suspended: Cell<bool>,
 
@@ -807,6 +812,7 @@ impl WindowInner {
             close_requested: Default::default(),
             click_state: ClickState::default(),
             prevent_focus_change: Default::default(),
+            focus_changing: Default::default(),
             ctx: Default::default(),
             menubar: Default::default(),
             native_drag: Default::default(),
@@ -1633,15 +1639,67 @@ impl WindowInner {
             }
         }
 
+        self.change_focus(reason, |old| {
+            let new = if set_focus {
+                self.move_focus(new_focus_item.clone(), next_focus_item, reason)
+            } else {
+                None
+            };
+            (old, new)
+        });
+    }
+
+    /// Takes the focus from the focus item, then calls `move_focus` with it.
+    /// `move_focus` gives the focus to another item and returns the start and new focus items.
+    /// It isn't called if a FocusOut handler has already set the focus, so the latest request wins.
+    ///
+    /// The input method is only disabled afterwards if the new focus item doesn't take text input.
+    /// Disabling and then enabling it would hide the virtual keyboard and show it again (#14968).
+    fn change_focus(
+        &self,
+        reason: FocusReason,
+        move_focus: impl FnOnce(Option<ItemRc>) -> (Option<ItemRc>, Option<ItemRc>),
+    ) {
+        let was_text_input_focused =
+            self.pinned_fields.as_ref().project_ref().text_input_focused.get_untracked();
+        let outermost = !self.focus_changing.replace(true);
         let old = self.take_focus_item(&FocusEvent::FocusOut(reason));
-        let new = if set_focus {
-            self.move_focus(new_focus_item.clone(), next_focus_item, reason)
-        } else {
-            None
-        };
-        let window_adapter = self.window_adapter();
-        if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
+        let focus_set_during_focus_out = self.focus_item.borrow().upgrade().is_some();
+        let change = (!focus_set_during_focus_out).then(|| move_focus(old));
+        if outermost {
+            self.focus_changing.set(false);
+            let takes_text_input = || {
+                self.focus_item.borrow().upgrade().is_some_and(|item| {
+                    item.downcast::<crate::items::TextInput>().is_some_and(|text_input| {
+                        text_input.as_pin_ref().user_edit_access().is_some()
+                    })
+                })
+            };
+            if was_text_input_focused && !takes_text_input() {
+                self.disable_input_method();
+            }
+        }
+        if let Some((old, new)) = change
+            && let Some(window_adapter) = self.window_adapter().internal(crate::InternalToken)
+        {
             window_adapter.handle_focus_change(old, new);
+        }
+    }
+
+    /// The item where Tab navigation starts when nothing has the focus.
+    fn focus_chain_root(&self) -> ItemRc {
+        ItemRc::new(
+            self.active_popups
+                .borrow()
+                .last()
+                .map_or_else(|| self.component(), |p| p.component.clone()),
+            0,
+        )
+    }
+
+    fn disable_input_method(&self) {
+        if let Some(window_adapter) = self.window_adapter().internal(crate::InternalToken) {
+            window_adapter.input_method_request(InputMethodRequest::Disable);
         }
     }
 
@@ -1798,47 +1856,25 @@ impl WindowInner {
 
     /// Move keyboard focus to the next item
     pub fn focus_next_item(&self) {
-        let start_item = self
-            .take_focus_item(&FocusEvent::FocusOut(FocusReason::TabNavigation))
-            .map(next_focus_item)
-            .unwrap_or_else(|| {
-                ItemRc::new(
-                    self.active_popups
-                        .borrow()
-                        .last()
-                        .map_or_else(|| self.component(), |p| p.component.clone()),
-                    0,
-                )
-            });
-        let end_item =
-            self.move_focus(start_item.clone(), next_focus_item, FocusReason::TabNavigation);
-        let window_adapter = self.window_adapter();
-        if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-            window_adapter.handle_focus_change(Some(start_item), end_item);
-        }
+        self.change_focus(FocusReason::TabNavigation, |old| {
+            let start_item = old.map(next_focus_item).unwrap_or_else(|| self.focus_chain_root());
+            let end_item =
+                self.move_focus(start_item.clone(), next_focus_item, FocusReason::TabNavigation);
+            (Some(start_item), end_item)
+        });
     }
 
     /// Move keyboard focus to the previous item.
     pub fn focus_previous_item(&self) {
-        let start_item = previous_focus_item(
-            self.take_focus_item(&FocusEvent::FocusOut(FocusReason::TabNavigation)).unwrap_or_else(
-                || {
-                    ItemRc::new(
-                        self.active_popups
-                            .borrow()
-                            .last()
-                            .map_or_else(|| self.component(), |p| p.component.clone()),
-                        0,
-                    )
-                },
-            ),
-        );
-        let end_item =
-            self.move_focus(start_item.clone(), previous_focus_item, FocusReason::TabNavigation);
-        let window_adapter = self.window_adapter();
-        if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-            window_adapter.handle_focus_change(Some(start_item), end_item);
-        }
+        self.change_focus(FocusReason::TabNavigation, |old| {
+            let start_item = previous_focus_item(old.unwrap_or_else(|| self.focus_chain_root()));
+            let end_item = self.move_focus(
+                start_item.clone(),
+                previous_focus_item,
+                FocusReason::TabNavigation,
+            );
+            (Some(start_item), end_item)
+        });
     }
 
     /// Marks the window to be the active window. This typically coincides with the keyboard
@@ -2640,9 +2676,8 @@ impl WindowInner {
 
     /// Sets the global property `TextInputInterface.text-input-focused`
     pub fn set_text_input_focused(&self, value: bool) {
-        if !value && let Some(window_adapter) = self.window_adapter().internal(crate::InternalToken)
-        {
-            window_adapter.input_method_request(InputMethodRequest::Disable);
+        if !value && !self.focus_changing.get() {
+            self.disable_input_method();
         }
         self.pinned_fields.text_input_focused.set(value)
     }
