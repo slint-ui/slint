@@ -6,6 +6,7 @@
 
 // While a menu of the MenuBar is open, hovering another entry of the menu bar switches menus,
 // also when the menu bar isn't at the window origin, as in a preview that embeds the window.
+// Covers native and non-native popups.
 
 component Inner inherits Window {
     MenuBar {
@@ -35,6 +36,7 @@ export component TestCase inherits Window {
 
 /*
 ```rust
+// Non-native popups, shown inside the main window.
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
 
 let instance = TestCase::new().unwrap();
@@ -51,6 +53,17 @@ assert!(find("New").is_some());
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: center("Edit") });
 assert!(find("New").is_none());
 assert!(find("Copy").is_some());
+
+// A click on the entry of the open menu closes it.
+find("Edit").unwrap().mock_single_click(PointerEventButton::Left);
+assert!(find("Copy").is_none());
+
+// A click outside the menu bar closes the open menu.
+find("File").unwrap().mock_single_click(PointerEventButton::Left);
+assert!(find("New").is_some());
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(390., 290.), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(390., 290.), button: PointerEventButton::Left });
+assert!(find("New").is_none());
 ```
 
 ```cpp
@@ -73,5 +86,43 @@ assert(!find("New").empty());
 instance.window().dispatch_pointer_move_event(center("Edit"));
 assert(find("New").empty());
 assert(!find("Copy").empty());
+```
+
+```rust
+// Native popup windows.
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+slint_testing::access_testing_window(instance.window(), |w| w.use_native_popup(true));
+
+let find = |label| slint_testing::ElementHandle::find_by_accessible_label(&instance, label).next();
+let center = |label| {
+    let element = find(label).unwrap();
+    let (position, size) = (element.absolute_position(), element.size());
+    LogicalPosition::new(position.x + size.width / 2., position.y + size.height / 2.)
+};
+find("File").unwrap().mock_single_click(PointerEventButton::Left);
+assert!(find("New").is_some());
+assert!(
+    matches!(
+        slint_testing::WindowInner::from_pub(instance.window()).active_popups()[0].location,
+        slint_testing::PopupWindowLocation::TopLevel(_)
+    ),
+    "the menu is a native popup window"
+);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: center("Edit") });
+assert!(find("New").is_none());
+assert!(find("Copy").is_some());
+
+// A click on the entry of the open menu closes it.
+find("Edit").unwrap().mock_single_click(PointerEventButton::Left);
+assert!(find("Copy").is_none());
+
+// A click outside the menu bar closes the open menu.
+find("File").unwrap().mock_single_click(PointerEventButton::Left);
+assert!(find("New").is_some());
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(390., 290.), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(390., 290.), button: PointerEventButton::Left });
+assert!(find("New").is_none());
 ```
 */
