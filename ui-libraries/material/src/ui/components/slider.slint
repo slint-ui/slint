@@ -115,6 +115,10 @@ export component Slider {
         }
 
         key_pressed(event) => {
+            if !root.enabled {
+                return reject;
+            }
+
             if event.text == Key.LeftArrow {
                 root.decrement_value();
                 return accept;
