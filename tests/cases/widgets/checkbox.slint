@@ -71,8 +71,7 @@ assert_eq!(instance.get_checked(), false, "CheckBox a was checked");
 assert_eq!(checkbox.accessible_checked(), Some(false));
 assert_eq!(instance.get_toggled(), SharedString::from("aa"));
 
-// space toggles the focused CheckBox
-slint_testing::send_keyboard_string_sequence(&instance, "\t");
+// A click focuses the CheckBox, so Space toggles it without Tab.
 slint_testing::send_keyboard_string_sequence(&instance, " ");
 assert_eq!(instance.get_checked(), true, "CheckBox a was not checked");
 assert_eq!(instance.get_toggled(), SharedString::from("aaa"));

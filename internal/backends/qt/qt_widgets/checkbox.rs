@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::cursor::MouseCursorInner;
-use i_slint_core::input::{FocusEventResult, InternalKeyEvent, KeyEventType, key_codes};
+use i_slint_core::input::{
+    FocusEventResult, FocusReason, InternalKeyEvent, KeyEventType, key_codes,
+};
 use i_slint_core::platform::PointerEventButton;
 
 use super::*;
@@ -82,7 +84,7 @@ impl Item for NativeCheckBox {
     fn input_event(
         self: Pin<&Self>,
         event: &MouseEvent,
-        _window_adapter: &Rc<dyn WindowAdapter>,
+        window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
         _: &mut MouseCursorInner,
     ) -> InputEventResult {
@@ -112,6 +114,14 @@ impl Item for NativeCheckBox {
             | MouseEvent::DragMove { .. } => InputEventResult::EventIgnored,
             // Make sure that generally mouse events are accepted, so that the hover state is
             // correctly updated
+            MouseEvent::Pressed { button: PointerEventButton::Left, .. } => {
+                WindowInner::from_pub(window_adapter.window()).set_focus_item(
+                    self_rc,
+                    true,
+                    FocusReason::PointerClick,
+                );
+                InputEventResult::EventAccepted
+            }
             MouseEvent::Exit | MouseEvent::Moved { .. } | MouseEvent::Pressed { .. } => {
                 InputEventResult::EventAccepted
             }

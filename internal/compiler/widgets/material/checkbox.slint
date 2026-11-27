@@ -149,6 +149,7 @@ export component CheckBox {
 
         clicked => {
             if (root.enabled) {
+                i-focus-scope.focus();
                 root.checked = !root.checked;
                 root.toggled();
             }

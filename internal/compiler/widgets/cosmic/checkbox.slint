@@ -82,6 +82,7 @@ export component CheckBox {
 
                 clicked => {
                     if (root.enabled) {
+                        self.focus();
                         root.checked = !root.checked;
                         root.toggled();
                     }

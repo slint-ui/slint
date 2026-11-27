@@ -136,6 +136,7 @@ export component CheckBox {
     i-touch-area := TouchArea {
         clicked => {
             if (root.enabled) {
+                i-focus-scope.focus();
                 root.checked = !root.checked;
                 root.toggled();
             }
