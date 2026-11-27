@@ -2431,6 +2431,7 @@ dependencies = [
  "lyon_path",
  "peniko",
  "rgb",
+ "skrifa 0.49.0",
  "vtable",
 ]
 
