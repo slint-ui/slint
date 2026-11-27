@@ -379,7 +379,7 @@ Use a component type after the colon to create a separate view for each supplied
 The loop variable exposes the supplied component's members allowed by the collection constraint.
 Property visibility and directions apply as for named element references.
 The reference is scoped to the loop and can't be stored in properties or models.
-The collection still requires one placement expansion.
+The collection still requires one placement expansion or forwarding assignment.
 
 ```slint
 interface Page { in property <string> title; }
@@ -453,6 +453,75 @@ export component App inherits Window {
 
 Click **Next Index** to cycle through indices 0, 1, and 2.
 There are only two entries, so index 2 is out of range and `selected-title` is an empty string.
+
+### Composing Collections
+
+An expansion can supply the default collection of another component:
+
+```slint
+component InnerContainer {
+    default slot <[*]> content;
+    for child in content: child { }
+}
+
+export component OuterContainer {
+    default slot <[*]> entries;
+    InnerContainer {
+        for entry in entries: entry { }
+    }
+}
+```
+
+The inner container applies its expansion bindings and layout to the supplied components.
+If both expansions bind the same property, the outer expansion's binding takes precedence.
+Generated views can also supply another component's default collection.
+The target's interface or component constraint still applies, and conflicting callback handlers produce errors.
+Lengths and indexes remain those of the supplied collection, including through multiple containers.
+
+The expansion must be the target collection's only child.
+The target can generate views of the supplied components, including when its input consists of generated views.
+Use the expansion body to add bindings or callback connections before passing the components to the target.
+
+### Forwarding Collections
+
+Forward a collection with the same `<<` syntax as other named slots:
+
+```slint
+component ListHost {
+    slot <[*]> items;
+    out property <int> length: items.length;
+    VerticalLayout { for item in items: item { } }
+}
+
+component Wrapper {
+    default slot <[*]> content;
+    out property <int> length: content.length;
+    ListHost { items << content; }
+}
+```
+
+Forwarding counts as the collection's placement; don't also place it with a loop.
+Both the wrapper and receiver can generate views of the same entries.
+Lengths, indexes, bindings, and component identity are preserved through forwarding chains.
+Entries must satisfy both collections' constraints.
+
+Omitting content keeps the receiver's defaults; an explicit empty assignment clears them.
+Set defaults on the receiver, as with other forwarded slots.
+A forwarded repeater with an empty model stays empty.
+Unlike forwarding, a placement loop supplies a list explicitly, so an empty loop removes the receiver's defaults.
+
+### Collection Limits
+
+- Each collection requires exactly one placement expansion or forwarding assignment; additional loops can generate views.
+- Expansions accept bindings, two-way bindings, callback connections, and property change handlers, but no child elements or member declarations.
+- Supply static components or a single `for` loop; conditional children and mixtures of static children and repeaters aren't supported.
+- Place collection expansions outside `ListView` itself.
+  Use a model loop for virtualized delegates.
+  Each delegate can contain components that use collection slots.
+- Generate views and read properties by index from static entries or a non-virtualized source repeater.
+- Forwarding `@children` into collections isn't supported; declare a default collection slot to forward ordinary children.
+
+`@children` remains supported separately; collection slots don't yet replace its forwarding behavior.
 
 ## Current limitations
 

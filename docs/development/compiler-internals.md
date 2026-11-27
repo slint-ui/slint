@@ -52,7 +52,7 @@ The following groups highlight common entry points rather than listing every pas
 
 - `inject_debug_hooks` - Add debugging support before lowering and inlining
 - `lower_*` passes - Transform high-level constructs (states, layouts, popups, etc.)
-- `lower_slot_collections` - Expand collection slots and resolve metadata before inlining.
+- `lower_slot_collections` - Compose expansions into collection consumers, validate children, apply bindings and callbacks, and resolve lengths and indexes before inlining.
 - `inlining` - Inline components as needed
 - `collect_*` passes - Gather globals, structs, subcomponents
 - `focus_handling` - Set up focus navigation

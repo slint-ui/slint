@@ -32,7 +32,7 @@ export component InvalidBody {
 //                            >           <error{Slot expansions only accept property bindings and callback connections}
 }
 export component MissingExpansion { default slot <[implements Entry]> items; }
-//                                                                    >   <error{Place collection slot 'items' with a 'for' loop}
+//                                                                    >   <error{Place collection slot 'items' with a 'for' loop or forward it to another collection slot}
 export component DuplicateExpansion {
     default slot <[implements Entry]> items;
     for item in items: item { }
@@ -42,7 +42,7 @@ export component DuplicateExpansion {
 }
 export component WrongExpansion {
     default slot <[implements Entry]> items;
-//                                    >   <error{Place collection slot 'items' with a 'for' loop}
+//                                    >   <error{Place collection slot 'items' with a 'for' loop or forward it to another collection slot}
     for item in items: Rectangle { }
 }
 export component ScalarDefault {
@@ -57,3 +57,36 @@ export component Base {
 export component Redeclared inherits Base { default slot <[implements Entry]> items; }
 //                                                                            >   <error{A component can only declare one default slot}
 export component Test inherits Window { }
+
+component ScalarHost {
+    slot content;
+    content { }
+}
+export component CollectionToScalar {
+    slot <[*]> entries;
+    ScalarHost { content << entries; }
+//                          >     <error{Declare both 'entries' and 'content' as collection slots to forward a collection}
+}
+export component ScalarToCollection {
+    slot content;
+    Base { items << content; }
+//                  >     <error{Declare both 'content' and 'items' as collection slots to forward a collection}
+}
+export component ForwardedDefault {
+    slot <[implements Entry]> entries << Rectangle { in property <int> value; }
+//                                       >                                    <error{Remove the default content of the forwarded slot 'entries'; set it on the target slot 'items' instead}
+    Base { items << entries; }
+}
+export component ForwardedAndPlaced {
+    default slot <[implements Entry]> entries;
+    Base { items << entries; }
+//                  >     <note{The slot 'entries' is already used here}
+    for entry in entries: entry { }
+//  >                             <error{The slot 'entries' can only appear once in an element}
+}
+export component ForwardedTwice {
+    slot <[implements Entry]> entries;
+    Base { items << entries; }
+    Base { items << entries; }
+//                  >     <error{The slot 'entries' can only appear once in an element}
+}

@@ -176,10 +176,11 @@ fn repeated_collection_views_follow_page_instances() {
     i_slint_backend_testing::mock_elapsed_time(100);
     assert!(ElementHandle::find_by_accessible_label(&instance, "Progress B: 100").next().is_some());
 
-    {
+    for composed in [false, true] {
         for mode in 0..3 {
             let instance =
                 compile_collection_case("slot_collection_dynamic_views.slint", "LifetimeTest");
+            instance.set_property("composed", Value::Bool(composed)).unwrap();
             let names =
                 Rc::new(VecModel::from(vec![Value::String("A".into()), Value::String("B".into())]));
             instance.set_property("names", Value::Model(names.clone().into())).unwrap();

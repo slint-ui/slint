@@ -1,0 +1,189 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface WiredEntry {
+    in property <string> title;
+    in property <int> position;
+    callback activated();
+}
+
+interface DataEntry {
+    in-out property <string> title;
+    in-out property <int> value;
+}
+
+component Entry inherits Rectangle {
+    in property <string> title;
+    in property <int> position: -1;
+    in-out property <int> value;
+    callback activated();
+    min-width: 80px;
+    min-height: 30px;
+    Text { text: root.title; accessible-role: none; }
+    TouchArea {
+        accessible-role: button;
+        accessible-label: root.title;
+        clicked => { root.value += 1; root.activated(); }
+    }
+}
+
+component Sink {
+    out property <int> count: entries.length;
+    out property <int> last-index: -1;
+    default slot <[implements WiredEntry]> entries;
+    HorizontalLayout {
+        for entry[index] in entries: Text {
+            text: "Summary \{index}: \{entry.title}";
+        }
+        for entry[index] in entries: entry {
+            position: index;
+            activated => { root.last-index = index; }
+        }
+    }
+}
+
+component Middle {
+    out property <int> count: sink.count;
+    out property <int> last-index: sink.last-index;
+    default slot <[*]> entries;
+    sink := Sink { for entry in entries: entry { } }
+}
+
+component Outer {
+    out property <int> count: middle.count;
+    out property <int> last-index: middle.last-index;
+    default slot <[*]> entries;
+    middle := Middle { for entry in entries: entry { } }
+}
+
+component Named {
+    out property <int> count: middle.count;
+    slot <[Entry]> entries;
+    middle := Middle { for entry in entries: entry { } }
+}
+
+component Override {
+    default slot <[implements WiredEntry]> entries;
+    Sink { for entry in entries: entry { position: 99; } }
+}
+
+component Views {
+    out property <int> count: sink.count;
+    out property <int> last-index: sink.last-index;
+    default slot <[implements DataEntry]> entries;
+    sink := Middle {
+        for entry in entries: Entry {
+            title: entry.title;
+            value <=> entry.value;
+        }
+    }
+    Rectangle { for entry in entries: entry { } }
+}
+
+component ForwardedViews {
+    out property <int> count: views.count;
+    out property <int> last-index: views.last-index;
+    default slot <[implements DataEntry]> entries;
+    views := Views { entries << entries; }
+}
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 500px;
+    in-out property <int> model-count: 2;
+    in-out property <[int]> projected-model: [0, 1];
+    out property <int> static-count: outer.count;
+    out property <int> repeated-count: repeated.count;
+    out property <int> named-count: named.count;
+    out property <int> first-position: first.position;
+    out property <int> second-position: second.position;
+    out property <int> second-value: second.value;
+    out property <int> last-index: outer.last-index;
+    out property <int> view-value: data.value;
+    out property <int> view-last-index: views.last-index;
+    out property <int> repeated-view-count: repeated-views.count;
+    out property <int> repeated-view-last-index: repeated-views.last-index;
+    out property <bool> test: outer.count == 2 && named.count == 1 && empty.count == 0
+        && views.count == 1 && repeated-views.count == 2
+        && default-position.position == 99 && supplied-position.position == 42;
+    public function rename() { data.title = "Renamed view"; }
+    public function append-projected() { root.projected-model.push(root.projected-model.length); }
+    VerticalLayout {
+        outer := Outer {
+            first := Entry { title: "First"; }
+            second := Entry { title: "Second"; }
+        }
+        named := Named { entries << Entry { title: "Named"; } }
+        repeated := Outer {
+            for index in root.model-count: Entry { title: "Repeated \{index}"; }
+        }
+        empty := Outer { }
+        views := Views {
+            data := Rectangle {
+                in-out property <string> title: "View";
+                in-out property <int> value;
+            }
+        }
+        repeated-views := ForwardedViews {
+            for index in root.projected-model: Rectangle {
+                in-out property <string> title: "Projected \{index}";
+                in-out property <int> value;
+                accessible-role: text;
+                accessible-label: "Data \{self.title}: \{self.value}";
+            }
+        }
+        Override {
+            default-position := Entry { }
+            supplied-position := Entry { position: 42; }
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::PointerEventButton;
+use slint_testing::ElementHandle;
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_first_position(), 0);
+assert_eq!(instance.get_second_position(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Summary 1: Second").count(), 1);
+ElementHandle::find_by_accessible_label(&instance, "Second").next().unwrap()
+    .mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_second_value(), 1);
+assert_eq!(instance.get_last_index(), 1);
+ElementHandle::find_by_accessible_label(&instance, "View").next().unwrap()
+    .mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_view_value(), 1);
+assert_eq!(instance.get_view_last_index(), 0);
+instance.invoke_rename();
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Renamed view").count(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Summary 0: Renamed view").count(), 1);
+ElementHandle::find_by_accessible_label(&instance, "Projected 1").next().unwrap()
+    .mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_repeated_view_last_index(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Data Projected 1: 1").count(), 1);
+instance.set_model_count(3);
+instance.invoke_append_projected();
+assert_eq!(instance.get_repeated_count(), 3);
+assert_eq!(instance.get_repeated_view_count(), 3);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Summary 2: Repeated 2").count(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Summary 2: Projected 2").count(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Data Projected 1: 1").count(), 1);
+assert_eq!(instance.get_static_count(), 2);
+assert_eq!(instance.get_named_count(), 1);
+```
+
+```cpp
+auto instance = TestCase::create();
+assert(instance->get_test());
+instance->set_model_count(3);
+instance->invoke_append_projected();
+assert(instance->get_repeated_count() == 3);
+assert(instance->get_repeated_view_count() == 3);
+#ifndef SLINT_FEATURE_LIVE_PREVIEW
+// The live-preview wrapper does not support ElementHandle queries.
+assert(!slint::testing::ElementHandle::find_by_accessible_label(instance, "Summary 2: Projected 2").empty());
+#endif
+```
+*/

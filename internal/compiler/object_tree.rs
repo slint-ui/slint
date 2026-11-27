@@ -840,7 +840,7 @@ impl Component {
             });
             if !expanded && !slot.has_rejected_placeholder {
                 diagnostics.push_error(
-                    format!("Place collection slot '{}' with a 'for' loop", slot.name),
+                    format!("Place collection slot '{}' with a 'for' loop or forward it to another collection slot", slot.name),
                     &slot.name_node,
                 );
             }
