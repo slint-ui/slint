@@ -54,9 +54,11 @@ pub(crate) fn validate_children(
     children: &[ElementRc],
     diag: &mut BuildDiagnostics,
 ) -> bool {
-    children
-        .iter()
-        .fold(true, |valid, child| typed_slots::validate_child(slot, child, diag) && valid)
+    let mut valid = true;
+    for child in children {
+        valid &= typed_slots::validate_child(slot, child, diag);
+    }
+    valid
 }
 
 pub(super) fn mark_inherited_defaults(root: &ElementRc) {

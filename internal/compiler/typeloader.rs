@@ -3099,7 +3099,7 @@ fn slot_collections_requires_its_feature() {
     let source = r#"
         interface Entry { in property <int> value; }
         component Group {
-            default slot <[implements Entry]> items;
+            default slot <[Entry]> items;
             for item[index] in items: item { value: index; }
         }
         component Item { in property <int> value; }

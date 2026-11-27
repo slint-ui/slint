@@ -283,7 +283,7 @@ pub(super) fn create_forwarding(
                 &Element { base_type: source_type.clone(), ..Default::default() },
                 &interface.root_element,
                 &interface.id,
-                &node.clone().into(),
+                node,
                 &interfaces::ImplementBinding::OnSelf,
                 diag,
             ) {
