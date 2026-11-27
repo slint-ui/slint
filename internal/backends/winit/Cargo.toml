@@ -149,8 +149,9 @@ smithay-clipboard = { version = "0.7", optional = true }
 # To disable macOS automatic shortcut translation
 objc2 = { workspace = true }
 # For GL rendering
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSColor", "NSEvent", "NSView", "NSWindow", "NSResponder", "objc2-core-foundation", "objc2-quartz-core"] }
-objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSOperation", "NSRunLoop", "NSObjCRuntime", "NSUserDefaults"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSColor", "NSEvent", "NSView", "NSWindow", "NSResponder", "objc2-core-foundation", "objc2-quartz-core"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSOperation", "NSRunLoop", "NSObjCRuntime", "NSUserDefaults", "NSAppleEventManager", "NSAppleEventDescriptor", "objc2-core-services"] }
+objc2-core-services = { version = "0.3.2", default-features = false, features = ["std", "AE", "AERegistry", "AppleEvents"] }
 objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["CADisplayLink"] }
 block2 = "0.6.2"
 arboard = { version = "3.6", default-features = false }
@@ -176,6 +177,11 @@ cfg_aliases = { workspace = true }
 
 [dev-dependencies]
 slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "raw-window-handle-06", "unstable-winit-030"] }
+
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+objc2 = { workspace = true }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSEvent"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSGeometry", "NSString"] }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 x11rb = { version = "0.14.0", default-features = false }
@@ -209,3 +215,8 @@ harness = false
 name = "initial_window_icon"
 harness = false
 required-features = ["x11", "renderer-software"]
+
+[[test]]
+name = "default_quit"
+harness = false
+required-features = ["muda", "renderer-software"]
