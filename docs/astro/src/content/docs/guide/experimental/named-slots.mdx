@@ -373,6 +373,36 @@ Property bindings on a supplied component take precedence over bindings from the
 Property change handlers from both sides are combined.
 Defining handlers for the same callback in both the expansion and supplied component is an error.
 
+### Generating Views
+
+Use a component type after the colon to create a separate view for each supplied component.
+The loop variable exposes the supplied component's members allowed by the collection constraint.
+Property visibility and directions apply as for named element references.
+The reference is scoped to the loop and can't be stored in properties or models.
+The collection still requires one placement expansion.
+
+```slint
+interface Page { in property <string> title; }
+
+component Pages {
+    in-out property <int> current-index;
+    default slot <[implements Page]> pages;
+    VerticalLayout {
+        HorizontalLayout {
+            for page in pages: Text { text: page.title; }
+        }
+        Rectangle {
+            for page[index] in pages: page {
+                visible: root.current-index == index;
+            }
+        }
+    }
+}
+```
+
+Views read the actual component's properties, so changes to a title update its view.
+Supply each entry directly when generating views.
+
 ## Current limitations
 
 The named slot feature is in its early stages. The following restrictions apply:

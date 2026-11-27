@@ -170,7 +170,69 @@ pub(super) fn create_expansion(
         return true;
     }
     if supplied_name.as_ref() != Some(&entry_id) {
-        diag.push_error("Generating collection views is not supported yet".into(), &body);
+        let mut points = BTreeMap::new();
+        let mut projection_slots = slots.to_vec();
+        let template = Element::from_sub_element_node(
+            node.SubElement(),
+            parent.borrow().base_type.clone(),
+            &mut points,
+            &mut projection_slots,
+            legacy,
+            diag,
+            tr,
+        );
+        Element::reject_slot_placeholders(
+            diag,
+            &mut projection_slots,
+            points,
+            "a collection projection",
+        );
+        let projection_slot: SmolStr =
+            format!("$projection-{}-{}", name, insertion_points.len()).into();
+        let proxy = Element {
+            id: projection_slot.clone(),
+            base_type: slot
+                .interface
+                .clone()
+                .map(ElementType::Component)
+                .or_else(|| slot.component_type.clone())
+                .unwrap_or_else(|| tr.empty_type()),
+            debug: template.borrow().debug.clone(),
+            ..Default::default()
+        }
+        .make_rc();
+        template.borrow_mut().children.push(proxy);
+        let index_property =
+            crate::layout::create_new_prop(&template, "slot-index".into(), Type::Int32)
+                .name()
+                .clone();
+        let mut declaration = slot.clone();
+        declaration.name = projection_slot.clone();
+        declaration.is_collection = false;
+        declaration.is_default = false;
+        declaration.interface = None;
+        declaration.component_type = None;
+        slots.push(declaration);
+        template.borrow_mut().slot_expansion = Some(SlotExpansion {
+            node: node.clone(),
+            slot_name: name,
+            entry_id,
+            index_id: node
+                .RepeatedIndex()
+                .and_then(|n| parser::identifier_text(&n))
+                .unwrap_or_default(),
+            index_property,
+            projection_slot: Some(projection_slot.clone()),
+        });
+        insertion_points.insert(
+            projection_slot.to_string(),
+            ChildrenInsertionPoint {
+                parent: parent.clone(),
+                insertion_index: parent.borrow().children.len(),
+                node: ChildInsertionPointNode::SlotPlaceholder(node.SubElement()),
+            },
+        );
+        parent.borrow_mut().children.push(template);
         return true;
     }
     if node.SubElement().child_token(SyntaxKind::ColonEqual).is_some() {
@@ -231,6 +293,7 @@ pub(super) fn create_expansion(
             .and_then(|n| parser::identifier_text(&n))
             .unwrap_or_default(),
         index_property,
+        projection_slot: None,
     });
     insertion_points.insert(
         insertion_name.into(),

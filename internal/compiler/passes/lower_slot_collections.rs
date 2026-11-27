@@ -12,7 +12,7 @@ use crate::object_tree::forward_inherited_expression::{
 use crate::object_tree::*;
 use crate::symbol_counters::SymbolCounters;
 use smol_str::SmolStr;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::rc::{Rc, Weak};
 
 struct Contract {
@@ -21,12 +21,17 @@ struct Contract {
     metadata: ElementRc,
     slot: DeclaredSlot,
     length: NamedReference,
+    projections: Vec<Projection>,
 }
 
 impl Contract {
     fn template(&self) -> &ElementRc {
         self.template.as_ref().unwrap()
     }
+}
+
+struct Projection {
+    template: ElementRc,
 }
 
 fn is_member(element: &ElementRc, slot: &DeclaredSlot) -> bool {
@@ -69,11 +74,16 @@ pub(super) fn lower_slot_collections(
         }
         for slot in component.declared_slots.borrow().iter().filter(|slot| slot.is_collection) {
             let mut template = None;
+            let mut projections = Vec::new();
             recurse_elem(&component.root_element, &(), &mut |element, _| {
                 if let Some(expansion) = &element.borrow().slot_expansion
                     && expansion.slot_name == slot.name
                 {
-                    template = Some(element.clone());
+                    if expansion.projection_slot.is_some() {
+                        projections.push(Projection { template: element.clone() });
+                    } else {
+                        template = Some(element.clone());
+                    }
                 }
             });
             let metadata = component
@@ -92,6 +102,7 @@ pub(super) fn lower_slot_collections(
                 metadata,
                 slot: slot.clone(),
                 length,
+                projections,
             });
         }
     });
@@ -110,7 +121,22 @@ pub(super) fn lower_slot_collections(
                 .borrow()
                 .iter()
                 .any(|slot| slot.is_collection && slot.insertion_name() == name);
+            let is_projection = contracts.iter().any(|contract| {
+                Rc::ptr_eq(&contract.owner, component)
+                    && contract.projections.iter().any(|projection| {
+                        projection
+                            .template
+                            .borrow()
+                            .slot_expansion
+                            .as_ref()
+                            .unwrap()
+                            .projection_slot
+                            .as_deref()
+                            == Some(name.as_str())
+                    })
+            });
             if !is_collection
+                && !is_projection
                 && let Some(contract) = contracts
                     .iter()
                     .find(|c| inherits(&point.parent, &c.owner) && c.slot.insertion_name() == name)
@@ -145,6 +171,7 @@ pub(super) fn lower_slot_collections(
     });
 
     let mut forwarded = ForwardedReferenceCache::default();
+    let mut projection_defaults = HashMap::<_, Vec<ElementRc>>::new();
     for group in groups {
         for contract in contracts
             .iter()
@@ -190,6 +217,15 @@ pub(super) fn lower_slot_collections(
                 );
                 continue;
             }
+            if !contract.projections.is_empty()
+                && let Some(child) = children.iter().find(|child| child.borrow().repeated.is_some())
+            {
+                diag.push_error(
+                    "Generating views from repeated collection entries is not supported yet".into(),
+                    &*child.borrow(),
+                );
+                continue;
+            }
             let length = match children.first().and_then(|e| e.borrow().repeated.clone()) {
                 Some(repeated) => Expression::FunctionCall {
                     function: Callable::Builtin(
@@ -201,6 +237,21 @@ pub(super) fn lower_slot_collections(
                 None => Expression::NumberLiteral(children.len() as f64, Unit::None),
             };
             set_length(&group, contract.length.name(), length);
+            if children.is_empty() {
+                for projection in &contract.projections {
+                    group.borrow_mut().empty_slot_assignments.push(
+                        projection
+                            .template
+                            .borrow()
+                            .slot_expansion
+                            .as_ref()
+                            .unwrap()
+                            .projection_slot
+                            .clone()
+                            .unwrap(),
+                    );
+                }
+            }
             for (index, child) in children.iter().enumerate() {
                 let index = if child.borrow().repeated.is_some() {
                     Expression::RepeaterIndexReference { element: Rc::downgrade(child) }
@@ -208,6 +259,25 @@ pub(super) fn lower_slot_collections(
                     Expression::NumberLiteral(index as f64, Unit::None)
                 };
                 connect(contract, &group, child, index.clone(), symbols, &mut forwarded, diag);
+                for projection in &contract.projections {
+                    let view = project(
+                        contract,
+                        &projection.template,
+                        &group,
+                        child,
+                        index.clone(),
+                        symbols,
+                        &mut forwarded,
+                    );
+                    if Rc::ptr_eq(&group, &contract.owner.root_element) {
+                        projection_defaults
+                            .entry(Rc::as_ptr(&projection.template))
+                            .or_default()
+                            .push(view);
+                    } else {
+                        group.borrow_mut().children.push(view);
+                    }
+                }
             }
         }
     }
@@ -222,10 +292,12 @@ pub(super) fn lower_slot_collections(
                 if !child.borrow().slot_collection && child.borrow().slot_expansion.is_none() {
                     continue;
                 }
-                parent.borrow_mut().children.remove(position);
+                let defaults = projection_defaults.remove(&Rc::as_ptr(child)).unwrap_or_default();
+                let inserted = defaults.len();
+                parent.borrow_mut().children.splice(position..=position, defaults);
                 for point in component.child_insertion_points.borrow_mut().values_mut() {
                     if Rc::ptr_eq(&point.parent, parent) && point.insertion_index > position {
-                        point.insertion_index -= 1;
+                        point.insertion_index = point.insertion_index - 1 + inserted;
                     }
                 }
             }
@@ -263,6 +335,82 @@ fn set_length(group: &ElementRc, name: &SmolStr, length: Expression) {
         binding.merge_with(&existing);
     }
     group.borrow_mut().set_binding(name.clone(), binding);
+}
+
+fn project(
+    contract: &Contract,
+    template: &ElementRc,
+    group: &ElementRc,
+    child: &ElementRc,
+    index: Expression,
+    symbols: &SymbolCounters,
+    forwarded: &mut ForwardedReferenceCache,
+) -> ElementRc {
+    let component = group.borrow().enclosing_component.upgrade().unwrap();
+    let view = super::inlining::duplicate_element(template, &component);
+    let expansion = view.borrow_mut().slot_expansion.take().unwrap();
+    let entry = expansion.entry_element(&view);
+    for (name, analysis) in entry.borrow().property_analysis.borrow().iter() {
+        let actual_name = child
+            .borrow()
+            .lookup_property(name, PropertyLookupMode::ComponentLocal)
+            .internal_or_resolved_name();
+        if analysis.is_set || analysis.is_set_externally {
+            NamedReference::new(child, actual_name.clone()).mark_as_set();
+        }
+        child
+            .borrow()
+            .property_analysis
+            .borrow_mut()
+            .entry(actual_name)
+            .or_default()
+            .merge_with_base(analysis);
+    }
+    recurse_elem_no_borrow(&view, &(), &mut |element, _| {
+        visit_element_expressions(element, |expression, _, _| {
+            expression.visit_recursive_mut(&mut |expression| {
+                if let Expression::PropertyReference(reference) = expression
+                    && Rc::ptr_eq(&reference.element(), &view)
+                    && reference.name() == &expansion.index_property
+                {
+                    *expression = index.clone();
+                }
+                if let Expression::ElementReference(reference) = expression {
+                    if reference.upgrade().is_some_and(|element| Rc::ptr_eq(&element, &entry)) {
+                        *reference = Rc::downgrade(child);
+                    } else if reference
+                        .upgrade()
+                        .is_some_and(|element| Rc::ptr_eq(&element, &contract.owner.root_element))
+                    {
+                        *reference = Rc::downgrade(group);
+                    }
+                }
+            });
+        });
+        visit_all_named_references_in_element(element, |reference| {
+            if Rc::ptr_eq(&reference.element(), &entry) {
+                let name = child
+                    .borrow()
+                    .lookup_property(reference.name(), PropertyLookupMode::ComponentLocal)
+                    .internal_or_resolved_name();
+                *reference = NamedReference::new(child, name);
+            } else {
+                rebase_reference(
+                    reference,
+                    &contract.owner.root_element,
+                    group,
+                    symbols,
+                    forwarded,
+                );
+            }
+        });
+    });
+    view.borrow_mut().children.retain(|child| !Rc::ptr_eq(child, &entry));
+    if child.borrow().slot_default.is_some() {
+        view.borrow_mut().slot_default = expansion.projection_slot.clone();
+    }
+    view.borrow_mut().slot_target = expansion.projection_slot;
+    view
 }
 
 fn connect(
