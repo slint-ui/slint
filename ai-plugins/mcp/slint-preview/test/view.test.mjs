@@ -203,7 +203,8 @@ function startView({
                 "panicked at test.rs:1:1:\ntest panic\nhttps://example.com/interpreter.js#instance-1:1:1",
             );
         },
-        async preview() {
+        async preview({ result = "structuredContent" } = {}) {
+            const preview = { source: "export component Preview {}" };
             await ready;
             onMessage({
                 source: window.parent,
@@ -221,13 +222,13 @@ function startView({
                     jsonrpc: "2.0",
                     method: "ui/notifications/tool-result",
                     params: {
-                        _meta: {
-                            "slint/previewId": "test-preview",
-                            "slint/preview": {
-                                source: "export component Preview {}",
-                            },
+                        structuredContent: { structuredContent: { previewId: "test-preview", preview } },
+                        content: {
+                            content: [{ type: "text", text: JSON.stringify({ previewId: "test-preview", preview }) }],
+                            isError: false,
                         },
-                    },
+                        _meta: { _meta: { "slint/previewId": "test-preview", "slint/preview": preview } },
+                    }[result],
                 },
             });
         },
@@ -254,6 +255,14 @@ test("renders when version metadata fails", { timeout: 3000 }, async () => {
     await view.preview();
     assert.equal((await view.captured).png, "cGl4ZWxz");
 });
+
+for (const result of ["content", "_meta"]) {
+    test(`renders a preview restored from the tool result's ${result}`, { timeout: 3000 }, async () => {
+        const view = startView({ fetch: () => new Promise(() => {}) });
+        await view.preview({ result });
+        assert.equal((await view.captured).png, "cGl4ZWxz");
+    });
+}
 
 test("hides compiler warnings and notes", {
     timeout: 3000,
@@ -330,11 +339,9 @@ test("retry replaces a late crash with a new preview and clears the panel", {
             }
             if (name === "publish_preview")
                 return {
-                    _meta: {
-                        "slint/previewId": "retry-preview",
-                        "slint/preview": {
-                            source: "export component Preview {}",
-                        },
+                    structuredContent: {
+                        previewId: "retry-preview",
+                        preview: { source: "export component Preview {}" },
                     },
                 };
             return {};

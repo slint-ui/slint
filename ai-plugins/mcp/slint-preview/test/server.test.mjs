@@ -261,10 +261,10 @@ test("checks a render before publishing with text only", async () => {
     const result = await callTool("publish_preview", {
         previewId: checked.structuredContent.previewId,
     });
-    assert.equal(result.content[0].type, "text");
-    assert.equal(result.structuredContent, undefined);
+    assert.deepEqual(JSON.parse(result.content[0].text), result.structuredContent);
+    assert.equal(result.structuredContent.previewId, checked.structuredContent.previewId);
     assert.ok(
-        result._meta["slint/preview"].source.includes("background: blue"),
+        result.structuredContent.preview.source.includes("background: blue"),
     );
 });
 
@@ -416,8 +416,8 @@ async function startPreview(args) {
     assert.equal(checked.structuredContent?.ok, true, JSON.stringify(checked));
     const previewId = checked.structuredContent.previewId;
     const result = await callTool("publish_preview", { previewId });
-    assert.equal(result._meta["slint/previewId"], previewId);
-    assert.match(result.content[0].text, /Use the screenshot returned by check_slint/);
+    assert.equal(result.structuredContent.previewId, previewId);
+    assert.deepEqual(JSON.parse(result.content[0].text), result.structuredContent);
     return previewId;
 }
 

@@ -733,8 +733,18 @@
     resizePreview();
   }
 
-  function resultPreviewId(result) {
-    return result?._meta?.["slint/previewId"];
+  // Hosts deliver publish_preview's result differently:
+  // - On first open, Claude and Codex both pass `structuredContent`.
+  // - Claude restores a saved card with only `content` and `isError`, so the JSON comes from the text.
+  // - Codex cards published before `structuredContent` existed carry the inputs only in `_meta`.
+  function publishedPreview(result) {
+    if (result?.structuredContent?.preview) return result.structuredContent;
+    try {
+      const parsed = JSON.parse(result?.content?.[0]?.text);
+      if (parsed?.preview) return parsed;
+    } catch {}
+    const meta = result?._meta;
+    return { previewId: meta?.["slint/previewId"], preview: meta?.["slint/preview"] };
   }
 
   function publish(args) {
@@ -817,8 +827,7 @@
       // The host sends the result on first open and when restoring a saved card.
       case "ui/notifications/tool-result": {
         const result = message.params;
-        const previewId = resultPreviewId(result);
-        const recipe = result?._meta?.["slint/preview"];
+        const { previewId, preview: recipe } = publishedPreview(result);
         if (!previewId || !recipe) break;
         const startPreview = async (id, inputs) => {
           activePreviewId = id;
@@ -851,7 +860,7 @@
             const id = checked?.structuredContent?.previewId;
             if (!id || checked.isError) throw new Error(checked?.content?.[0]?.text ?? "The preview check failed");
             const published = await request("tools/call", { name: "publish_preview", arguments: { previewId: id } });
-            const inputs = published?._meta?.["slint/preview"];
+            const inputs = publishedPreview(published).preview;
             if (published.isError || !inputs) throw new Error(published?.content?.[0]?.text ?? "No checked preview inputs returned");
             await startPreview(id, inputs);
           } catch (error) {

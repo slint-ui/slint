@@ -187,7 +187,7 @@ async function preview(args, openingDelayMs = 0) {
     const checked = await callTool("check_slint", { ...args, prepare_preview: true });
     if (!checked.structuredContent?.ok) return checked;
     const result = await callTool("publish_preview", { previewId: checked.structuredContent.previewId });
-    assert.deepEqual(result._meta["slint/preview"], args);
+    assert.deepEqual(result.structuredContent.preview, args);
     if (openingDelayMs) await new Promise((resolve) => setTimeout(resolve, openingDelayMs));
     await page.evaluate(
         ([args, result]) => {

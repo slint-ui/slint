@@ -450,17 +450,22 @@ const toolCalls = {
         removePreparation(args.previewId);
         if (!previews.has(args.previewId)) registerPreview(args.previewId);
         latestPreviewId = args.previewId;
+        const structuredContent = {
+            previewId: args.previewId,
+            preview: preparation.input,
+        };
+        // The view needs these inputs again whenever the host rebuilds the card.
+        // Claude restores a saved card with only `content` and `isError`,
+        // so `content` repeats the JSON, as the MCP spec recommends for structured results.
+        // Claude shows the model either the text or `structuredContent`, never both.
+        //
+        // For Codex, we used to use the _meta key, which isn't presented to the model.
+        // However, Claude does not present the _meta key to the preview again when reloading.
+        // So we have to use structuredContent anyhow for Claude, which makes the _meta key
+        // redundant.
         return {
-            content: [
-                {
-                    type: "text",
-                    text: `Requested Slint preview ${args.previewId}. Use the screenshot returned by check_slint for the visual review.`,
-                },
-            ],
-            _meta: {
-                "slint/previewId": args.previewId,
-                "slint/preview": preparation.input,
-            },
+            content: [{ type: "text", text: JSON.stringify(structuredContent) }],
+            structuredContent,
         };
     },
     get_preview_screenshot: async (args) => {
