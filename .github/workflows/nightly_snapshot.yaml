@@ -612,6 +612,14 @@ jobs:
                 git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
                 git push
 
+    publish_ai_plugins:
+        if: github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release'
+        needs: [publish_artifacts]
+        uses: ./.github/workflows/publish_ai_plugins.yaml
+        with:
+            repository: ${{ github.event.inputs.mode == 'release' && 'ai-plugins' || 'ai-plugins-nightly' }}
+        secrets: inherit
+
     prepare_release:
         if: github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release'
         needs: [cpp_package, slint-viewer-binary, slint-lsp-binary, build-figma-plugin, android]

@@ -233,7 +233,7 @@ jobs:
                     - "https://github.com/wilssola/zapive"
                     - "https://github.com/People-11/HMCL-rs"
                     - "https://github.com/Loafer19/vivi"  # compiles with 1.18.1; master reports a binding loop on min-width
-                    - "https://github.com/gnukeith/snowpaw"
+                    #- "https://github.com/gnukeith/snowpaw" # moved to Tauri, no Slint code left
                     - "https://github.com/gradetwo/yeban"
                     - "https://github.com/lionxlover/ltk"
                     - "https://github.com/M-Tre-Consulting/devkit"
@@ -747,7 +747,9 @@ jobs:
                       sub_path: "apps/snx-rs-gui"
                       extra_commands: |
                           cargo update
-                          # tokio-util 0.7.20 adds an Encoder impl that makes a call in snxcore ambiguous
+                          # tokio-util 0.7.20 adds an Encoder impl that makes a call in snxcore ambiguous,
+                          # and tun 0.8.15 requires it
+                          cargo update tun --precise 0.8.14
                           cargo update tokio-util --precise 0.7.19
                     - git_url: "https://github.com/snolab/CapsLockX"
                       sub_path: "rs/tools/clx-prefs-slint"
@@ -1069,6 +1071,10 @@ jobs:
                     - git_url: "https://github.com/fathialamre/vento"
                       sub_path: "crates/vento"
                       extra_packages: libheif-dev libpoppler-glib-dev
+                      extra_commands: |
+                          cargo update
+                          # gio 0.22.11 makes AppInfo::executable() return an Option
+                          cargo update gio@0.22 --precise 0.22.10
                     - git_url: "https://github.com/flipperdevices/flipctl-slint"
                       sub_path: "crates/flipper-ui"
                     - git_url: "https://github.com/nyl/Penumbra-Shell"
@@ -1409,8 +1415,9 @@ jobs:
                       files: "src/core/layouting/examples/slint/ui/appwindow.slint"
                     - git_url: "https://github.com/KDABLabs/mecaps"
                       files: "demo/ui/app_window.slint"
-                    - git_url: "https://github.com/KaosSpectrum/Lorekeep"
-                      files: "ui/app-window.slint"
+                    # the repository is gone
+                    #- git_url: "https://github.com/KaosSpectrum/Lorekeep"
+                    #  files: "ui/app-window.slint"
                     - git_url: "https://github.com/KeibiSoft/KeibiDrop"
                       files: "rust/src/ui.slint"
                     - git_url: "https://github.com/LibrePCB/LibrePCB"
@@ -1613,6 +1620,7 @@ jobs:
                     # vendors patched copies of Slint crates, so the patch does not apply
                     - git_url: "https://github.com/suitable-name/pleochroma"
                       files: "apps/pleochroma-cut/ui/app.slint apps/pleochroma-mobile-android/ui/app.slint apps/pleochroma-trainer/ui/app.slint"
+                      extra_args: "-L pleochroma-kit=crates/pleochroma-ui-kit/ui"
                     # vendors patched copies of Slint crates, so the patch does not apply
                     - git_url: "https://github.com/jub0t/Concat"
                       files: "src/crates/concat/ui/app.slint"
@@ -1625,9 +1633,9 @@ jobs:
                     # vendors patched copies of Slint crates, so the patch does not apply
                     - git_url: "https://github.com/R44VC0RP/isocast"
                       files: "crates/isocast-ui/ui/app.slint"
-                    # vendors patched copies of Slint crates, so the patch does not apply
-                    - git_url: "https://github.com/yapfast/yapfast"
-                      files: "ui/yapfast.slint"
+                    # moved to iced, no .slint files left
+                    #- git_url: "https://github.com/yapfast/yapfast"
+                    #  files: "ui/yapfast.slint"
                     # depends on a Slint fork via git, so the patch does not apply
                     - git_url: "https://github.com/jessolmstead/greycard"
                       files: "crates/greycard-slint/ui/app.slint"

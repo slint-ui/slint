@@ -245,6 +245,29 @@ pub use i_slint_core::styled_text::StyledTextFromMarkdownError;
 pub use i_slint_core::timers::{Timer, TimerMode};
 pub use i_slint_core::translations::{SelectBundledTranslationError, select_bundled_translation};
 
+// Applications build these values in other threads and send them to the event loop.
+const _: () = {
+    const fn assert_send_sync<T: Send + Sync>() {}
+    #[cfg(not(all(target_arch = "wasm32", not(target_os = "emscripten"))))]
+    assert_send_sync::<Image>();
+    assert_send_sync::<LoadImageError>();
+    assert_send_sync::<SharedPixelBuffer<Rgba8Pixel>>();
+    assert_send_sync::<SharedString>();
+    assert_send_sync::<SharedVector<SharedString>>();
+    assert_send_sync::<StyledText>();
+    assert_send_sync::<Brush>();
+    assert_send_sync::<Color>();
+    assert_send_sync::<Keys>();
+    assert_send_sync::<StandardListViewItem>();
+    assert_send_sync::<LogicalPosition>();
+    assert_send_sync::<LogicalSize>();
+    assert_send_sync::<PhysicalPosition>();
+    assert_send_sync::<PhysicalSize>();
+    assert_send_sync::<WindowPosition>();
+    assert_send_sync::<WindowSize>();
+    assert_send_sync::<PlatformError>();
+};
+
 pub mod private_unstable_api;
 
 /// Enters the main event loop. This is necessary in order to receive

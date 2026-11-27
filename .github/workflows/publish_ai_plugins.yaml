@@ -1,0 +1,94 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Publish ai-plugins/ to a repository that coding assistants install the Slint plugin from.
+name: Publish AI plugins
+
+on:
+    workflow_call:
+        inputs:
+            repository:
+                type: string
+                required: true
+    workflow_dispatch:
+        inputs:
+            repository:
+                type: choice
+                required: true
+                description: "Repository to publish to"
+                options:
+                    - ai-plugins-nightly
+                    - ai-plugins
+
+permissions:
+    contents: read
+
+jobs:
+    publish:
+        if: github.repository == 'slint-ui/slint'
+        runs-on: ubuntu-latest
+        concurrency:
+            group: publish-ai-plugins-${{ inputs.repository }}
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 24
+                  package-manager-cache: false
+            - uses: pnpm/action-setup@v6.1.1
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: wasm32-unknown-unknown
+                  cache: false
+            - name: Install wasm-pack
+              run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
+            - name: Generate a token
+              id: app-token
+              uses: actions/create-github-app-token@v3
+              with:
+                  app-id: ${{ vars.READ_WRITE_APP_ID }}
+                  private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+                  repositories: ${{ inputs.repository }}
+            - uses: actions/checkout@v7
+              with:
+                  repository: slint-ui/${{ inputs.repository }}
+                  path: mirror
+                  token: ${{ steps.app-token.outputs.token }}
+            - name: Prepare the plugin
+              run: scripts/prepare_ai_plugins.sh ${{ inputs.repository == 'ai-plugins' && 'release' || 'snapshot' }} mirror
+            - name: Commit and push
+              working-directory: mirror
+              run: |
+                  git config user.name "slint-sync-bot"
+                  git config user.email "noreply@slint.dev"
+                  git add -A
+                  if git diff --cached --quiet; then
+                      echo "Already up to date."
+                      exit 0
+                  fi
+                  git commit --message "Sync from slint-ui/slint@$GITHUB_SHA"
+                  git show --stat HEAD
+                  git push
+            # The Claude plugin directory only takes a plugin at the root of a branch, not the path to mcp/.
+            - name: Update the claude-directory branch
+              working-directory: mirror
+              shell: bash
+              run: |
+                  if git fetch --depth 1 origin claude-directory; then
+                      base=$(git rev-parse FETCH_HEAD)
+                  else
+                      base=HEAD
+                  fi
+                  # The branch keeps its own README.
+                  mcp=$(git ls-tree HEAD:mcp | grep -v $'\tREADME.md$')
+                  readme=$(git ls-tree "$base" README.md)
+                  tree=$(printf '%s\n' "$mcp" "$readme" | git mktree)
+                  if [ "$tree" = "$(git rev-parse "$base^{tree}")" ]; then
+                      echo "Already up to date."
+                      exit 0
+                  fi
+                  commit=$(git commit-tree "$tree" -p "$base" -m "Sync from slint-ui/slint@$GITHUB_SHA")
+                  git diff --stat "$base" "$commit"
+                  git push origin "$commit:refs/heads/claude-directory"
