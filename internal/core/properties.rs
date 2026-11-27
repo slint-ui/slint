@@ -69,6 +69,29 @@ mod single_linked_list_pin {
             unsafe { Pin::new_unchecked(&(*ptr.as_ptr()).value) }
         }
 
+        /// Like `push_front`, but moves the first node of `pool` to the front of this list
+        /// instead of allocating one, if there is one. That node must equal `value`.
+        ///
+        /// Safety: `pool` is null or valid.
+        pub unsafe fn push_front_from(&mut self, pool: *mut Self, value: T) -> Pin<&T>
+        where
+            T: PartialEq,
+        {
+            // Safety: see above.
+            let Some(node) = (unsafe { pool.as_ref() }).and_then(|pool| pool.0) else {
+                return self.push_front(value);
+            };
+            // Safety: the node is a valid allocation.
+            debug_assert!(unsafe { (*node.as_ptr()).value == value });
+            // Safety: the node is a valid allocation that `pool` owned, and this list owns now.
+            unsafe {
+                (*pool).0 = (*node.as_ptr()).next;
+                (*node.as_ptr()).next = self.0;
+                self.0 = Some(node);
+                Pin::new_unchecked(&(*node.as_ptr()).value)
+            }
+        }
+
         #[allow(unused)]
         pub fn iter(&self) -> impl Iterator<Item = Pin<&T>> {
             struct I<'a, T>(&'a NodePtr<T>);
@@ -286,6 +309,13 @@ pub(crate) mod dependency_tracker {
         }
     }
 
+    /// Nodes are equal if they belong to the same binding, wherever they are linked.
+    impl<T: PartialEq> PartialEq for DependencyNode<T> {
+        fn eq(&self, other: &Self) -> bool {
+            self.binding == other.binding
+        }
+    }
+
     impl<T> Drop for DependencyNode<T> {
         fn drop(&mut self) {
             self.remove();
@@ -302,6 +332,7 @@ use core::cell::{Cell, RefCell, UnsafeCell};
 use core::ffi::c_void;
 use core::marker::PhantomPinned;
 use core::pin::Pin;
+use current_binding_storage::PooledBindingHolder;
 
 /// if a DependencyListHead points to that value, it is because the property is actually
 /// constant and cannot have dependencies
@@ -379,20 +410,38 @@ impl<T, F: Fn(&mut T) -> BindingResult> BindingCallable<T> for F {
     }
 }
 
-/// Stores a raw pointer to the binding currently being evaluated.
+/// Stores a raw pointer to the binding currently being evaluated,
+/// and to the nodes of its previous evaluation that new nodes are taken from first.
 mod current_binding_storage {
     use super::BindingHolder;
+    use super::DependencyNode;
+    use super::single_linked_list_pin::SingleLinkedListPinHead;
     use core::cell::Cell;
 
-    #[cfg(feature = "std")]
-    std::thread_local! {
-        static CURRENT_BINDING: Cell<*const BindingHolder> = const { Cell::new(core::ptr::null()) };
+    pub(super) type Nodes = SingleLinkedListPinHead<DependencyNode>;
+
+    /// The binding being evaluated, and the nodes of its previous evaluation.
+    #[derive(Clone, Copy)]
+    pub(super) struct PooledBindingHolder {
+        pub(super) binding: *const BindingHolder,
+        /// The nodes that a new node is taken from before one is allocated, or null.
+        pub(super) pool: *mut Nodes,
+    }
+
+    impl PooledBindingHolder {
+        pub(super) const NONE: Self =
+            Self { binding: core::ptr::null(), pool: core::ptr::null_mut() };
     }
 
     #[cfg(feature = "std")]
-    pub(super) fn set<T>(value: Option<*const BindingHolder>, f: impl FnOnce() -> T) -> T {
+    std::thread_local! {
+        static CURRENT_BINDING: Cell<PooledBindingHolder> = const { Cell::new(PooledBindingHolder::NONE) };
+    }
+
+    #[cfg(feature = "std")]
+    pub(super) fn set<T>(current: PooledBindingHolder, f: impl FnOnce() -> T) -> T {
         CURRENT_BINDING.with(|cell| {
-            let old = cell.replace(value.unwrap_or(core::ptr::null()));
+            let old = cell.replace(current);
             let res = f();
             cell.set(old);
             res
@@ -400,18 +449,18 @@ mod current_binding_storage {
     }
 
     #[cfg(feature = "std")]
-    pub(super) fn with<T>(f: impl FnOnce(Option<*const BindingHolder>) -> T) -> T {
+    pub(super) fn with<T>(f: impl FnOnce(Option<PooledBindingHolder>) -> T) -> T {
         CURRENT_BINDING.with(|cell| {
-            let ptr = cell.get();
-            f(if ptr.is_null() { None } else { Some(ptr) })
+            let current = cell.get();
+            f(if current.binding.is_null() { None } else { Some(current) })
         })
     }
 
     #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-    static CURRENT_BINDING: ScopedRawPtr = ScopedRawPtr(Cell::new(core::ptr::null()));
+    static CURRENT_BINDING: ScopedRawPtr = ScopedRawPtr(Cell::new(PooledBindingHolder::NONE));
 
     #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-    struct ScopedRawPtr(Cell<*const BindingHolder>);
+    struct ScopedRawPtr(Cell<PooledBindingHolder>);
     // Safety: the unsafe_single_threaded feature means only one thread accesses this
     #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
     unsafe impl Send for ScopedRawPtr {}
@@ -419,23 +468,23 @@ mod current_binding_storage {
     unsafe impl Sync for ScopedRawPtr {}
 
     #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-    pub(super) fn set<T>(value: Option<*const BindingHolder>, f: impl FnOnce() -> T) -> T {
-        let old = CURRENT_BINDING.0.replace(value.unwrap_or(core::ptr::null()));
+    pub(super) fn set<T>(current: PooledBindingHolder, f: impl FnOnce() -> T) -> T {
+        let old = CURRENT_BINDING.0.replace(current);
         let res = f();
         CURRENT_BINDING.0.set(old);
         res
     }
 
     #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-    pub(super) fn with<T>(f: impl FnOnce(Option<*const BindingHolder>) -> T) -> T {
-        let ptr = CURRENT_BINDING.0.get();
-        f(if ptr.is_null() { None } else { Some(ptr) })
+    pub(super) fn with<T>(f: impl FnOnce(Option<PooledBindingHolder>) -> T) -> T {
+        let current = CURRENT_BINDING.0.get();
+        f(if current.binding.is_null() { None } else { Some(current) })
     }
 }
 
 /// Evaluate a function without registering any property dependencies.
 pub fn evaluate_no_tracking<T>(f: impl FnOnce() -> T) -> T {
-    current_binding_storage::set(None, f)
+    current_binding_storage::set(current_binding_storage::PooledBindingHolder::NONE, f)
 }
 
 /// Returns true if a binding is currently being evaluated
@@ -466,15 +515,15 @@ struct BindingHolder<B = ()> {
 impl BindingHolder {
     /// Registers this binding as a dependency of the given property.
     fn register_self_as_dependency(
-        self_ptr: *const BindingHolder,
+        PooledBindingHolder { binding: self_ptr, pool }: PooledBindingHolder,
         property_that_will_notify: *mut DependencyListHead,
         #[cfg(slint_debug_property)] _other_debug_name: &str,
     ) {
         let node = DependencyNode::new(self_ptr);
-        // Safety: self_ptr is valid and pinned
+        // Safety: self_ptr is valid and pinned, and so is the pool of the running evaluation
         unsafe {
             let dep_nodes = &mut *(*self_ptr).dep_nodes.get();
-            let node = dep_nodes.push_front(node);
+            let node = dep_nodes.push_front_from(pool, node);
             DependencyListHead::append(&*property_that_will_notify, node);
         }
     }
@@ -776,10 +825,10 @@ impl PropertyHandle {
                 // Safety: binding is Some so binding_ptr is too
                 let binding_ptr = unsafe { binding_ptr.unwrap_unchecked() };
 
-                // clear all the nodes so that we can start from scratch
-                unsafe { *(*binding_ptr).dep_nodes.get() = Default::default() };
+                // the old nodes are reused for the new ones, and the unused ones dropped
+                let mut pool = unsafe { core::mem::take(&mut *(*binding_ptr).dep_nodes.get()) };
                 let r = unsafe {
-                    current_binding_storage::set(Some(binding_ptr), || {
+                    current_binding_storage::set(PooledBindingHolder { binding: binding_ptr, pool: &mut pool }, || {
                         ((*binding_ptr).vtable.evaluate)(binding_ptr, value as *mut c_void)
                     })
                 };
@@ -1422,11 +1471,11 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
     /// If this is called during the evaluation of another property binding or property tracker, then
     /// any changes to accessed properties will not propagate to the other tracker.
     pub fn evaluate_as_dependency_root<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
-        // clear all the nodes so that we can start from scratch
-        unsafe { *self.holder.dep_nodes.get() = Default::default() };
+        // the old nodes are reused for the new ones, and the unused ones dropped
+        let mut pool = unsafe { core::mem::take(&mut *self.holder.dep_nodes.get()) };
 
         let holder_ptr = &raw const self.holder as *const BindingHolder;
-        let r = current_binding_storage::set(Some(holder_ptr), f);
+        let r = current_binding_storage::set(PooledBindingHolder { binding: holder_ptr, pool: &mut pool }, f);
         self.holder.dirty.set(false);
         r
     }

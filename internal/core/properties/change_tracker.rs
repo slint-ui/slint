@@ -157,10 +157,10 @@ impl ChangeTracker {
                 let _self_raw = _self;
                 let _self = _self as *const BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>;
                 let inner = core::ptr::addr_of!((*_self).binding).as_ref().unwrap();
-                *(*core::ptr::addr_of!((*_self).dep_nodes)).get() = Default::default();
+                let mut pool = core::mem::take(&mut *(*core::ptr::addr_of!((*_self).dep_nodes)).get());
                 assert!(!inner.evaluating.get());
                 inner.evaluating.set(true);
-                let new_value = super::current_binding_storage::set(Some(_self_raw), || {
+                let new_value = super::current_binding_storage::set(super::PooledBindingHolder { binding: _self_raw, pool: &mut pool }, || {
                     (inner.eval_fn)(&inner.data)
                 });
                 {
@@ -239,7 +239,7 @@ impl ChangeTracker {
         }
         let value = unsafe {
             let inner = core::ptr::addr_of!((*raw).binding).as_ref().unwrap();
-            super::current_binding_storage::set(Some(raw as *const BindingHolder), || {
+            super::current_binding_storage::set(super::PooledBindingHolder { binding: raw as *const BindingHolder, pool: core::ptr::null_mut() }, || {
                 (inner.eval_fn)(&inner.data)
             })
         };
