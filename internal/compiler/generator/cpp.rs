@@ -763,43 +763,56 @@ fn handle_property_init(
                 format!("::slint::private_api::set_state_binding({prop_access}, {binding_code});")
             }
             llr::BindingKind::Normal => {
-                let binding_code = format!(
-                    "[this]() {{
-                            [[maybe_unused]] auto self = this;
-                            return {init_expr};
-                        }}"
-                );
-                match &binding_expression.animation {
+                let animation_code = match &binding_expression.animation {
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);
                         // Note: The start_time defaults to the current tick, so doesn't need to be
                         // updated here.
-                        format!("{prop_access}.set_animated_binding({binding_code},
-                                [this](uint64_t **start_time) -> ::slint::cbindgen_private::PropertyAnimation {{
-                                    [[maybe_unused]] auto self = this;
-                                    auto anim = {anim};
-                                    *start_time = nullptr;
-                                    return anim;
-                                }});",
-                                )
+                        Some(format!("auto anim = {anim}; *start_time = nullptr; return anim;"))
                     }
                     Some(llr::Animation::Transition(animation)) => {
                         let animation = compile_expression(animation, ctx);
-                        format!(
-                            "{prop_access}.set_animated_binding({binding_code},
-                            [this](uint64_t **start_time) -> ::slint::cbindgen_private::PropertyAnimation {{
-                                [[maybe_unused]] auto self = this;
-                                auto [animation, change_time] = {animation};
-                                **start_time = change_time;
-                                return animation;
-                            }});",
-                        )
+                        Some(format!(
+                            "auto [animation, change_time] = {animation}; **start_time = change_time; return animation;"
+                        ))
                     }
-                    None => format!("{prop_access}.set_binding({binding_code});"),
+                    None => None,
+                };
+                if ctx.current_sub_component().is_some() {
+                    let binding_code = format!("[]([[maybe_unused]] auto self) {{ return {init_expr}; }}");
+                    match animation_code {
+                        Some(animation_code) => format!(
+                            "::slint::private_api::set_animated_property_binding({prop_access}, self_weak_mapped, {binding_code},
+                                []([[maybe_unused]] auto self, uint64_t **start_time) -> ::slint::cbindgen_private::PropertyAnimation {{ {animation_code} }});"
+                        ),
+                        None => format!(
+                            "::slint::private_api::set_property_binding({prop_access}, self_weak_mapped, {binding_code});"
+                        ),
+                    }
+                } else {
+                    let binding_code = format!(
+                        "[this]() {{ [[maybe_unused]] auto self = this; return {init_expr}; }}"
+                    );
+                    match animation_code {
+                        Some(animation_code) => format!(
+                            "{prop_access}.set_animated_binding({binding_code},
+                                [this](uint64_t **start_time) -> ::slint::cbindgen_private::PropertyAnimation {{ [[maybe_unused]] auto self = this; {animation_code} }});"
+                        ),
+                        None => format!("{prop_access}.set_binding({binding_code});"),
+                    }
                 }
             }
         });
     }
+}
+
+/// A `VWeakMapped` to the sub component `self` of type `sub_component_name`.
+fn weak_mapped_self(sub_component_name: &str) -> String {
+    let mapped =
+        format!("::slint::private_api::ItemTreeVTable, const {}", ident(sub_component_name));
+    format!(
+        "vtable::VWeakMapped<{mapped}>(vtable::VRcMapped<{mapped}>(self->self_weak.lock().value(), self))"
+    )
 }
 
 /// Returns the text of the C++ code produced by the given root component
@@ -2662,6 +2675,12 @@ fn generate_sub_component_body(
     }
 
     let mut properties_init_code = Vec::new();
+    if component.property_init.iter().any(|(_, b)| matches!(b.kind, llr::BindingKind::Normal)) {
+        properties_init_code.push(format!(
+            "[[maybe_unused]] auto self_weak_mapped = {};",
+            weak_mapped_self(&component.name)
+        ));
+    }
     for (prop, expression) in &component.property_init {
         handle_property_init(prop, expression, &mut properties_init_code, &ctx)
     }
@@ -5270,7 +5289,7 @@ fn compile_builtin_function_call(
             format!("{}.scale_factor()", access_window_field(ctx))
         }
         BuiltinFunction::GetWindowDefaultFontSize => {
-            "::slint::private_api::get_resolved_default_font_size(*this)".to_string()
+            "::slint::private_api::get_resolved_default_font_size(*self)".to_string()
         }
         BuiltinFunction::AnimationTick => "::slint::cbindgen_private::slint_animation_tick()".into(),
         BuiltinFunction::Debug => {
@@ -5492,11 +5511,10 @@ fn compile_builtin_function_call(
                 // tree (`self->self_weak`). Popups without `is-open` get a no-op setter.
                 let is_open_setter = match is_open_args.first() {
                     Some(llr::Expression::PropertyReference(is_open_ref)) => {
-                        let self_ty = ident(&ctx.current_sub_component().expect("ShowPopupWindow is invoked on a sub-component").name);
+                        let weak = weak_mapped_self(&ctx.current_sub_component().expect("ShowPopupWindow is invoked on a sub-component").name);
                         let set_is_open = access_member(is_open_ref, ctx).then(|p| format!("{p}.set(is_open)"));
                         format!(
-                            "[weak = vtable::VWeakMapped<::slint::private_api::ItemTreeVTable, const {self_ty}>( \
-                                    vtable::VRcMapped<::slint::private_api::ItemTreeVTable, const {self_ty}>(self->self_weak.lock().value(), self))] \
+                            "[weak = {weak}] \
                              (bool is_open) {{ \
                                 auto rc = weak.lock(); \
                                 if (!rc) return; \

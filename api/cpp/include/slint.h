@@ -518,6 +518,46 @@ inline float get_resolved_default_font_size(const Component &component)
     return slint::cbindgen_private::slint_windowrc_resolved_default_font_size(&item_tree_rc);
 }
 
+/// Returns `f(self)` while the sub component `self` is alive, or `if_gone()` once it's gone.
+template<typename X, typename F, typename G>
+auto call_if_alive(const vtable::VWeakMapped<ItemTreeVTable, const X> &self, const F &f,
+                   const G &if_gone) -> decltype(if_gone())
+{
+    if (auto rc = self.lock()) {
+        return f(&**rc);
+    }
+    return if_gone();
+}
+
+/// Sets the binding of `property` to evaluate `binding(self)` on the sub component `self`,
+/// or to produce the default value once the component is gone.
+template<typename T, typename X, typename F>
+void set_property_binding(const Property<T> &property,
+                          const vtable::VWeakMapped<ItemTreeVTable, const X> &self, F binding)
+{
+    property.set_binding(
+            [self, binding]() { return call_if_alive(self, binding, [] { return T(); }); });
+}
+
+/// Like `set_property_binding`, for an animated binding.
+/// `animation(self, start_time)` computes the animation.
+template<typename T, typename X, typename F, typename A>
+void set_animated_property_binding(const Property<T> &property,
+                                   const vtable::VWeakMapped<ItemTreeVTable, const X> &self,
+                                   F binding, A animation)
+{
+    property.set_animated_binding(
+            [self, binding]() { return call_if_alive(self, binding, [] { return T(); }); },
+            [self, animation](uint64_t **start_time) {
+                return call_if_alive(
+                        self, [&](auto alive) { return animation(alive, start_time); },
+                        [&] {
+                            *start_time = nullptr;
+                            return cbindgen_private::PropertyAnimation {};
+                        });
+            });
+}
+
 } // namespace private_api
 
 // Translator API is currently considered experimental due to discussions

@@ -250,13 +250,11 @@ fn install_property_init(
                     );
                 }
                 i_slint_compiler::llr::NativeMemberKind::Property => {
-                    let expr = mut_expression_clone(&binding.expression);
-                    let weak_sub_eval = weak_sub.clone();
-                    let closure: Box<dyn Fn() -> Value> = Box::new(move || {
-                        let Some(owner) = weak_sub_eval.upgrade() else { return Value::Void };
-                        let mut ctx = EvalContext::new(Pin::new(owner));
-                        eval_expression(&mut ctx, &expr)
-                    });
+                    let closure = make_binding_fn(
+                        weak_sub.clone(),
+                        mut_expression_clone(&binding.expression),
+                        member_property_ty(target, sub).unwrap_or_default(),
+                    );
                     let animation_kind =
                         animation_for_binding(binding.animation.as_ref(), weak_sub.clone());
                     let _ = item.set_property_binding(prop_name, closure, animation_kind);
@@ -367,11 +365,7 @@ fn install_property_binding(
         return;
     }
 
-    let binding_fn: Box<dyn Fn() -> Value> = Box::new(move || {
-        let Some(owner) = weak_sub_eval.upgrade() else { return Value::Void };
-        let mut ctx = EvalContext::new(Pin::new(owner));
-        eval_expression(&mut ctx, &expr)
-    });
+    let binding_fn = make_binding_fn(weak_sub_eval, expr, ty.clone());
 
     match (
         animation_for_binding(binding.animation.as_ref(), weak_sub.clone()),
@@ -707,6 +701,19 @@ use crate::eval::{walk_parent, walk_sub_path};
 
 fn mut_expression_clone(e: &MutExpression) -> Expression {
     e.borrow().clone()
+}
+
+/// Evaluates `expr` on the owner, or gives the default value of `ty` once the owner is gone.
+fn make_binding_fn(
+    weak: Weak<SubComponentInstance>,
+    expr: Expression,
+    ty: i_slint_compiler::langtype::Type,
+) -> Box<dyn Fn() -> Value> {
+    Box::new(move || {
+        let Some(owner) = weak.upgrade() else { return crate::eval::default_value_for_type(&ty) };
+        let mut ctx = EvalContext::new(Pin::new(owner));
+        eval_expression(&mut ctx, &expr)
+    })
 }
 
 /// A handler that evaluates `expr` with the call's arguments in `weak`'s
