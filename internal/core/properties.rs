@@ -1257,6 +1257,7 @@ pub struct StateInfo {
 }
 
 struct StateInfoBinding<F, T> {
+    driver: crate::animations::AnimationDriver,
     dirty_time: Cell<Option<crate::animations::Instant>>,
     binding: F,
     _phantom: core::marker::PhantomData<fn() -> T>,
@@ -1275,7 +1276,7 @@ where
         let mut state_info: StateInfo = core::mem::take(value).try_into().unwrap_or_default();
         if new_state != state_info.current_state {
             state_info.previous_state = state_info.current_state;
-            state_info.change_time = timestamp.unwrap_or_else(crate::animations::current_tick);
+            state_info.change_time = timestamp.unwrap_or_else(|| self.driver.current_tick());
             state_info.current_state = new_state;
         }
         *value = T::from(state_info);
@@ -1284,7 +1285,7 @@ where
 
     fn mark_dirty(self: Pin<&Self>) {
         if self.dirty_time.get().is_none() {
-            self.dirty_time.set(Some(crate::animations::current_tick()))
+            self.dirty_time.set(Some(self.driver.current_tick()))
         }
     }
 }
@@ -1293,12 +1294,17 @@ where
 /// state-tracking information. The property type `T` must be convertible
 /// to/from [`StateInfo`]: `Property<StateInfo>` itself, or a type-erased
 /// storage like the interpreter's `Property<Value>`.
-pub fn set_state_binding<T>(property: Pin<&Property<T>>, binding: impl Fn() -> i32 + 'static)
-where
+/// The change time of a state comes from the ticks of `driver`.
+pub fn set_state_binding<T>(
+    property: Pin<&Property<T>>,
+    driver: &crate::animations::AnimationDriver,
+    binding: impl Fn() -> i32 + 'static,
+) where
     T: Default + From<StateInfo> + 'static,
     StateInfo: TryFrom<T>,
 {
     let bind_callable = StateInfoBinding {
+        driver: driver.clone(),
         dirty_time: Cell::new(None),
         binding,
         _phantom: core::marker::PhantomData,

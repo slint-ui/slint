@@ -1347,3 +1347,48 @@ fn change_handlers_run_on_their_context() {
     assert_eq!(sibling.get_property("changes").unwrap(), Value::from(1));
     assert_eq!(sibling.get_property("global-changes").unwrap(), Value::from(1));
 }
+
+#[test]
+#[cfg(feature = "internal")]
+fn animations_advance_with_their_context() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, Value};
+
+    let code = r#"
+        export component TestCase inherits Window {
+            in property <int> target;
+            out property <int> bound: target;
+            animate bound { duration: 1000ms; }
+            out property <int> assigned;
+            animate assigned { duration: 1000ms; }
+            public function assign(value: int) { assigned = value; }
+        }
+    "#;
+    let result = i_slint_compiler::poll_ready(
+        Compiler::default().build_from_source(code.into(), Default::default()),
+    );
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let ctx =
+        i_slint_core::SlintContext::new(Box::new(i_slint_backend_testing::TestingBackend::new(
+            i_slint_backend_testing::TestingBackendOptions {
+                mock_time: true,
+                ..Default::default()
+            },
+        )));
+    let instance = definition.create_with_context(ctx.clone()).unwrap();
+    assert_eq!(instance.get_property("bound").unwrap(), Value::from(0));
+    instance.set_property("target", Value::from(100)).unwrap();
+    instance.invoke("assign", &[Value::from(100)]).unwrap();
+    assert_eq!(instance.get_property("bound").unwrap(), Value::from(0));
+    assert_eq!(instance.get_property("assigned").unwrap(), Value::from(0));
+
+    // Drives the thread's context only.
+    i_slint_backend_testing::mock_elapsed_time(500);
+    assert_eq!(instance.get_property("bound").unwrap(), Value::from(0));
+    assert_eq!(instance.get_property("assigned").unwrap(), Value::from(0));
+
+    ctx.update_timers_and_animations();
+    assert_eq!(instance.get_property("bound").unwrap(), Value::from(50));
+    assert_eq!(instance.get_property("assigned").unwrap(), Value::from(50));
+}

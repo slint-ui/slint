@@ -8,7 +8,7 @@
 
 use crate::erased::{ErasedItem, ErasedItemRc};
 use crate::prelude::*;
-use i_slint_core::items::{ItemVTable, PropertyAnimation};
+use i_slint_core::items::ItemVTable;
 use i_slint_core::rtti::{
     AnimatedBindingKind, BuiltinItem, CallbackInfo, PropertyInfo, TwoWayBindingMapping,
 };
@@ -38,7 +38,7 @@ where
         self: Pin<&Self>,
         name: &str,
         value: Value,
-        animation: Option<PropertyAnimation>,
+        animation: Option<crate::eval::ValueAnimation>,
     ) -> Result<(), ()> {
         find_property::<T>(name).ok_or(())?.set(self, value, animation)
     }

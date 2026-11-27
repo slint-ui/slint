@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An animation advances with the context of the component that declares it, not with the thread's.
+
+export component TestCase inherits Window {
+    in property <int> target;
+    out property <int> bound: target;
+    animate bound { duration: 1000ms; }
+
+    out property <int> assigned;
+    animate assigned { duration: 1000ms; }
+    public function assign(value: int) {
+        assigned = value;
+    }
+}
+
+/*
+```rust
+let ctx = i_slint_core::SlintContext::new(Box::new(i_slint_backend_testing::TestingBackend::new(
+    i_slint_backend_testing::TestingBackendOptions { mock_time: true, ..Default::default() },
+)));
+let instance = TestCase::new_with_context(ctx.clone()).unwrap();
+assert_eq!(instance.get_bound(), 0);
+instance.set_target(100);
+instance.invoke_assign(100);
+assert_eq!(instance.get_bound(), 0);
+assert_eq!(instance.get_assigned(), 0);
+
+// Drives the thread's context only.
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_bound(), 0);
+assert_eq!(instance.get_assigned(), 0);
+
+ctx.update_timers_and_animations();
+assert_eq!(instance.get_bound(), 50);
+assert_eq!(instance.get_assigned(), 50);
+```
+*/

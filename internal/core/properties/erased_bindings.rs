@@ -50,6 +50,7 @@ pub fn set_animated_property_binding_erased<
     X,
 >(
     property: Pin<&Property<T>>,
+    driver: &crate::animations::AnimationDriver,
     self_rc: &VRcMapped<VT, X>,
     binding: fn(Pin<&X>, &()) -> T,
     compute_animation_details: fn(
@@ -62,6 +63,7 @@ pub fn set_animated_property_binding_erased<
 ) {
     set_animated_property_binding_impl(
         property,
+        driver,
         VRcMapped::downgrade_erased_fn(self_rc, binding),
         VRcMapped::downgrade_erased_fn(self_rc, compute_animation_details),
     )
@@ -72,6 +74,7 @@ fn set_animated_property_binding_impl<
     VT: VTableMetaDropInPlace + 'static,
 >(
     property: Pin<&Property<T>>,
+    driver: &crate::animations::AnimationDriver,
     binding: ErasedWeakFn<VT, T>,
     compute_animation_details: ErasedWeakFn<
         VT,
@@ -79,6 +82,7 @@ fn set_animated_property_binding_impl<
     >,
 ) {
     property.set_animated_binding(
+        driver,
         move || binding.upgrade_and_call(&()).unwrap_or_default(),
         move || compute_animation_details.upgrade_and_call(&()).unwrap_or_default(),
     )
@@ -89,17 +93,23 @@ fn set_animated_property_binding_impl<
 #[inline]
 pub fn set_property_state_binding_erased<VT: VTableMetaDropInPlace + 'static, X>(
     property: Pin<&Property<super::StateInfo>>,
+    driver: &crate::animations::AnimationDriver,
     self_rc: &VRcMapped<VT, X>,
     binding: fn(Pin<&X>, &()) -> i32,
 ) {
-    set_property_state_binding_impl(property, VRcMapped::downgrade_erased_fn(self_rc, binding))
+    set_property_state_binding_impl(
+        property,
+        driver,
+        VRcMapped::downgrade_erased_fn(self_rc, binding),
+    )
 }
 
 fn set_property_state_binding_impl<VT: VTableMetaDropInPlace + 'static>(
     property: Pin<&Property<super::StateInfo>>,
+    driver: &crate::animations::AnimationDriver,
     binding: ErasedWeakFn<VT, i32>,
 ) {
-    super::set_state_binding(property, move || {
+    super::set_state_binding(property, driver, move || {
         binding.upgrade_and_call(&()).expect("binding evaluated on dropped component")
     })
 }

@@ -1084,8 +1084,10 @@ fn handle_property_init(
                     quote!((#tokens_for_expression) #maybe_cast),
                 );
                 let set_property_state_binding = helper("set_property_state_binding");
+                let context = access_context(ctx);
                 quote! { {
-                    #set_property_state_binding(#rust_property, &self_rc, #binding_tokens);
+                    #set_property_state_binding(
+                        #rust_property, #context.animation_driver(), &self_rc, #binding_tokens);
                 } }
             }
             llr::BindingKind::Normal => {
@@ -1099,9 +1101,11 @@ fn handle_property_init(
                         let anim = compile_expression(anim, ctx);
                         let set_animated_property_binding = helper("set_animated_property_binding");
                         let details = self_closure(unit_arg.clone(), quote!((#anim, None)));
+                        let context = access_context(ctx);
                         quote! { {
                             #set_animated_property_binding(
-                                #rust_property, &self_rc, #binding_tokens, #details);
+                                #rust_property, #context.animation_driver(), &self_rc,
+                                #binding_tokens, #details);
                         } }
                     }
                     Some(llr::Animation::Transition(animation)) => {
@@ -1114,9 +1118,11 @@ fn handle_property_init(
                                 (animation, Some(change_time))
                             }),
                         );
+                        let context = access_context(ctx);
                         quote! { {
                             #set_animated_property_binding(
-                                #rust_property, &self_rc, #binding_tokens, #details);
+                                #rust_property, #context.animation_driver(), &self_rc,
+                                #binding_tokens, #details);
                         } }
                     }
                     None => {
@@ -3474,8 +3480,11 @@ fn property_set_value_tokens(
         let mut animation = (*animation).clone();
         map.map_expression(&mut animation);
         let animation_tokens = compile_expression(&animation, ctx);
-        return prop
-            .then(|prop| quote!(#prop.set_animated_value(#value_tokens as _, #animation_tokens)));
+        let context = access_context(ctx);
+        return prop.then(|prop| {
+            quote!(#prop.set_animated_value(
+                #context.animation_driver(), #value_tokens as _, #animation_tokens))
+        });
     }
     prop.then(|prop| quote!(#prop.set(#value_tokens as _)))
 }
@@ -5272,7 +5281,8 @@ fn compile_builtin_function_call(
             )
         }
         BuiltinFunction::AnimationTick => {
-            quote!(sp::animation_tick())
+            let context = access_context(ctx);
+            quote!(#context.animation_driver().animation_tick())
         }
         BuiltinFunction::Debug => (|| {
             let context = access_context(ctx);

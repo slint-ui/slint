@@ -353,8 +353,10 @@ fn install_property_binding(
     if binding.kind == BindingKind::State {
         // The expression returns the state index; `set_state_binding`
         // tracks previous_state and change_time in the struct value.
+        let Some(sub) = weak_sub.upgrade() else { return };
+        let driver = crate::eval::animation_driver(Pin::new(sub));
         let weak = weak_sub.clone();
-        i_slint_core::properties::set_state_binding(prop, move || {
+        i_slint_core::properties::set_state_binding(prop, &driver, move || {
             let Some(owner) = weak.upgrade() else { return 0 };
             let mut ctx = EvalContext::new(Pin::new(owner));
             match eval_expression(&mut ctx, &expr) {
@@ -372,20 +374,21 @@ fn install_property_binding(
         animated_value_map(ty),
     ) {
         (AnimatedBindingKind::NotAnimated, _) => prop.set_binding(binding_fn),
-        (AnimatedBindingKind::Animation(anim_fn), None) => {
-            prop.set_animated_binding(binding_fn, move || (anim_fn(), None));
+        (AnimatedBindingKind::Animation(driver, anim_fn), None) => {
+            prop.set_animated_binding(&driver, binding_fn, move || (anim_fn(), None));
         }
-        (AnimatedBindingKind::Animation(anim_fn), Some(map)) => {
-            prop.set_animated_binding_with_map(binding_fn, move || (anim_fn(), None), map);
+        (AnimatedBindingKind::Animation(driver, anim_fn), Some(map)) => {
+            prop.set_animated_binding_with_map(&driver, binding_fn, move || (anim_fn(), None), map);
         }
-        (AnimatedBindingKind::Transition(transition_fn), None) => {
-            prop.set_animated_binding(binding_fn, move || {
+        (AnimatedBindingKind::Transition(driver, transition_fn), None) => {
+            prop.set_animated_binding(&driver, binding_fn, move || {
                 let (anim, change_time) = transition_fn();
                 (anim, Some(change_time))
             });
         }
-        (AnimatedBindingKind::Transition(transition_fn), Some(map)) => {
+        (AnimatedBindingKind::Transition(driver, transition_fn), Some(map)) => {
             prop.set_animated_binding_with_map(
+                &driver,
                 binding_fn,
                 move || {
                     let (anim, change_time) = transition_fn();
@@ -401,20 +404,26 @@ fn animation_for_binding(
     animation: Option<&Animation>,
     weak_sub: Weak<SubComponentInstance>,
 ) -> AnimatedBindingKind {
+    let Some(animation) = animation else { return AnimatedBindingKind::NotAnimated };
+    let Some(sub) = weak_sub.upgrade() else { return AnimatedBindingKind::NotAnimated };
+    let driver = crate::eval::animation_driver(Pin::new(sub));
     match animation {
-        None => AnimatedBindingKind::NotAnimated,
-        Some(Animation::Static(expr)) => {
+        Animation::Static(expr) => {
             let expr = expr.clone();
-            AnimatedBindingKind::Animation(Box::new(move || -> PropertyAnimation {
-                let Some(owner) = weak_sub.upgrade() else { return Default::default() };
-                let mut ctx = EvalContext::new(Pin::new(owner));
-                value_to_property_animation(eval_expression(&mut ctx, &expr))
-            }))
+            AnimatedBindingKind::Animation(
+                driver,
+                Box::new(move || -> PropertyAnimation {
+                    let Some(owner) = weak_sub.upgrade() else { return Default::default() };
+                    let mut ctx = EvalContext::new(Pin::new(owner));
+                    value_to_property_animation(eval_expression(&mut ctx, &expr))
+                }),
+            )
         }
-        Some(Animation::Transition(expr)) => {
+        Animation::Transition(expr) => {
             let expr = expr.clone();
-            AnimatedBindingKind::Transition(Box::new(
-                move || -> (PropertyAnimation, i_slint_core::animations::Instant) {
+            AnimatedBindingKind::Transition(
+                driver,
+                Box::new(move || -> (PropertyAnimation, i_slint_core::animations::Instant) {
                     let Some(owner) = weak_sub.upgrade() else {
                         return (Default::default(), Default::default());
                     };
@@ -435,8 +444,8 @@ fn animation_for_binding(
                         .and_then(|v| v.try_into().ok())
                         .unwrap_or_default();
                     (anim, change_time)
-                },
-            ))
+                }),
+            )
         }
     }
 }

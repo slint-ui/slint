@@ -161,6 +161,7 @@ impl FlickAnimation {
         bounce: AutoBool,
         start_value: f32,
         limit_value: Pin<Box<Property<f32>>>,
+        start_time: Instant,
     ) -> FlickAnimation {
         if Self::use_bounce(bounce) {
             let params = match animation_parameter {
@@ -171,7 +172,7 @@ impl FlickAnimation {
                     BounceFlickParameters::new_with_distance(delta, duration)
                 }
             };
-            FlickAnimation::Bounce(params.simulation(start_value, limit_value))
+            FlickAnimation::Bounce(params.simulation(start_value, limit_value, start_time))
         } else {
             let params = match animation_parameter {
                 FlickAnimationParameter::Velocity { velocity } => {
@@ -183,10 +184,11 @@ impl FlickAnimation {
                         limit_value,
                         delta,
                         duration,
+                        start_time,
                     ));
                 }
             };
-            FlickAnimation::Android(params.simulation(start_value, limit_value))
+            FlickAnimation::Android(params.simulation(start_value, limit_value, start_time))
         }
     }
 

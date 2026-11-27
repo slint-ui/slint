@@ -8,7 +8,7 @@
 
 use crate::prelude::*;
 use i_slint_core::graphics::Brush;
-use i_slint_core::items::{AngleInterpolation, ItemVTable, PropertyAnimation};
+use i_slint_core::items::{AngleInterpolation, ItemVTable};
 use i_slint_core::properties::InterpolatedPropertyValue;
 use i_slint_core::rtti::{AnimatedBindingKind, TwoWayBindingMapping};
 use vtable::VRef;
@@ -21,7 +21,7 @@ pub trait ErasedItem {
         self: Pin<&Self>,
         name: &str,
         value: Value,
-        animation: Option<PropertyAnimation>,
+        animation: Option<crate::eval::ValueAnimation>,
     ) -> Result<(), ()>;
 
     fn set_property_binding(

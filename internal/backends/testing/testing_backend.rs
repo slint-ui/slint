@@ -45,24 +45,25 @@ fn ensure_all_tracked_trees_instantiated() {
 /// animations, firing timers, running change handlers, and instantiating
 /// pending repeaters and conditionals on every live testing window.
 pub fn mock_elapsed_time(time_in_ms: u64) {
-    let tick = i_slint_core::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
-        let mut tick = driver.current_tick();
-        tick += core::time::Duration::from_millis(time_in_ms);
-        driver.update_animations(tick);
-        tick
-    });
+    let Some(ctx) = i_slint_core::SlintContext::current() else { return };
+    let driver = ctx.animation_driver();
+    let tick = driver.current_tick() + core::time::Duration::from_millis(time_in_ms);
+    driver.update_animations(tick);
     i_slint_core::timers::TimerList::maybe_activate_timers(tick);
-    if let Some(ctx) = i_slint_core::SlintContext::current() {
-        ctx.run_change_handlers();
-    }
+    ctx.run_change_handlers();
     ensure_all_tracked_trees_instantiated();
 }
 
 /// Return the current mocked time in milliseconds.
 pub fn get_mocked_time() -> u64 {
-    i_slint_core::animations::CURRENT_ANIMATION_DRIVER
-        .with(|driver| driver.current_tick())
-        .as_millis()
+    mocked_time().as_millis()
+}
+
+/// The animation tick of the current context, which is the clock of a mocked-time platform.
+fn mocked_time() -> i_slint_core::animations::Instant {
+    i_slint_core::SlintContext::current()
+        .map(|ctx| ctx.animation_driver().current_tick())
+        .unwrap_or_default()
 }
 
 #[cfg(any(feature = "internal", feature = "ffi"))]
@@ -241,7 +242,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
     fn duration_since_start(&self) -> core::time::Duration {
         if self.mock_time {
             // The slint::testing::mock_elapsed_time updates the animation tick directly
-            i_slint_core::animations::current_tick().into()
+            mocked_time().into()
         } else {
             static INITIAL_INSTANT: std::sync::OnceLock<std::time::Instant> =
                 std::sync::OnceLock::new();

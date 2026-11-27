@@ -19,11 +19,8 @@ pub struct Decelerate {
 
 impl Decelerate {
     /// `distance` is the signed distance to the target, `speed` the absolute start speed.
-    pub fn new(distance: f32, speed: f32) -> Self {
-        Self::new_internal(distance, speed, crate::animations::current_tick())
-    }
-
-    fn new_internal(distance: f32, speed: f32, start_time: Instant) -> Self {
+    /// The simulation starts at `start_time`.
+    pub fn new(distance: f32, speed: f32, start_time: Instant) -> Self {
         Self {
             remaining: distance,
             speed,
@@ -118,7 +115,7 @@ mod tests {
         for sign in [-1., 1.] {
             let distance = sign * 1800.;
             let start = Instant::default();
-            let mut simulation = Decelerate::new_internal(distance, 4800., start);
+            let mut simulation = Decelerate::new(distance, 4800., start);
             let mut position = 0.;
             let mut steps = Vec::new();
             let mut tick = start;
@@ -144,7 +141,7 @@ mod tests {
         // Twice as long as at full speed, like a constant deceleration.
         let duration = 2. * distance / speed;
         let start = Instant::default();
-        let mut simulation = Decelerate::new_internal(distance, speed, start);
+        let mut simulation = Decelerate::new(distance, speed, start);
         let mut position = 0.;
         let mut tick = start;
         loop {
@@ -168,7 +165,7 @@ mod tests {
     fn retarget_keeps_the_speed() {
         for factor in [0.5, 4.] {
             let start = Instant::default();
-            let mut simulation = Decelerate::new_internal(-1000., 4000., start);
+            let mut simulation = Decelerate::new(-1000., 4000., start);
             let mut position = 0.;
             let mut tick = start;
             let mut previous = 0.;
@@ -206,7 +203,7 @@ mod tests {
     #[test]
     fn retarget_lands_on_the_new_target() {
         let start = Instant::default();
-        let mut simulation = Decelerate::new_internal(-1000., 4000., start);
+        let mut simulation = Decelerate::new(-1000., 4000., start);
         let mut position = 0.;
         simulation.step(&mut position, start + FRAME);
         assert_eq!(simulation.remaining_distance(start + FRAME), -1000. - position);
@@ -222,7 +219,7 @@ mod tests {
     #[test]
     fn zero_distance_is_finished() {
         let mut position = 5.;
-        let mut simulation = Decelerate::new_internal(0., 100., Instant::default());
+        let mut simulation = Decelerate::new(0., 100., Instant::default());
         assert!(simulation.step(&mut position, Instant::default() + FRAME));
         assert_eq!(position, 5.);
     }

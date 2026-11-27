@@ -25,15 +25,8 @@ pub struct SpringFlick {
 }
 
 impl SpringFlick {
+    /// The simulation starts at `start_time`.
     pub fn new(
-        deflection: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
-        parameters: SpringPhysicalParameters,
-    ) -> Self {
-        Self::new_internal(deflection, limit_value, parameters, crate::animations::current_tick())
-    }
-
-    fn new_internal(
         deflection: f32,
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
         parameters: SpringPhysicalParameters,
@@ -110,7 +103,7 @@ mod tests {
     const STIFFNESS: f32 = 1500.;
 
     fn spring_flick(deflection: f32, limit: f32, start: Instant) -> SpringFlick {
-        SpringFlick::new_internal(
+        SpringFlick::new(
             deflection,
             test_limit_property(limit),
             SpringPhysicalParameters::new_critical_damped(STIFFNESS),

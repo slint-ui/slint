@@ -13,7 +13,7 @@ Slint animations use a **mocked time system** rather than real-time clocks. This
 - Frame-rate independence
 - Consistent behavior across platforms
 
-The animation driver (`internal/core/animations.rs`) manages a global instant that advances each frame:
+Each `SlintContext` owns an `AnimationDriver` (`internal/core/animations.rs`), with an instant that advances each frame:
 
 ```
 AnimationDriver
@@ -21,6 +21,11 @@ AnimationDriver
 ├── active_animations: Cell<bool>                // Whether animations are running
 └── update_animations(new_tick)                  // Called per frame by the backend
 ```
+
+`SlintContext::update_timers_and_animations` advances the drivers of every context on the platform.
+An animated binding keeps the driver it was created with, so it ticks with its component's context.
+Generated Rust and the interpreter pass the component's context's driver, items use their item tree's context, and the C++ API the current context.
+`Window::has_active_animations` reads the driver of the window's context.
 
 ## Reduced Motion
 
@@ -39,8 +44,9 @@ Without the `std` feature, `i_slint_core::builtin_functions::reduced_motion` is 
 | Function/Type | Location | Purpose |
 |---------------|----------|---------|
 | `Instant` | `internal/core/animations.rs` | Milliseconds since animation driver started |
-| `current_tick()` | `internal/core/animations.rs` | Get current animation time (registers dependency) |
-| `animation_tick()` | `internal/core/animations.rs` | Same, but signals a frame is needed |
+| `AnimationDriver::current_tick()` | `internal/core/animations.rs` | Get current animation time (registers dependency) |
+| `AnimationDriver::animation_tick()` | `internal/core/animations.rs` | Same, but signals a frame is needed |
+| `SlintContext::animation_driver()` | `internal/core/context.rs` | The driver of a context |
 | `update_timers_and_animations()` | `internal/core/platform.rs` | Called by platform each frame |
 | `EasingCurve` | `internal/core/animations.rs` | Enum of easing curve types |
 

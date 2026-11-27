@@ -53,6 +53,7 @@ pub trait Parameter {
         self,
         start_value: f32,
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+        start_time: crate::animations::Instant,
     ) -> Self::Output;
 }
 

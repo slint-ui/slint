@@ -104,8 +104,9 @@ impl Parameter for BounceFlickParameters {
         self,
         start_value: f32,
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+        start_time: Instant,
     ) -> Self::Output {
-        BounceFlick::new(start_value, limit_value, self)
+        BounceFlick::new(start_value, limit_value, self, start_time)
     }
 }
 
@@ -135,15 +136,8 @@ pub struct BounceFlick {
 }
 
 impl BounceFlick {
+    /// The simulation starts at `start_time`.
     pub fn new(
-        start_value: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
-        data: BounceFlickParameters,
-    ) -> Self {
-        Self::new_internal(start_value, limit_value, data, crate::animations::current_tick())
-    }
-
-    fn new_internal(
         start_value: f32,
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
         data: BounceFlickParameters,
@@ -378,7 +372,7 @@ mod tests {
     fn hard_fling_overshoots_then_springs_back() {
         for sign in [-1., 1.] {
             let time = Instant::default();
-            let mut simulation = BounceFlick::new_internal(
+            let mut simulation = BounceFlick::new(
                 sign * 10.,
                 test_limit_property(sign * 20.),
                 BounceFlickParameters::new(sign * 5000.),
@@ -399,7 +393,7 @@ mod tests {
                 [(2000., 500., 10., 0.), (20., 5000., 10., 0.), (20., 5000., 20., 50.)]
             {
                 let start = Instant::default();
-                let mut simulation = BounceFlick::new_internal(
+                let mut simulation = BounceFlick::new(
                     0.,
                     test_limit_property(sign * limit),
                     BounceFlickParameters::new(sign * initial_velocity),
@@ -431,13 +425,13 @@ mod tests {
     fn growing_bounds_cancels_the_pending_bounce() {
         for sign in [-1., 1.] {
             let start = Instant::default();
-            let mut simulation = BounceFlick::new_internal(
+            let mut simulation = BounceFlick::new(
                 0.,
                 test_limit_property(sign * 100.),
                 BounceFlickParameters::new(sign * 500.),
                 start,
             );
-            let mut unbounded = BounceFlick::new_internal(
+            let mut unbounded = BounceFlick::new(
                 0.,
                 test_limit_property(sign * 1000.),
                 BounceFlickParameters::new(sign * 500.),
@@ -462,7 +456,7 @@ mod tests {
     #[test]
     fn remaining_distance_with_the_spring_is_measured_to_the_limit() {
         let time = Instant::default();
-        let increasing = BounceFlick::new_internal(
+        let increasing = BounceFlick::new(
             10.,
             test_limit_property(20.),
             BounceFlickParameters::new(5000.),
@@ -472,7 +466,7 @@ mod tests {
         assert!(increasing.remaining_distance(time + Duration::from_millis(50)) < 0.);
         assert!(increasing.remaining_distance(time + Duration::from_secs(10)).abs() < 1e-2);
 
-        let decreasing = BounceFlick::new_internal(
+        let decreasing = BounceFlick::new(
             20.,
             test_limit_property(10.),
             BounceFlickParameters::new(-5000.),
@@ -490,7 +484,7 @@ mod tests {
         let parameters = BounceFlickParameters::new(0.);
         let time = Instant::default();
         let mut simulation =
-            BounceFlick::new_internal(START_VALUE, test_limit_property(100.), parameters, time);
+            BounceFlick::new(START_VALUE, test_limit_property(100.), parameters, time);
 
         let mut current = START_VALUE;
         assert_eq!(
@@ -505,7 +499,7 @@ mod tests {
     fn stops_where_the_speed_falls_to_the_stop_velocity() {
         let time = Instant::default();
         let velocity = 656.;
-        let mut simulation = BounceFlick::new_internal(
+        let mut simulation = BounceFlick::new(
             0.,
             test_limit_property(5000.),
             BounceFlickParameters::new(velocity),

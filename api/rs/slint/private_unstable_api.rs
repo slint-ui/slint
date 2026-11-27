@@ -53,6 +53,7 @@ pub fn set_animated_property_binding<
     StrongRef: StrongItemTreeRef + 'static,
 >(
     property: Pin<&Property<T>>,
+    driver: &i_slint_core::animations::AnimationDriver,
     component_strong: &StrongRef,
     binding: fn(StrongRef) -> T,
     compute_animation_details: fn(
@@ -63,6 +64,7 @@ pub fn set_animated_property_binding<
     let weak_1 = component_strong.to_weak();
     let weak_2 = weak_1.clone();
     property.set_animated_binding(
+        driver,
         move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak_1).unwrap()),
         move || {
             compute_animation_details(<StrongRef as StrongItemTreeRef>::from_weak(&weak_2).unwrap())
@@ -72,11 +74,12 @@ pub fn set_animated_property_binding<
 
 pub fn set_property_state_binding<StrongRef: StrongItemTreeRef + 'static>(
     property: Pin<&Property<StateInfo>>,
+    driver: &i_slint_core::animations::AnimationDriver,
     component_strong: &StrongRef,
     binding: fn(StrongRef) -> i32,
 ) {
     let weak = component_strong.to_weak();
-    re_exports::set_state_binding(property, move || {
+    re_exports::set_state_binding(property, driver, move || {
         binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak).unwrap())
     })
 }
@@ -220,7 +223,7 @@ pub mod re_exports {
     pub use i_slint_core::accessibility::{
         AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
     };
-    pub use i_slint_core::animations::{EasingCurve, animation_tick, current_tick};
+    pub use i_slint_core::animations::EasingCurve;
     pub use i_slint_core::api::LogicalPosition;
     pub use i_slint_core::builtin_functions;
     pub use i_slint_core::callbacks::Callback;

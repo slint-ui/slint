@@ -162,9 +162,11 @@ impl ImageAnimation {
     }
 }
 
+/// The tick of the current context, which also runs the frame timer.
 fn now() -> Instant {
+    let Some(ctx) = crate::SlintContext::current() else { return Instant::default() };
     // A tracked read would redraw the item on every animation tick.
-    crate::properties::evaluate_no_tracking(crate::animations::current_tick)
+    crate::properties::evaluate_no_tracking(|| ctx.animation_driver().current_tick())
 }
 
 #[cfg(test)]
@@ -221,15 +223,16 @@ mod tests {
 
     #[test]
     fn advancing_outside_a_tracker_invalidates_it() {
+        let ctx =
+            crate::SlintContext::new(alloc::boxed::Box::new(crate::testing::NoWindowPlatform));
         let animation = ImageAnimation::new(animated(include_bytes!(
             "../../graphics/image/testdata/twice.png"
         )));
         let tracker = alloc::boxed::Box::pin(PropertyTracker::<false>::default());
         tracker.as_ref().evaluate(|| animation.frame());
         assert!(!tracker.is_dirty());
-        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
-            driver.update_animations(driver.current_tick() + Duration::from_millis(150))
-        });
+        let driver = ctx.animation_driver();
+        driver.update_animations(driver.current_tick() + Duration::from_millis(150));
         animation.frame();
         assert!(tracker.is_dirty());
     }

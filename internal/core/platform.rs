@@ -288,7 +288,6 @@ pub fn update_timers_and_animations() {
         None => {
             // Pre-platform behavior: with no context there is no clock either, so only
             // zero-duration timers in the pending list are due.
-            crate::animations::update_animations(Default::default());
             crate::timers::TimerList::maybe_activate_timers(Default::default());
         }
     }

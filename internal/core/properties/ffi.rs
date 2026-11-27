@@ -218,7 +218,9 @@ fn c_set_animated_value<T: InterpolatedPropertyValue + Clone>(
     to: T,
     animation_data: &PropertyAnimation,
 ) {
+    let driver = current_animation_driver();
     let d = RefCell::new(properties_animations::PropertyValueAnimationData::new(
+        driver.clone(),
         from,
         Some(to),
         animation_data.clone(),
@@ -231,8 +233,7 @@ fn c_set_animated_value<T: InterpolatedPropertyValue + Clone>(
             if finished {
                 BindingResult::RemoveBinding
             } else {
-                crate::animations::CURRENT_ANIMATION_DRIVER
-                    .with(|driver| driver.set_has_active_animations());
+                driver.set_has_active_animations();
                 BindingResult::KeepBinding
             }
         })
@@ -311,7 +312,10 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
                     .map_addr(|a| a | 0b10),
             ),
         };
+        let driver = current_animation_driver();
+        let dirty_time = Cell::new(driver.current_tick());
         let animation_data = RefCell::new(properties_animations::PropertyValueAnimationData::new(
+            driver,
             T::default(),
             None,
             PropertyAnimation::default(),
@@ -339,7 +343,7 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
                 };
                 (anim, start_instant)
             },
-            dirty_time: Cell::new(crate::animations::current_tick()),
+            dirty_time,
             carried_velocity: Cell::new(0.0),
         });
         handle.0.mark_dirty();
@@ -444,6 +448,7 @@ pub unsafe extern "C" fn slint_property_set_state_binding(
 
     let c_state_binding = CStateBinding { binding, user_data, drop_user_data };
     let bind_callable = StateInfoBinding {
+        driver: current_animation_driver(),
         dirty_time: Cell::new(None),
         binding: move || c_state_binding.call(),
         _phantom: core::marker::PhantomData::<fn() -> StateInfo>,
@@ -625,7 +630,15 @@ pub unsafe extern "C" fn slint_change_tracker_init(
 /// return the current animation tick for the `animation-tick` function
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_animation_tick() -> u64 {
-    crate::animations::animation_tick()
+    current_animation_driver().animation_tick()
+}
+
+/// C++ components only use the current context.
+fn current_animation_driver() -> crate::animations::AnimationDriver {
+    crate::SlintContext::current()
+        .expect("a component exists, so there is a current context")
+        .animation_driver()
+        .clone()
 }
 
 #[cfg(test)]

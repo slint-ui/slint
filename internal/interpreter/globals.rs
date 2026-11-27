@@ -22,7 +22,7 @@ pub trait NativeGlobal {
         self: Pin<&Self>,
         name: &str,
         value: Value,
-        animation: Option<i_slint_core::items::PropertyAnimation>,
+        animation: Option<crate::eval::ValueAnimation>,
     ) -> Result<(), ()>;
     fn invoke_callback(self: Pin<&Self>, name: &str, args: &[Value]) -> Option<Value>;
     fn set_callback_handler(
@@ -46,7 +46,7 @@ impl<T: rtti::BuiltinGlobal + 'static> NativeGlobal for T {
         self: Pin<&Self>,
         name: &str,
         value: Value,
-        animation: Option<i_slint_core::items::PropertyAnimation>,
+        animation: Option<crate::eval::ValueAnimation>,
     ) -> Result<(), ()> {
         let (_, prop) = T::properties::<Value>().into_iter().find(|(k, _)| *k == name).ok_or(())?;
         prop.set(self, value, animation)

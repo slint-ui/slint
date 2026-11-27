@@ -5,6 +5,7 @@
 //! The animation system
 
 use alloc::boxed::Box;
+use alloc::rc::Rc;
 use core::{cell::Cell, time::Duration};
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
@@ -262,8 +263,13 @@ impl Instant {
     }
 }
 
-/// The AnimationDriver
-pub struct AnimationDriver {
+/// Drives the animations of one [`SlintContext`](crate::SlintContext).
+///
+/// Cloning gives another handle to the same driver.
+#[derive(Clone)]
+pub struct AnimationDriver(Rc<AnimationDriverInner>);
+
+struct AnimationDriverInner {
     /// Indicate whether there are any active animations that require a future call to update_animations.
     active_animations: Cell<bool>,
     global_instant: core::pin::Pin<Box<crate::Property<Instant>>>,
@@ -271,13 +277,13 @@ pub struct AnimationDriver {
 
 impl Default for AnimationDriver {
     fn default() -> Self {
-        AnimationDriver {
+        AnimationDriver(Rc::new(AnimationDriverInner {
             active_animations: Cell::default(),
             global_instant: Box::pin(crate::Property::new_named(
                 Instant::default(),
                 "i_slint_core::AnimationDriver::global_instant",
             )),
-        }
+        }))
     }
 }
 
@@ -286,65 +292,54 @@ impl AnimationDriver {
     /// the windowing system driver for every frame.
     /// A tick earlier than the current one is ignored.
     pub fn update_animations(&self, new_tick: Instant) {
-        let current_tick = self.global_instant.as_ref().get_untracked();
+        let current_tick = self.0.global_instant.as_ref().get_untracked();
         // The platform clock can go backwards on buggy hardware (#14847)
         if new_tick > current_tick {
-            self.active_animations.set(false);
-            self.global_instant.as_ref().set(new_tick);
+            self.0.active_animations.set(false);
+            self.0.global_instant.as_ref().set(new_tick);
         }
+    }
+
+    /// Like [`Self::update_animations`], with `now` divided by `SLINT_SLOW_ANIMATIONS`.
+    pub(crate) fn update_animations_slowed(&self, now: Instant) {
+        self.update_animations(Instant(now.0 / u64::from(slow_down_factor())));
     }
 
     /// Returns true if an active animation was evaluated in the current tick,
     /// other than while rendering a window, which tracks its own animations.
     pub fn has_active_animations(&self) -> bool {
-        self.active_animations.get()
+        self.0.active_animations.get()
     }
 
     /// Tell the driver that there are active animations
     pub fn set_has_active_animations(&self) {
-        self.active_animations.set(true);
+        self.0.active_animations.set(true);
     }
 
     /// Runs `f` and returns whether it evaluated an active animation,
     /// without recording it in [`Self::has_active_animations`].
     pub(crate) fn track_active_animations<R>(&self, f: impl FnOnce() -> R) -> (R, bool) {
-        let tick = self.global_instant.as_ref().get_untracked();
-        let was_active = self.active_animations.replace(false);
+        let tick = self.0.global_instant.as_ref().get_untracked();
+        let was_active = self.0.active_animations.replace(false);
         let result = f();
         // Advancing the tick in `f` (as the Qt backend does) drops the earlier state.
-        let same_tick = self.global_instant.as_ref().get_untracked() == tick;
-        let active = self.active_animations.replace(was_active && same_tick);
+        let same_tick = self.0.global_instant.as_ref().get_untracked() == tick;
+        let active = self.0.active_animations.replace(was_active && same_tick);
         (result, active)
     }
 
     /// The current instant that is to be used for animation
     /// using this function register the current binding as a dependency
     pub fn current_tick(&self) -> Instant {
-        self.global_instant.as_ref().get()
+        self.0.global_instant.as_ref().get()
     }
-}
 
-crate::thread_local!(
-/// This is the default instance of the animation driver that's used to advance all property animations
-/// at the same time.
-pub static CURRENT_ANIMATION_DRIVER : AnimationDriver = AnimationDriver::default()
-);
-
-/// The current instant that is to be used for animation
-/// using this function register the current binding as a dependency
-pub fn current_tick() -> Instant {
-    CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick())
-}
-
-/// Same as [`current_tick`], but also register that one should be running animation
-/// on next frame
-pub fn animation_tick() -> u64 {
-    CURRENT_ANIMATION_DRIVER
-        .with(|driver| {
-            driver.set_has_active_animations();
-            driver.current_tick()
-        })
-        .as_millis()
+    /// Same as [`Self::current_tick`] in milliseconds, but also register that one should be running animation
+    /// on next frame
+    pub fn animation_tick(&self) -> u64 {
+        self.set_has_active_animations();
+        self.current_tick().as_millis()
+    }
 }
 
 fn ease_out_bounce_curve(value: f32) -> f32 {
@@ -501,17 +496,6 @@ fn easing_test() {
     test_curve("ease_out", &EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]));
 }
 */
-
-/// Update the global animation time to `now`.
-///
-/// The driver is per-thread while `now` comes from whichever context is driving it, so a
-/// thread running several contexts with different clock origins would see the tick jump.
-/// Per-context animation drivers would mean reaching a context from every binding
-/// evaluation, which is a much larger change.
-pub fn update_animations(now: Instant) {
-    CURRENT_ANIMATION_DRIVER
-        .with(|driver| driver.update_animations(Instant(now.0 / u64::from(slow_down_factor()))));
-}
 
 pub(crate) fn slow_down_factor() -> u32 {
     #[cfg(feature = "std")]

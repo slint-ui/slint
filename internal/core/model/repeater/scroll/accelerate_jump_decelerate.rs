@@ -7,6 +7,7 @@
 // cSpell: ignore Jetpack
 
 use crate::Coord;
+use crate::animations::Instant;
 use crate::animations::simulations::PositionSimulation;
 use crate::animations::simulations::accelerate::Accelerate;
 use crate::animations::simulations::decelerate::Decelerate;
@@ -95,12 +96,12 @@ impl AccelerateJumpDecelerate {
         jumped: bool,
         flickable: &ItemWeak,
     ) -> Option<()> {
-        let now = crate::animations::current_tick();
+        let now = flickable.upgrade()?.slint_context().animation_driver().current_tick();
         let reverses = |simulation: &dyn PositionSimulation| {
             simulation.remaining_distance(now).signum() != distance.signum()
         };
         let accelerate = || {
-            let simulation = ScrollToRowMotion::new(viewport_height).accelerate(distance);
+            let simulation = ScrollToRowMotion::new(viewport_height).accelerate(distance, now);
             Some(Phase::Accelerating(alignment, super::start_simulation(flickable, simulation)?))
         };
         match self.phase.clone() {
@@ -123,7 +124,7 @@ impl AccelerateJumpDecelerate {
                     }
                     accelerating.speed()
                 };
-                let simulation = Decelerate::new(distance, speed);
+                let simulation = Decelerate::new(distance, speed, now);
                 self.phase =
                     Phase::Decelerating(alignment, super::start_simulation(flickable, simulation)?);
             }
@@ -173,8 +174,8 @@ impl ScrollToRowMotion {
         }
     }
 
-    pub(super) fn accelerate(&self, distance: f32) -> Accelerate {
-        Accelerate::new(distance, self.max_speed, self.acceleration)
+    pub(super) fn accelerate(&self, distance: f32, start_time: Instant) -> Accelerate {
+        Accelerate::new(distance, self.max_speed, self.acceleration, start_time)
     }
 
     /// The deceleration that stops from the maximum speed within the landing distance.

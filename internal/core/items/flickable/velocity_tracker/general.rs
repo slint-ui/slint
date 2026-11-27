@@ -170,7 +170,7 @@ mod tests_general_velocity_tracker {
 
     #[test]
     fn short_flick_uses_two_distinct_samples() {
-        let start = crate::animations::current_tick();
+        let start = Instant::default();
         let mut tracker = GeneralVelocityTracker::<8>::default();
         tracker.push(start, LogicalVector::default());
         tracker.push(start + Duration::from_millis(20), LogicalVector::new(0., 120.));
@@ -180,7 +180,7 @@ mod tests_general_velocity_tracker {
 
     #[test]
     fn samples_at_the_same_time_preserve_distance() {
-        let start = crate::animations::current_tick();
+        let start = Instant::default();
         let mut tracker = GeneralVelocityTracker::<8>::default();
         tracker.push(start, LogicalVector::default());
         tracker.push(start + Duration::from_millis(10), LogicalVector::new(0., 30.));
@@ -193,7 +193,7 @@ mod tests_general_velocity_tracker {
     #[test]
     fn decelerating_drag_does_not_reverse() {
         // #14511: the quadratic fit used to point downward at the release.
-        let start = crate::animations::current_tick();
+        let start = Instant::default();
         let mut tracker = GeneralVelocityTracker::<20>::default();
         tracker.push(start, LogicalVector::default());
         let y = |i: u64| -120. * (1. - (1. - i as f32 / 8.).powi(3));
@@ -209,7 +209,7 @@ mod tests_general_velocity_tracker {
 
     #[test]
     fn test_velocity_tracker_cases() {
-        let base_time = crate::animations::current_tick();
+        let base_time = Instant::default();
         let test_cases = [
             (
                 "x and y",

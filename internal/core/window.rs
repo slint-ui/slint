@@ -924,7 +924,7 @@ impl WindowInner {
     /// `Exit` (if not). The reported `accepted` reflects the rewritten event, so a
     /// `Released` that completes a drop on a non-accepting target reports `accepted = false`.
     pub(crate) fn process_mouse_input(&self, mut event: MouseEvent) -> Option<MouseDispatchResult> {
-        crate::animations::update_animations(crate::animations::Instant::now(self.context()));
+        self.context().update_animations();
 
         let item_tree = self.try_component()?;
         self.ensure_tree_instantiated();
@@ -2063,14 +2063,12 @@ impl WindowInner {
             }
         };
         let (result, has_active_animations) =
-            crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
-                driver.track_active_animations(|| {
-                    self.pinned_fields
-                        .as_ref()
-                        .project_ref()
-                        .redraw_tracker
-                        .evaluate_as_dependency_root(render)
-                })
+            self.context().animation_driver().track_active_animations(|| {
+                self.pinned_fields
+                    .as_ref()
+                    .project_ref()
+                    .redraw_tracker
+                    .evaluate_as_dependency_root(render)
             });
         self.has_active_animations.set(has_active_animations);
         Some(result)
@@ -2078,8 +2076,7 @@ impl WindowInner {
 
     pub(crate) fn has_active_animations(&self) -> bool {
         self.has_active_animations.get()
-            || crate::animations::CURRENT_ANIMATION_DRIVER
-                .with(|driver| driver.has_active_animations())
+            || self.try_context().is_some_and(|ctx| ctx.animation_driver().has_active_animations())
     }
 
     /// Replaces an image overlay with how the next frame should draw it.

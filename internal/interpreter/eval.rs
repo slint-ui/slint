@@ -288,17 +288,21 @@ fn eval_array_row_predicate(
     result
 }
 
+/// An animation for a value set on a property, and the driver it advances with.
+pub(crate) type ValueAnimation =
+    (i_slint_core::items::PropertyAnimation, i_slint_core::animations::AnimationDriver);
+
 /// Set `value` on `prop`, interpolating through `animation` when present.
 fn set_maybe_animated(
     prop: Pin<&Property<Value>>,
     ty: &Type,
     value: Value,
-    animation: Option<i_slint_core::items::PropertyAnimation>,
+    animation: Option<ValueAnimation>,
 ) {
     match animation {
-        Some(anim) => match crate::bindings::animated_value_map(ty) {
-            Some(map) => prop.set_animated_value_with_map(value, anim, map),
-            None => prop.set_animated_value(value, anim),
+        Some((anim, driver)) => match crate::bindings::animated_value_map(ty) {
+            Some(map) => prop.set_animated_value_with_map(&driver, value, anim, map),
+            None => prop.set_animated_value(&driver, value, anim),
         },
         None => prop.set(value),
     }
@@ -308,7 +312,7 @@ fn store_local(
     instance: &SubComponentInstance,
     member: &LocalMemberIndex,
     value: Value,
-    animation: Option<i_slint_core::items::PropertyAnimation>,
+    animation: Option<ValueAnimation>,
 ) {
     match member {
         LocalMemberIndex::Property(idx) => {
@@ -342,7 +346,7 @@ fn store_local(
 fn walk_to_target_with_animation(
     start: Pin<Rc<SubComponentInstance>>,
     local_reference: &llr::LocalMemberReference,
-) -> (Pin<Rc<SubComponentInstance>>, Option<i_slint_core::items::PropertyAnimation>) {
+) -> (Pin<Rc<SubComponentInstance>>, Option<ValueAnimation>) {
     let cu = start.compilation_unit.clone();
     let path = &local_reference.sub_component_path;
     let mut animation = None;
@@ -367,7 +371,9 @@ fn walk_to_target_with_animation(
     }
     let animation = animation.map(|(scope, expr)| {
         let mut ctx = EvalContext::new(scope);
-        crate::bindings::value_to_property_animation(eval_expression(&mut ctx, &expr))
+        let animation =
+            crate::bindings::value_to_property_animation(eval_expression(&mut ctx, &expr));
+        (animation, component_context(&ctx).animation_driver().clone())
     });
     (owner, animation)
 }
@@ -2292,7 +2298,7 @@ fn call_builtin_function(
             Value::Void
         })(),
         BuiltinFunction::AnimationTick => {
-            Value::Number(i_slint_core::animations::animation_tick() as f64)
+            Value::Number(component_context(ctx).animation_driver().animation_tick() as f64)
         }
         BuiltinFunction::GetWindowScaleFactor => (|| {
             let factor = root_instance(ctx)
@@ -2692,6 +2698,13 @@ pub(crate) fn find_window_adapter(
     ctx: &EvalContext,
 ) -> Option<i_slint_core::window::WindowAdapterRc> {
     find_root_instance(ctx)?.window_adapter_or_default()
+}
+
+/// The animation driver of the context of `sub`'s component.
+pub(crate) fn animation_driver(
+    sub: Pin<Rc<SubComponentInstance>>,
+) -> i_slint_core::animations::AnimationDriver {
+    component_context(&EvalContext::new(sub)).animation_driver().clone()
 }
 
 pub(crate) fn component_context(ctx: &EvalContext) -> SlintContext {

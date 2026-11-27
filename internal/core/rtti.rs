@@ -10,6 +10,7 @@
 
 pub type FieldOffset<T, U> = const_field_offset::FieldOffset<T, U, const_field_offset::AllowPin>;
 use crate::Property;
+use crate::animations::AnimationDriver;
 use crate::items::PropertyAnimation;
 use crate::properties::InterpolatedPropertyValue;
 use alloc::boxed::Box;
@@ -74,14 +75,14 @@ macro_rules! declare_ValueType {
 
 i_slint_common::for_each_enums!(declare_ValueType);
 
-/// What kind of animation is on a binding
+/// What kind of animation is on a binding, and the driver it advances with
 pub enum AnimatedBindingKind {
     /// No animation is on the binding
     NotAnimated,
     /// Single animation
-    Animation(Box<dyn Fn() -> PropertyAnimation>),
+    Animation(AnimationDriver, Box<dyn Fn() -> PropertyAnimation>),
     /// Transition
-    Transition(Box<dyn Fn() -> (PropertyAnimation, crate::animations::Instant)>),
+    Transition(AnimationDriver, Box<dyn Fn() -> (PropertyAnimation, crate::animations::Instant)>),
 }
 
 impl AnimatedBindingKind {
@@ -89,8 +90,8 @@ impl AnimatedBindingKind {
     pub fn as_animation(self) -> Option<PropertyAnimation> {
         match self {
             AnimatedBindingKind::NotAnimated => None,
-            AnimatedBindingKind::Animation(a) => Some(a()),
-            AnimatedBindingKind::Transition(_) => None,
+            AnimatedBindingKind::Animation(_, a) => Some(a()),
+            AnimatedBindingKind::Transition(..) => None,
         }
     }
 }
@@ -118,7 +119,7 @@ pub trait PropertyInfo<Item, Value> {
         &self,
         item: Pin<&Item>,
         value: Value,
-        animation: Option<PropertyAnimation>,
+        animation: Option<(PropertyAnimation, AnimationDriver)>,
     ) -> Result<(), ()>;
     fn set_binding(
         &self,
@@ -244,7 +245,7 @@ where
         &self,
         item: Pin<&Item>,
         value: Value,
-        animation: Option<PropertyAnimation>,
+        animation: Option<(PropertyAnimation, AnimationDriver)>,
     ) -> Result<(), ()> {
         if animation.is_some() {
             Err(())
@@ -352,10 +353,14 @@ where
         &self,
         item: Pin<&Item>,
         value: Value,
-        animation: Option<PropertyAnimation>,
+        animation: Option<(PropertyAnimation, AnimationDriver)>,
     ) -> Result<(), ()> {
-        if let Some(animation) = animation {
-            self.apply_pin(item).set_animated_value(value.try_into().map_err(|_| ())?, animation);
+        if let Some((animation, driver)) = animation {
+            self.apply_pin(item).set_animated_value(
+                &driver,
+                value.try_into().map_err(|_| ())?,
+                animation,
+            );
             Ok(())
         } else {
             self.0.set(item, value, None)
@@ -384,8 +389,9 @@ where
                     });
                     Ok(())
                 }
-                AnimatedBindingKind::Animation(animation) => {
+                AnimatedBindingKind::Animation(driver, animation) => {
                     p.set_animated_binding(
+                        &driver,
                         move || {
                             binding()
                                 .try_into()
@@ -396,8 +402,9 @@ where
                     );
                     Ok(())
                 }
-                AnimatedBindingKind::Transition(tr) => {
+                AnimatedBindingKind::Transition(driver, tr) => {
                     p.set_animated_binding(
+                        &driver,
                         move || {
                             binding()
                                 .try_into()

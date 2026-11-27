@@ -187,8 +187,7 @@ impl RenderingMetricsCollector {
             .borrow_mut()
             .push(FrameData { timestamp: now, metrics });
         if matches!(self.refresh_mode, RefreshMode::FullSpeed) {
-            crate::animations::CURRENT_ANIMATION_DRIVER
-                .with(|driver| driver.set_has_active_animations());
+            ctx.animation_driver().set_has_active_animations();
         }
         self.trim_frame_data_to_second_boundary(now);
 

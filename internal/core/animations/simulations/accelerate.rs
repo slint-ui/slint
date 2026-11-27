@@ -22,11 +22,8 @@ pub struct Accelerate {
 impl Accelerate {
     /// `distance` is the signed distance to the target.
     /// `max_speed` and the average `acceleration` until it is reached are absolute values.
-    pub fn new(distance: f32, max_speed: f32, acceleration: f32) -> Self {
-        Self::new_internal(distance, max_speed, acceleration, crate::animations::current_tick())
-    }
-
-    fn new_internal(distance: f32, max_speed: f32, acceleration: f32, start_time: Instant) -> Self {
+    /// The simulation starts at `start_time`.
+    pub fn new(distance: f32, max_speed: f32, acceleration: f32, start_time: Instant) -> Self {
         Self {
             remaining: distance,
             speed: 0.,
@@ -130,7 +127,7 @@ mod tests {
         for sign in [-1., 1.] {
             let start = Instant::default();
             let distance = sign * 10_000.;
-            let mut simulation = Accelerate::new_internal(distance, MAX_SPEED, ACCELERATION, start);
+            let mut simulation = Accelerate::new(distance, MAX_SPEED, ACCELERATION, start);
             let mut position = 0.;
             let mut tick = start + FRAME;
             simulation.step(&mut position, tick);
@@ -155,7 +152,7 @@ mod tests {
     #[test]
     fn ramps_up_along_a_smoothstep_curve() {
         let start = Instant::default();
-        let mut simulation = Accelerate::new_internal(10_000., MAX_SPEED, ACCELERATION, start);
+        let mut simulation = Accelerate::new(10_000., MAX_SPEED, ACCELERATION, start);
         let mut position = 0.;
         // The ramp takes MAX_SPEED / ACCELERATION = 250 ms.
         simulation.step(&mut position, start + FRAME);
@@ -171,7 +168,7 @@ mod tests {
     #[test]
     fn retarget_behind_the_position_starts_from_rest() {
         let start = Instant::default();
-        let mut simulation = Accelerate::new_internal(-10_000., MAX_SPEED, ACCELERATION, start);
+        let mut simulation = Accelerate::new(-10_000., MAX_SPEED, ACCELERATION, start);
         let mut position = 0.;
         simulation.step(&mut position, start + FRAME * 10);
         simulation.set_remaining_distance(100.);
@@ -189,8 +186,7 @@ mod tests {
     #[test]
     fn zero_distance_is_finished() {
         let mut position = 5.;
-        let mut simulation =
-            Accelerate::new_internal(0., MAX_SPEED, ACCELERATION, Instant::default());
+        let mut simulation = Accelerate::new(0., MAX_SPEED, ACCELERATION, Instant::default());
         assert!(simulation.step(&mut position, Instant::default() + FRAME));
         assert_eq!(position, 5.);
     }

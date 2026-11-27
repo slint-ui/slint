@@ -332,7 +332,8 @@ impl Flickable {
         simulation: S,
         dimension: Dimension,
     ) -> Weak<RefCell<S>> {
-        let simulation = FlickableDataInner::set_simulation(&self.content(dimension), simulation);
+        let simulation =
+            FlickableDataInner::set_simulation(&self.content(dimension), self_rc, simulation);
         let weak = Rc::downgrade(&simulation);
         let simulation = Some(simulation as Rc<RefCell<dyn PositionSimulation>>);
         let (x_simulation, y_simulation) = match dimension {
@@ -580,10 +581,15 @@ impl FlickableDataInner {
         }
     }
 
-    fn should_capture_scroll(&self, timeout: Duration, position: LogicalPoint) -> bool {
+    fn should_capture_scroll(
+        &self,
+        flick_rc: &ItemRc,
+        timeout: Duration,
+        position: LogicalPoint,
+    ) -> bool {
         self.last_scroll_event.is_some_and(|(last_time, last_position)| {
             // Note: Squared length for MCU support, which use i32 coords.
-            crate::animations::current_tick() - last_time < timeout
+            current_tick(flick_rc) - last_time < timeout
                 && LogicalLength::new((last_position - position).square_length().abs())
                     < SCROLL_FILTER_DISTANCE_SQUARED
         })
@@ -664,7 +670,7 @@ impl FlickableDataInner {
         content_x: &Pin<&Property<LogicalLength>>,
         content_y: &Pin<&Property<LogicalLength>>,
     ) -> bool {
-        let current_tick = crate::animations::current_tick();
+        let current_tick = current_tick(flick_rc);
         let current_pos = LogicalPoint::from_lengths(content_x.get(), content_y.get());
 
         // We calculate the new content position by adding the mouse delta in the flickable
@@ -716,7 +722,7 @@ impl FlickableDataInner {
             }) = &self.running_animation
         {
             // If the animation is not finished, we add the remaining animations delta.
-            let now = crate::animations::current_tick();
+            let now = current_tick(flick_rc);
 
             if let Some(x_simulation) = x_simulation {
                 delta.x += x_simulation.borrow().remaining_distance(now) as Coord;
@@ -728,7 +734,7 @@ impl FlickableDataInner {
 
         if phase != TouchPhase::Ended {
             if phase == TouchPhase::Started {
-                self.capture_momentum();
+                self.capture_momentum(flick_rc);
             }
 
             content_x.remove_binding();
@@ -739,14 +745,14 @@ impl FlickableDataInner {
         let mut flicked = false;
         match phase {
             TouchPhase::Cancelled => {
-                self.track_delta(crate::animations::current_tick(), delta);
+                self.track_delta(current_tick(flick_rc), delta);
                 flicked =
                     self.scroll_move(flick, flick_rc, position, delta, &content_x, &content_y);
             }
             TouchPhase::Started => {
                 self.velocity_rb = VelocityTracker::default();
                 self.capture_events = Some(CaptureEvents::WheelStart);
-                self.last_scroll_event = Some((crate::animations::current_tick(), position));
+                self.last_scroll_event = Some((current_tick(flick_rc), position));
             }
             TouchPhase::Moved => {
                 if let Some(capture) = self.capture_events
@@ -758,7 +764,7 @@ impl FlickableDataInner {
                         delta.y = Self::subtract_distance_threshold(delta.y);
                     }
 
-                    self.track_delta(crate::animations::current_tick(), delta);
+                    self.track_delta(current_tick(flick_rc), delta);
                     // Touchpad case with different phases
                     flicked =
                         self.scroll_move(flick, flick_rc, position, delta, &content_x, &content_y);
@@ -773,7 +779,7 @@ impl FlickableDataInner {
                         ScrollBehavior::Instant,
                     );
                     flicked = target != current_pos.to_vector();
-                    self.last_scroll_event = Some((crate::animations::current_tick(), position));
+                    self.last_scroll_event = Some((current_tick(flick_rc), position));
                 } else {
                     // Mousewheel case with no phase
                     // Add a short animation that covers the delta for smooth scrolling
@@ -799,20 +805,24 @@ impl FlickableDataInner {
                         weak: flick_rc.downgrade(),
                         source: SimulationSource::InputEvent,
                     });
-                    self.last_scroll_event = Some((crate::animations::current_tick(), position));
+                    self.last_scroll_event = Some((current_tick(flick_rc), position));
                 }
             }
             TouchPhase::Ended => {
                 let moved =
                     self.capture_events.is_some_and(|capture| capture == CaptureEvents::WheelMove);
                 if moved {
-                    self.animate(flick, flick_rc, crate::animations::current_tick());
+                    self.animate(flick, flick_rc, current_tick(flick_rc));
                 }
                 self.capture_events = None;
                 if !moved {
                     self.move_within_limits_if_outside(flick, flick_rc);
                 }
-                return if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
+                return if self.should_capture_scroll(
+                    flick_rc,
+                    SHORT_SCROLL_FILTER_DURATION,
+                    position,
+                ) {
                     InputEventResult::EventAccepted
                 } else {
                     InputEventResult::EventIgnored
@@ -823,7 +833,7 @@ impl FlickableDataInner {
         if flicked {
             self.pending_flicked = true;
             InputEventResult::EventAccepted
-        } else if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
+        } else if self.should_capture_scroll(flick_rc, SHORT_SCROLL_FILTER_DURATION, position) {
             // After reaching the end, keep accepting the input event for a while longer, then time
             // out (by not updating the last_scroll_event)
             if phase == TouchPhase::Started {
@@ -837,13 +847,13 @@ impl FlickableDataInner {
         }
     }
 
-    fn capture_momentum(&mut self) {
+    fn capture_momentum(&mut self, flick_rc: &ItemRc) {
         self.retained_velocity = self
             .running_animation
             .as_ref()
             .filter(|sim| sim.source == SimulationSource::InputEvent)
             .map(|sim| {
-                let now = crate::animations::current_tick();
+                let now = current_tick(flick_rc);
                 Velocity::new(
                     sim.x_simulation
                         .as_ref()
@@ -978,6 +988,7 @@ impl FlickableDataInner {
         }
         Some(Self::set_simulation(
             &content,
+            flick_rc,
             FlickAnimation::create_animation(
                 FlickAnimationParameter::Distance {
                     delta: delta as f32,
@@ -986,6 +997,7 @@ impl FlickableDataInner {
                 effective_bounce(flick, geo, dimension),
                 content.get().0 as f32,
                 limit,
+                current_tick(flick_rc),
             ),
         ))
     }
@@ -1016,10 +1028,11 @@ impl FlickableDataInner {
         };
         Self::set_simulation(
             &content,
+            flick_rc,
             FlickAnimation::create_spring_animation(
                 curr_val,
                 limit,
-                crate::animations::current_tick(),
+                current_tick(flick_rc),
                 velocity,
                 drag_velocity.abs(),
             ),
@@ -1106,11 +1119,13 @@ impl FlickableDataInner {
                 let limit = Self::flick_limits(flick_rc, velocity, dimension);
                 let simulation = Self::set_simulation(
                     &content,
+                    flick_rc,
                     FlickAnimation::create_animation(
                         FlickAnimationParameter::Velocity { velocity: velocity + carried_velocity },
                         effective_bounce(flick, &geo, dimension),
                         content.get().0 as f32,
                         limit,
+                        current_tick(flick_rc),
                     ),
                 );
                 Some(simulation as Rc<RefCell<dyn PositionSimulation>>)
@@ -1141,10 +1156,12 @@ impl FlickableDataInner {
     #[must_use]
     fn set_simulation<S: Simulation + PositionSimulation + 'static>(
         content: &Pin<&Property<LogicalLength>>,
+        flick_rc: &ItemRc,
         simulation: S,
     ) -> Rc<RefCell<S>> {
+        let context = flick_rc.slint_context();
         Rc::new_cyclic(|weak: &Weak<RefCell<S>>| {
-            content.set_physic_animation_value(weak.clone());
+            content.set_physic_animation_value(context.animation_driver(), weak.clone());
             RefCell::new(simulation)
         })
     }
@@ -1193,15 +1210,23 @@ impl FlickableDataInner {
             Some(if cfg!(target_os = "ios") {
                 Self::set_simulation(
                     &content,
-                    EaseInOutSine::new(-deflection, UIKIT_SCROLL_TO_DURATION, limit),
+                    flick_rc,
+                    EaseInOutSine::new(
+                        -deflection,
+                        UIKIT_SCROLL_TO_DURATION,
+                        limit,
+                        current_tick(flick_rc),
+                    ),
                 )
             } else {
                 Self::set_simulation(
                     &content,
+                    flick_rc,
                     SpringFlick::new(
                         deflection,
                         limit,
                         SpringPhysicalParameters::new_critical_damped(ANDROID_SCROLL_TO_STIFFNESS),
+                        current_tick(flick_rc),
                     ),
                 )
             })
@@ -1263,9 +1288,9 @@ impl FlickableData {
                     return InputEventFilterResult::ForwardAndIgnore;
                 }
 
-                inner.pressed_mouse_state = Some((crate::animations::current_tick(), *position));
-                inner.track_press(event_time.unwrap_or_else(crate::animations::current_tick));
-                inner.capture_momentum();
+                inner.pressed_mouse_state = Some((current_tick(flick_rc), *position));
+                inner.track_press(event_time.unwrap_or_else(|| current_tick(flick_rc)));
+                inner.capture_momentum(flick_rc);
                 inner.running_animation = None;
                 let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
                 content_x.remove_binding(); // Stop animation by removing the binding
@@ -1293,7 +1318,7 @@ impl FlickableData {
                         |(pressed_time, pressed_mouse_position)| {
                             let mouse_delta = *position - pressed_mouse_position;
 
-                            crate::animations::current_tick() - pressed_time <= DURATION_THRESHOLD
+                            current_tick(flick_rc) - pressed_time <= DURATION_THRESHOLD
                                 && self.should_capture_mouse_direction(mouse_delta, flick, flick_rc)
                         },
                     );
@@ -1313,7 +1338,11 @@ impl FlickableData {
                         // the scroll event
                         let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
                         if FlickableDataInner::is_allowed_scroll_direction(flick, delta, flick_rc)
-                            && inner.should_capture_scroll(SCROLL_FILTER_DURATION, *position)
+                            && inner.should_capture_scroll(
+                                flick_rc,
+                                SCROLL_FILTER_DURATION,
+                                *position,
+                            )
                         {
                             InputEventFilterResult::Intercept
                         } else {
@@ -1337,8 +1366,11 @@ impl FlickableData {
                                     inner.capture_events = None;
                                 }
                                 InputEventFilterResult::ForwardEvent
-                            } else if inner.should_capture_scroll(SCROLL_FILTER_DURATION, *position)
-                                && inner.capture_events.is_none()
+                            } else if inner.should_capture_scroll(
+                                flick_rc,
+                                SCROLL_FILTER_DURATION,
+                                *position,
+                            ) && inner.capture_events.is_none()
                             {
                                 InputEventFilterResult::Intercept
                             } else {
@@ -1426,7 +1458,7 @@ impl FlickableData {
                     if c == CaptureEvents::MouseMove {
                         let release_time = match event {
                             MouseEvent::Released { event_time: Some(time), .. } => *time,
-                            _ => crate::animations::current_tick(),
+                            _ => current_tick(flick_rc),
                         };
                         inner.animate(flick, flick_rc, release_time);
                         inner.capture_events = None;
@@ -1462,7 +1494,7 @@ impl FlickableData {
                     let mut mouse_delta =
                         if is_capturing { tracking_delta } else { *position - pressed_position };
                     inner.track_move(
-                        event_time.unwrap_or_else(crate::animations::current_tick),
+                        event_time.unwrap_or_else(|| current_tick(flick_rc)),
                         *position,
                         history,
                     );
@@ -1522,6 +1554,10 @@ impl FlickableData {
     }
 }
 
+fn current_tick(flick_rc: &ItemRc) -> Instant {
+    flick_rc.slint_context().animation_driver().current_tick()
+}
+
 fn abs(l: LogicalLength) -> LogicalLength {
     LogicalLength::new(l.get().abs())
 }
@@ -1578,8 +1614,7 @@ mod velocity_history_tests {
 
     #[test]
     fn original_sample_time_is_independent_of_delivery_delay() {
-        let start = crate::animations::current_tick();
-        crate::animations::update_animations(start + Duration::from_millis(100));
+        let start = Instant::default();
         let mut inner = FlickableDataInner {
             pressed_mouse_state: Some((start, LogicalPoint::new(50., 100.))),
             ..Default::default()
@@ -1595,9 +1630,7 @@ mod velocity_history_tests {
 
     #[test]
     fn release_time_decides_whether_the_pointer_stopped() {
-        let start = crate::animations::current_tick();
-        // The release is delivered 100 ms late, which must not lose the fling.
-        crate::animations::update_animations(start + Duration::from_millis(120));
+        let start = Instant::default();
         let mut inner = FlickableDataInner {
             pressed_mouse_state: Some((start, LogicalPoint::new(50., 100.))),
             ..Default::default()
@@ -1618,7 +1651,7 @@ mod velocity_history_tests {
     fn coalesced_history_preserves_leading_segment() {
         for sign in [-1., 1.] {
             for historical_positions in [alloc::vec![], alloc::vec![15], alloc::vec![12, 15]] {
-                let start = crate::animations::current_tick();
+                let start = Instant::default();
                 let press_position = LogicalPoint::new(45., 125.);
                 let mut inner = FlickableDataInner {
                     pressed_mouse_state: Some((start, press_position)),
@@ -1673,7 +1706,7 @@ mod velocity_history_tests {
 
     #[test]
     fn coalesced_history_preserves_zero_leading_movement() {
-        let start = crate::animations::current_tick();
+        let start = Instant::default();
         let press_position = LogicalPoint::new(100., 200.);
         let mut with_history = FlickableDataInner::default();
         let mut without_history = FlickableDataInner::default();

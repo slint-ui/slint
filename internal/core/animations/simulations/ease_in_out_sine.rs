@@ -23,15 +23,8 @@ pub struct EaseInOutSine {
 }
 
 impl EaseInOutSine {
+    /// The simulation starts at `start_time`.
     pub fn new(
-        distance: f32,
-        duration: Duration,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
-    ) -> Self {
-        Self::new_internal(distance, duration, limit_value, crate::animations::current_tick())
-    }
-
-    fn new_internal(
         distance: f32,
         duration: Duration,
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
@@ -108,7 +101,7 @@ mod tests {
     fn follows_the_curve_and_ends_after_the_duration() {
         for sign in [-1., 1.] {
             let start = Instant::default();
-            let mut simulation = EaseInOutSine::new_internal(
+            let mut simulation = EaseInOutSine::new(
                 sign * 400.,
                 DURATION,
                 test_limit_property(sign * 10_000.),
@@ -130,7 +123,7 @@ mod tests {
     fn remaining_distance_and_velocity_match_the_motion() {
         let start = Instant::default();
         let mut simulation =
-            EaseInOutSine::new_internal(-400., DURATION, test_limit_property(-10_000.), start);
+            EaseInOutSine::new(-400., DURATION, test_limit_property(-10_000.), start);
         let mut position = 0.;
         let dt = Duration::from_millis(1);
         for millis in [10, 100, 150, 280] {
@@ -150,12 +143,8 @@ mod tests {
     fn stops_at_the_limit() {
         for sign in [-1., 1.] {
             let start = Instant::default();
-            let mut simulation = EaseInOutSine::new_internal(
-                sign * 400.,
-                DURATION,
-                test_limit_property(sign * 100.),
-                start,
-            );
+            let mut simulation =
+                EaseInOutSine::new(sign * 400., DURATION, test_limit_property(sign * 100.), start);
             let mut position = 0.;
             assert!(!simulation.step(&mut position, start + Duration::from_millis(50)));
             assert!(simulation.step(&mut position, start + Duration::from_millis(150)));
@@ -167,7 +156,7 @@ mod tests {
     fn applies_increments_to_a_moved_position() {
         let start = Instant::default();
         let mut simulation =
-            EaseInOutSine::new_internal(400., DURATION, test_limit_property(10_000.), start);
+            EaseInOutSine::new(400., DURATION, test_limit_property(10_000.), start);
         let mut position = 0.;
         simulation.step(&mut position, start + Duration::from_millis(150));
         position += 1000.;
@@ -178,8 +167,7 @@ mod tests {
     #[test]
     fn zero_distance_is_finished() {
         let start = Instant::default();
-        let mut simulation =
-            EaseInOutSine::new_internal(0., DURATION, test_limit_property(0.), start);
+        let mut simulation = EaseInOutSine::new(0., DURATION, test_limit_property(0.), start);
         let mut position = 5.;
         assert!(simulation.step(&mut position, start));
         assert_approx_eq!(position, 5.);

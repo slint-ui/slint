@@ -44,8 +44,9 @@ impl Parameter for AndroidFlickParameters {
         self,
         start_value: f32,
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+        start_time: Instant,
     ) -> Self::Output {
-        AndroidFlick::new(start_value, limit_value, self)
+        AndroidFlick::new(start_value, limit_value, self, start_time)
     }
 }
 
@@ -66,15 +67,8 @@ pub struct AndroidFlick {
 }
 
 impl AndroidFlick {
+    /// The simulation starts at `start_time`.
     pub fn new(
-        start_value: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
-        data: AndroidFlickParameters,
-    ) -> Self {
-        Self::new_internal(start_value, limit_value, data, crate::animations::current_tick())
-    }
-
-    fn new_internal(
         start_value: f32,
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
         mut data: AndroidFlickParameters,
@@ -114,6 +108,7 @@ impl AndroidFlick {
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
         distance: f32,
         duration: Duration,
+        start_time: Instant,
     ) -> Self {
         let velocity = if duration.is_zero() {
             0.
@@ -124,6 +119,7 @@ impl AndroidFlick {
             start_value,
             limit_value,
             AndroidFlickParameters::new_with_default_friction(velocity),
+            start_time,
         );
         result.wheel = true;
         result.distance = distance;
@@ -196,7 +192,7 @@ mod tests {
     #[test]
     fn completion_at_exact_duration() {
         let start = Instant::default();
-        let mut simulation = AndroidFlick::new_internal(
+        let mut simulation = AndroidFlick::new(
             0.,
             test_limit_property(100_000.),
             AndroidFlickParameters::new_with_default_friction(1504.),
@@ -219,7 +215,7 @@ mod tests {
         let parameters = AndroidFlickParameters::new_with_default_friction(0.);
         let time = Instant::default();
         let mut simulation =
-            AndroidFlick::new_internal(START_VALUE, test_limit_property(100.), parameters, time);
+            AndroidFlick::new(START_VALUE, test_limit_property(100.), parameters, time);
 
         let mut current = START_VALUE;
         assert_eq!(

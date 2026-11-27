@@ -110,6 +110,10 @@ impl PlatformContext {
         activated
     }
 
+    fn update_animations(&self, now: crate::animations::Instant) {
+        self.for_each_context(|ctx| ctx.0.animation_driver.update_animations_slowed(now));
+    }
+
     pub(crate) fn run_change_handlers_once(&self) -> bool {
         let mut ran = false;
         self.for_each_context(|ctx| ran |= ctx.0.change_handler_queue.run_once());
@@ -187,6 +191,8 @@ pub(crate) struct SlintContextInner {
     pub(crate) timers: crate::timers::TimerListRc,
 
     pub(crate) change_handler_queue: crate::properties::ChangeHandlerQueue,
+
+    pub(crate) animation_driver: crate::animations::AnimationDriver,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -221,7 +227,7 @@ impl SlintContext {
     /// The two share the event loop, the keepalive count, the window hooks, and the xdg app id.
     /// They also share what the platform reports about the system,
     /// such as the color scheme and keyboard modifiers.
-    /// Each keeps its own timers, translations, locale, log handler, and fonts.
+    /// Each keeps its own timers, animations, translations, locale, log handler, and fonts.
     /// Driving any context on the platform with [`Self::update_timers_and_animations`] drives all of them.
     ///
     /// The new context doesn't become this thread's current one.
@@ -266,10 +272,13 @@ impl SlintContext {
             swash_scale_context: core::cell::RefCell::new(swash::scale::ScaleContext::new()),
             timers,
             change_handler_queue: Default::default(),
+            animation_driver: Default::default(),
         }));
         // The list's deadlines are measured on this context's clock from now on. Done after
         // construction because it needs a handle to the context that owns it.
         crate::timers::set_owning_context(&this.0.timers, &this);
+        // An animation started before the first update measures from the platform's clock.
+        this.0.animation_driver.update_animations_slowed(crate::animations::Instant::now(&this));
         this.platform_context().register(&this);
         this
     }
@@ -285,6 +294,17 @@ impl SlintContext {
     /// [`Self::run_change_handlers`] runs it.
     pub fn change_handler_queue(&self) -> &crate::properties::ChangeHandlerQueue {
         &self.0.change_handler_queue
+    }
+
+    /// The driver of the animations of this context's components.
+    /// [`Self::update_timers_and_animations`] advances it.
+    pub fn animation_driver(&self) -> &crate::animations::AnimationDriver {
+        &self.0.animation_driver
+    }
+
+    /// Advances the animations of every context on this context's platform to now.
+    pub fn update_animations(&self) {
+        self.platform_context().update_animations(crate::animations::Instant::now(self));
     }
 
     /// Return a reference to the platform abstraction
@@ -382,7 +402,7 @@ impl SlintContext {
     /// whichever context is this thread's global one.
     pub fn update_timers_and_animations(&self) {
         let now = crate::animations::Instant::now(self);
-        crate::animations::update_animations(now);
+        self.platform_context().update_animations(now);
         self.platform_context().activate_timers(now);
         self.run_change_handlers();
     }
