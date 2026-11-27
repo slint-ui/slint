@@ -27,7 +27,10 @@ export SuperSimple := Rectangle {
 
     FocusScope {
         key-pressed(event) => { accept = 1; EventResult.accept }
-//                              >     <error{Unknown unqualified identifier 'accept'. Did you mean 'DialogButtonRole.accept' or 'EventResult.accept'?}
+//                              >     <error{Unknown unqualified identifier 'accept'}
+//                              help{Did you mean 'DialogButtonRole.accept' or 'EventResult.accept'?}
+//                              >    <suggestion{DialogButtonRole.accept}
+//                              >    <suggestion{EventResult.accept}
     }
 
     property <string> plop;

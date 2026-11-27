@@ -17,19 +17,26 @@ export component Foo {
 //                                >   <error{Cannot convert string to float}
 
     property <length> m5: mod(45px, 4);
-//                                  ^error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
+//                                  ^error{Cannot convert float to length}
+//                                  help{Use a unit, or multiply by 1px to convert explicitly}
+//                                  ^suggestion{4px}
 
     property <length> m6: mod(45px, 4ms);
 //                                  > <error{Cannot convert duration to length}
 
     property <duration> m7: mod(5, 4ms);
-//                              ^error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
+//                              ^error{Cannot convert float to duration}
+//                              help{Use a unit, or multiply by 1ms to convert explicitly}
+//                              ^suggestion{5ms}
 
     property <duration> m8: (5).mod(4ms);
-//                              > <error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
+//                              > <error{Cannot convert float to duration}
+//                              help{Use a unit, or multiply by 1ms to convert explicitly}
 
     property <duration> m9: 5ms.mod(4);
-//                                  ^error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
+//                                  ^error{Cannot convert float to duration}
+//                                  help{Use a unit, or multiply by 1ms to convert explicitly}
+//                                  ^suggestion{4ms}
 
     property <float> a1: abs();
 //                       > <error{Needs 1 argument}
@@ -44,7 +51,8 @@ export component Foo {
 //                           >   <error{Cannot convert string to float}
 
     property <string> a5: abs(45px);
-//                        >        <error{Cannot convert length to string. Divide by 1px to convert to a plain number}
+//                        >        <error{Cannot convert length to string}
+//                        help{Divide by 1px to convert to a plain number}
 
     property <string> a6: abs;
 //                        > <error{Builtin function must be called. Did you forgot the '()'?}
@@ -66,7 +74,8 @@ export component Foo {
     property <float> sign3: sign(1,2,3);
 //                          >  <error{Expected only one argument}
     property <float> sign4: sign(85px);
-//                               >  <error{Cannot convert length to float. Divide by 1px to convert to a plain number}
+//                               >  <error{Cannot convert length to float}
+//                               help{Divide by 1px to convert to a plain number}
     property <float> sign5: sign("4");
 //                               > <error{Cannot convert string to float}
     property <float> sign6: sign;

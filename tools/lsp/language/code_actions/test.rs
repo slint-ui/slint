@@ -14,6 +14,7 @@ pub struct CodeActionRequest {
     snippets: bool,
     experimental: bool,
     extra_files: Vec<(&'static str, String)>,
+    edited: Option<String>,
 }
 
 impl CodeActionRequest {
@@ -30,6 +31,7 @@ impl CodeActionRequest {
             snippets: false,
             experimental: false,
             extra_files: Vec::new(),
+            edited: None,
         }
     }
 
@@ -45,6 +47,13 @@ impl CodeActionRequest {
 
     pub fn with_file(mut self, name: &'static str, content: &str) -> Self {
         self.extra_files.push((name, content.into()));
+        self
+    }
+
+    /// Request the code actions after the document changed to `source`,
+    /// with the diagnostics of the original source.
+    pub fn edited(mut self, source: &str) -> Self {
+        self.edited = Some(source.into());
         self
     }
 
@@ -79,14 +88,34 @@ impl CodeActionRequest {
         if self.snippets {
             capabilities.experimental = Some(serde_json::json!({"snippetTextEdit": true}));
         }
+        // Clients send the diagnostics at the cursor.
+        let diagnostics = diagnostics
+            .iter()
+            .filter(|d| {
+                let span = i_slint_compiler::diagnostics::Spanned::span(*d);
+                i_slint_live_preview::protocol::diagnostic_url(d).as_ref() == Some(&url)
+                    && (span.offset..=span.offset + span.length).contains(&self.cursor)
+            })
+            .map(|d| i_slint_live_preview::protocol::to_lsp_diagnostic(d, document_cache.format))
+            .collect::<Vec<_>>();
+        if let Some(edited) = self.edited {
+            let mut ignored = i_slint_compiler::diagnostics::BuildDiagnostics::default();
+            i_slint_compiler::poll_ready(document_cache.load_url(
+                &url,
+                Some(43),
+                edited,
+                &mut ignored,
+            ))
+            .unwrap();
+        }
         let document = document_cache.get_document(&url).unwrap();
         let token = crate::language::token_at_offset(
             document.node.as_ref().unwrap(),
             (self.cursor as u32).into(),
         )
         .unwrap();
-        let actions =
-            super::get_code_actions(&document_cache, token, &capabilities).unwrap_or_default();
+        let actions = super::get_code_actions(&document_cache, token, &capabilities, &diagnostics)
+            .unwrap_or_default();
         CodeActions { document_cache, url, cursor: self.cursor, actions }
     }
 }

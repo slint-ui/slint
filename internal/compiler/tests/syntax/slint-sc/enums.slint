@@ -34,5 +34,7 @@ export component Test inherits Window {
     out property <Direction> fixed: Direction.down;
 
     out property <int> bare: up;
-//                           ><error{Unknown unqualified identifier 'up'. Did you mean 'Direction.up'?}
+//                           ><error{Unknown unqualified identifier 'up'}
+//                           help{Did you mean 'Direction.up'?}
+//                           ><suggestion{Direction.up}
 }

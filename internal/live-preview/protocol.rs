@@ -33,7 +33,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[cfg(any(feature = "file-watcher", feature = "preview-session"))]
 mod diagnostics_adapter;
 #[cfg(any(feature = "file-watcher", feature = "preview-session"))]
-pub use diagnostics_adapter::{diagnostic_url, diagnostics_by_url, to_lsp_diagnostic};
+pub use diagnostics_adapter::{
+    LspSuggestion, diagnostic_url, diagnostics_by_url, to_lsp_diagnostic, to_lsp_diagnostics,
+};
 
 pub type SourceFileVersion = Option<i32>;
 pub const SERVICE_TYPE: &str = "_slint-preview._tcp.local.";

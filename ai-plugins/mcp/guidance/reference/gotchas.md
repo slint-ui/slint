@@ -6,8 +6,7 @@ bold text.
 - **`Invalid unit 'em'`** — Slint has no `em`; the message lists the valid
   units. For font-size-relative spacing use `rem`, not a hand-converted `px`
   (rewriting `0.04em` → `0.4px` silently breaks scaling).
-- **`Cannot convert float to length. Use an unit, or multiply by 1px to
-  convert explicitly`** (likewise `int to length`, `float to angle`, …) —
+- **`Cannot convert float to length`** (likewise `int to length`, `float to angle`, …) —
   unit types and plain numbers are distinct. Convert with `value * 1px` /
   `len / 1px`, `* 1deg` / `/ 1deg` for angles (trigonometric functions take
   and return `angle`).

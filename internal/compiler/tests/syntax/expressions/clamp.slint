@@ -18,7 +18,8 @@ export component SuperSimple {
     property <string> c: clamp("a", "b", "c");
 //                             > <error{Invalid argument type}
     property <float> d: clamp(42, 42 - 1, 42 + 1) + max(1px , 2phx);
-//                      >                        <error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
+//                      >                        <error{Cannot convert float to length}
+//                      help{Use a unit, or multiply by 1px to convert explicitly}
     property <float> e: clamp(42.0, 23.0, 84.0, 32.0);
 //                      >   <error{`clamp` needs three values: the `value` to clamp, the `minimum` and the `maximum`}
 

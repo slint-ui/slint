@@ -157,8 +157,10 @@ export component SubjectExpressions {
     match Fruit {
 //        >    <error{Cannot take reference to an enum}
         apple: Rectangle { }
-//      >   <error{Unknown unqualified identifier 'apple'. Did you mean 'Fruit.apple'?}
-//      >   <^error{Cases must be literal values}
+//      >   <error{Unknown unqualified identifier 'apple'}
+//      help{Did you mean 'Fruit.apple'?}
+//      >   <suggestion{Fruit.apple}
+//      >   <^^^error{Cases must be literal values}
         *: Rectangle { }
     }
     match missing {

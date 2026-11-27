@@ -5,7 +5,8 @@ export component X inherits Rectangle {
     callback aaa();
     aaa => {
         let foo: string = 42phx;
-//      >                      <error{Cannot convert physical-length to string. Divide by 1phx to convert to a plain number}
+//      >                      <error{Cannot convert physical-length to string}
+//      help{Divide by 1phx to convert to a plain number}
     }
 
     // redeclaration of local variables in same scope

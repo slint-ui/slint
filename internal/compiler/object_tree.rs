@@ -5,7 +5,7 @@
  This module contains the intermediate representation of the code in the form of an object tree
 */
 
-use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
+use crate::diagnostics::{BuildDiagnostics, Help, SourceLocation, Spanned, Suggestion};
 use crate::element_type::{BuiltinElement, ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::expression_tree::{self, BindingExpression, Callable, ConditionLocation, Expression};
 use crate::expression_types::{Orientation, Unit};
@@ -2452,7 +2452,7 @@ impl Element {
     }
 
     /// [`crate::lookup::did_you_mean`] among the properties that a binding can set.
-    fn did_you_mean_property(&self, name: &str) -> String {
+    fn did_you_mean_property(&self, name: &str) -> Option<SmolStr> {
         let declared = self.property_declarations.iter().map(|(k, d)| d.declared_name(k).clone());
         let inherited = self.base_type.property_list().into_iter().map(|(name, _)| name);
         let reserved =
@@ -2505,17 +2505,20 @@ impl Element {
                 match lookup_result.property_type {
                         Type::Invalid => {
                             if self.base_type != ElementType::Error {
-                                let msg = if let Some(suggestion) = css_property_suggestion(&unresolved_name, &self.base_type) {
-                                    suggestion
-                                } else {
-                                    let hint = self.did_you_mean_property(&unresolved_name);
-                                    if self.base_type.to_smolstr() == "Empty" {
-                                        format!( "Unknown property {unresolved_name}{hint}")
-                                    } else {
-                                        format!( "Unknown property {unresolved_name} in {}{hint}", self.base_type)
-                                    }
+                                let help = match css_property_suggestion(&unresolved_name, &self.base_type) {
+                                    Some(replacement) => Some(Help::new(
+                                        format!("Use {replacement} instead of {unresolved_name}"),
+                                        [Suggestion::replace(&name_token, replacement)],
+                                    )),
+                                    None => self.did_you_mean_property(&unresolved_name)
+                                        .map(|c| crate::lookup::did_you_mean_help(&name_token, &c)),
                                 };
-                                diag.push_error(msg, &name_token);
+                                let msg = if self.base_type.to_smolstr() == "Empty" {
+                                    format!("Unknown property {unresolved_name}")
+                                } else {
+                                    format!("Unknown property {unresolved_name} in {}", self.base_type)
+                                };
+                                diag.push_error_with_help(msg, &name_token, help);
                             }
                         }
                         Type::Callback { .. } => {
@@ -3095,16 +3098,16 @@ impl Element {
 }
 
 /// For FlexboxLayout, suggest Slint property names for CSS properties.
-fn css_property_suggestion(property_name: &str, base_type: &ElementType) -> Option<String> {
+fn css_property_suggestion(property_name: &str, base_type: &ElementType) -> Option<&'static str> {
     let base_name = base_type.to_smolstr();
     if base_name != "FlexboxLayout" {
         return None;
     }
     match property_name {
-        "gap" => Some("Use spacing instead of gap".into()),
-        "row-gap" => Some("Use spacing-vertical instead of row-gap".into()),
-        "column-gap" => Some("Use spacing-horizontal instead of column-gap".into()),
-        "justify-content" => Some("Use alignment instead of justify-content".into()),
+        "gap" => Some("spacing"),
+        "row-gap" => Some("spacing-vertical"),
+        "column-gap" => Some("spacing-horizontal"),
+        "justify-content" => Some("alignment"),
         _ => None,
     }
 }

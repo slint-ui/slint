@@ -10,7 +10,8 @@ export component X {
     property <styled-text> t2b: @markdown("Foo\u{e541}Bar \{some-prop}");
 //                                            > <error{\u{e541} is reserved for @markdown interpolation}
     property <styled-text> t3: @markdown("XXX"  "TTT \{12px} ZZZ");
-//                                                     >  <error{Cannot convert length to string. Divide by 1px to convert to a plain number}
+//                                                     >  <error{Cannot convert length to string}
+//                                                     help{Divide by 1px to convert to a plain number}
     property <styled-text> t9: @markdown("{");
     property <styled-text> t10: @markdown("}");
     property <styled-text> t11: @markdown("{abc}");
@@ -144,7 +145,8 @@ export component X {
 
     // Non-color interpolation still requires string conversion (length fails)
     property <styled-text> c7: @markdown("value: \{12px}");
-//                                                 >  <error{Cannot convert length to string. Divide by 1px to convert to a plain number}
+//                                                 >  <error{Cannot convert length to string}
+//                                                 help{Divide by 1px to convert to a plain number}
 
     // --- Edge cases: interpolation inside HTML tag structure is not allowed ---
 

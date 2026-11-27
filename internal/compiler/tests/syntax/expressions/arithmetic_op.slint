@@ -6,9 +6,13 @@ export SuperSimple := Rectangle {
 //                 ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property<duration> p1: 3s + 1ms;
     property<int> p2: 3s + 1;
-//                         ^error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
+//                         ^error{Cannot convert float to duration}
+//                         help{Use a unit, or multiply by 1ms to convert explicitly}
+//                         ^suggestion{1ms}
     property<int> p3: 3s - 1;
-//                         ^error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
+//                         ^error{Cannot convert float to duration}
+//                         help{Use a unit, or multiply by 1ms to convert explicitly}
+//                         ^suggestion{1ms}
     property<int> p4: 3 / 1ms;
 //                    >      <error{Cannot convert (ms⁻¹) to int}
 
@@ -24,7 +28,8 @@ export SuperSimple := Rectangle {
 
     property<string> p9: 1 + "hello" + 1;
     property<int> p10: "hello" + 1ms;
-//                               > <error{Cannot convert duration to string. Divide by 1ms to convert to a plain number}
+//                               > <error{Cannot convert duration to string}
+//                               help{Divide by 1ms to convert to a plain number}
 
     property<length> p11: 1ms * 1px *3px / 1deg * 3 / (30px * 1s - 3px * 1ms) * 2deg;
     property<int> p12: 1ms * 3s / 3px / (2deg * 5turn) * 2s / 3phx;
