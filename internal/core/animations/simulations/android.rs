@@ -67,7 +67,6 @@ pub struct AndroidFlick {
 }
 
 impl AndroidFlick {
-    /// The simulation starts at `start_time`.
     pub fn new(
         start_value: f32,
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,

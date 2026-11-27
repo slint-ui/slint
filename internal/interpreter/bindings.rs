@@ -410,19 +410,16 @@ fn animation_for_binding(
     match animation {
         Animation::Static(expr) => {
             let expr = expr.clone();
-            AnimatedBindingKind::Animation(
-                driver,
-                Box::new(move || -> PropertyAnimation {
-                    let Some(owner) = weak_sub.upgrade() else { return Default::default() };
-                    let mut ctx = EvalContext::new(Pin::new(owner));
-                    value_to_property_animation(eval_expression(&mut ctx, &expr))
-                }),
-            )
+            let animation = Box::new(move || -> PropertyAnimation {
+                let Some(owner) = weak_sub.upgrade() else { return Default::default() };
+                let mut ctx = EvalContext::new(Pin::new(owner));
+                value_to_property_animation(eval_expression(&mut ctx, &expr))
+            });
+            AnimatedBindingKind::Animation(driver, animation)
         }
         Animation::Transition(expr) => {
             let expr = expr.clone();
-            AnimatedBindingKind::Transition(
-                driver,
+            let transition =
                 Box::new(move || -> (PropertyAnimation, i_slint_core::animations::Instant) {
                     let Some(owner) = weak_sub.upgrade() else {
                         return (Default::default(), Default::default());
@@ -444,8 +441,8 @@ fn animation_for_binding(
                         .and_then(|v| v.try_into().ok())
                         .unwrap_or_default();
                     (anim, change_time)
-                }),
-            )
+                });
+            AnimatedBindingKind::Transition(driver, transition)
         }
     }
 }

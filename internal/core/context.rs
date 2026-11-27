@@ -111,7 +111,8 @@ impl PlatformContext {
     }
 
     fn update_animations(&self, now: crate::animations::Instant) {
-        self.for_each_context(|ctx| ctx.0.animation_driver.update_animations_slowed(now));
+        let tick = crate::animations::slowed_tick(now);
+        self.for_each_context(|ctx| ctx.0.animation_driver.update_animations(tick));
     }
 
     pub(crate) fn run_change_handlers_once(&self) -> bool {
@@ -278,7 +279,7 @@ impl SlintContext {
         // construction because it needs a handle to the context that owns it.
         crate::timers::set_owning_context(&this.0.timers, &this);
         // An animation started before the first update measures from the platform's clock.
-        this.0.animation_driver.update_animations_slowed(crate::animations::Instant::now(&this));
+        this.update_animations();
         this.platform_context().register(&this);
         this
     }
@@ -302,9 +303,10 @@ impl SlintContext {
         &self.0.animation_driver
     }
 
-    /// Advances the animations of every context on this context's platform to now.
+    /// Advances the animations of this context to now.
     pub fn update_animations(&self) {
-        self.platform_context().update_animations(crate::animations::Instant::now(self));
+        let now = crate::animations::Instant::now(self);
+        self.0.animation_driver.update_animations(crate::animations::slowed_tick(now));
     }
 
     /// Return a reference to the platform abstraction

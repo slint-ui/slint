@@ -23,7 +23,6 @@ pub struct EaseInOutSine {
 }
 
 impl EaseInOutSine {
-    /// The simulation starts at `start_time`.
     pub fn new(
         distance: f32,
         duration: Duration,

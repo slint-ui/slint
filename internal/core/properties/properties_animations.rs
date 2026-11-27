@@ -86,7 +86,7 @@ pub(super) struct PropertyValueAnimationData<T> {
     spring: Option<SpringRegime>,
     /// Whether the final iteration's spring has already been re-damped
     spring_settle_clamped: bool,
-    driver: AnimationDriver,
+    pub(super) driver: AnimationDriver,
 }
 
 impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
@@ -668,10 +668,6 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
                 self.debug_name.borrow().as_str(),
             );
         }
-        self.handle.mark_dirty(
-            #[cfg(slint_debug_property)]
-            self.debug_name.borrow().as_str(),
-        );
     }
 
     /// Change the value of this property, by animating (interpolating) from the current property's value

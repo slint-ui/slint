@@ -218,9 +218,8 @@ fn c_set_animated_value<T: InterpolatedPropertyValue + Clone>(
     to: T,
     animation_data: &PropertyAnimation,
 ) {
-    let driver = current_animation_driver();
     let d = RefCell::new(properties_animations::PropertyValueAnimationData::new(
-        driver.clone(),
+        current_animation_driver(),
         from,
         Some(to),
         animation_data.clone(),
@@ -233,7 +232,7 @@ fn c_set_animated_value<T: InterpolatedPropertyValue + Clone>(
             if finished {
                 BindingResult::RemoveBinding
             } else {
-                driver.set_has_active_animations();
+                d.borrow().driver.set_has_active_animations();
                 BindingResult::KeepBinding
             }
         })
@@ -596,11 +595,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
     ct.clear();
 
     let inner = C_ChangeTrackerInner {
-        // C++ components only use the current context.
-        queue: crate::SlintContext::current()
-            .expect("a component exists, so there is a current context")
-            .change_handler_queue()
-            .clone(),
+        queue: current_context().change_handler_queue().clone(),
         user_data,
         drop_user_data,
         eval_fn,
@@ -630,15 +625,16 @@ pub unsafe extern "C" fn slint_change_tracker_init(
 /// return the current animation tick for the `animation-tick` function
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_animation_tick() -> u64 {
-    current_animation_driver().animation_tick()
+    current_context().animation_driver().animation_tick()
 }
 
 /// C++ components only use the current context.
+fn current_context() -> crate::SlintContext {
+    crate::SlintContext::current().expect("a component exists, so there is a current context")
+}
+
 fn current_animation_driver() -> crate::animations::AnimationDriver {
-    crate::SlintContext::current()
-        .expect("a component exists, so there is a current context")
-        .animation_driver()
-        .clone()
+    current_context().animation_driver().clone()
 }
 
 #[cfg(test)]

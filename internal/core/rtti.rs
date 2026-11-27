@@ -356,11 +356,8 @@ where
         animation: Option<(PropertyAnimation, AnimationDriver)>,
     ) -> Result<(), ()> {
         if let Some((animation, driver)) = animation {
-            self.apply_pin(item).set_animated_value(
-                &driver,
-                value.try_into().map_err(|_| ())?,
-                animation,
-            );
+            let value = value.try_into().map_err(|_| ())?;
+            self.apply_pin(item).set_animated_value(&driver, value, animation);
             Ok(())
         } else {
             self.0.set(item, value, None)

@@ -41,10 +41,7 @@ impl Platform for AnyrenderScreenshotBackend {
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
-        i_slint_core::SlintContext::current()
-            .map(|ctx| ctx.animation_driver().current_tick())
-            .unwrap_or_default()
-            .into()
+        core::time::Duration::ZERO
     }
 }
 

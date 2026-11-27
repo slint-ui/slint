@@ -25,7 +25,6 @@ pub struct SpringFlick {
 }
 
 impl SpringFlick {
-    /// The simulation starts at `start_time`.
     pub fn new(
         deflection: f32,
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,

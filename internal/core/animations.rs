@@ -300,11 +300,6 @@ impl AnimationDriver {
         }
     }
 
-    /// Like [`Self::update_animations`], with `now` divided by `SLINT_SLOW_ANIMATIONS`.
-    pub(crate) fn update_animations_slowed(&self, now: Instant) {
-        self.update_animations(Instant(now.0 / u64::from(slow_down_factor())));
-    }
-
     /// Returns true if an active animation was evaluated in the current tick,
     /// other than while rendering a window, which tracks its own animations.
     pub fn has_active_animations(&self) -> bool {
@@ -496,6 +491,11 @@ fn easing_test() {
     test_curve("ease_out", &EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]));
 }
 */
+
+/// The animation tick at the platform time `now`, slowed down by `SLINT_SLOW_ANIMATIONS`.
+pub(crate) fn slowed_tick(now: Instant) -> Instant {
+    Instant(now.0 / u64::from(slow_down_factor()))
+}
 
 pub(crate) fn slow_down_factor() -> u32 {
     #[cfg(feature = "std")]

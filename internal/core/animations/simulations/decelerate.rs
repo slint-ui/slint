@@ -19,7 +19,6 @@ pub struct Decelerate {
 
 impl Decelerate {
     /// `distance` is the signed distance to the target, `speed` the absolute start speed.
-    /// The simulation starts at `start_time`.
     pub fn new(distance: f32, speed: f32, start_time: Instant) -> Self {
         Self {
             remaining: distance,

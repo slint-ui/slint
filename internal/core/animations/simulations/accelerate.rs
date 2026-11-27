@@ -22,7 +22,6 @@ pub struct Accelerate {
 impl Accelerate {
     /// `distance` is the signed distance to the target.
     /// `max_speed` and the average `acceleration` until it is reached are absolute values.
-    /// The simulation starts at `start_time`.
     pub fn new(distance: f32, max_speed: f32, acceleration: f32, start_time: Instant) -> Self {
         Self {
             remaining: distance,
