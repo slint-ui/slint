@@ -127,6 +127,13 @@ export component Slider {
         }
     }
 
+    states [
+        disabled when !root.enabled : {
+            track.background: MaterialPalette.on_surface.with_alpha(MaterialPalette.state_layer_opacity_disabled);
+            thumb.background: MaterialPalette.on_surface.with_alpha(MaterialPalette.disable_opacity);
+        }
+    ]
+
     changed value => {
         root.value_changed(root.value);
     }
