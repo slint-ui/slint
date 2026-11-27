@@ -8,12 +8,41 @@ pub(super) fn declaration(
     tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) -> DeclaredSlot {
+    let is_collection = node.child_token(SyntaxKind::LBracket).is_some();
+    let is_default =
+        node.children_with_tokens().filter_map(|n| n.into_token()).any(|t| t.text() == "default");
+    if is_default && !is_collection {
+        diag.push_error(
+            "A default slot must have a collection type, such as '<[*]>'".into(),
+            &node,
+        );
+    }
+    let wants_interface = !is_collection
+        || node
+            .children_with_tokens()
+            .filter_map(|n| n.into_token())
+            .any(|t| t.text() == "implements");
+    let mut component_type = None;
     let interface = node.QualifiedName().and_then(|ty| {
         let name = QualifiedTypeName::from_node(ty.clone()).to_smolstr();
         match tr.lookup_element(&name) {
-            Ok(ElementType::Component(c)) if c.is_interface() => Some(c),
-            Ok(_) => {
+            Ok(ElementType::Component(c)) if c.is_interface() => {
+                if !wants_interface {
+                    diag.push_error(format!("'{name}' is an interface; use '[implements {name}]' for an interface collection"), &ty);
+                }
+                Some(c)
+            }
+            Ok(_) if wants_interface => {
                 diag.push_error(format!("Slot type '{name}' must be an interface"), &ty);
+                None
+            }
+            Ok(element_type) if matches!(&element_type, ElementType::Component(c) if !c.is_global())
+                || matches!(&element_type, ElementType::Builtin(b) if !b.is_global) => {
+                component_type = Some(element_type);
+                None
+            }
+            Ok(_) => {
+                diag.push_error(format!("Slot type '{name}' must be a component or built-in element"), &ty);
                 None
             }
             Err(error) => {
@@ -23,16 +52,20 @@ pub(super) fn declaration(
         }
     });
     let mut default = node.SubElement();
-    if node.QualifiedName().is_some()
+    if !is_collection
+        && node.QualifiedName().is_some()
         && let Some(sub_element) = default.take()
     {
         diag.push_error("Typed slots don't support default content yet".into(), &sub_element);
     }
     let name_node = node.DeclaredIdentifier();
     DeclaredSlot {
+        is_collection,
+        is_default: is_default && is_collection,
         name: parser::identifier_text(&name_node).unwrap_or_default(),
         name_node,
         interface,
+        component_type,
         default,
         has_rejected_placeholder: false,
     }
@@ -67,7 +100,11 @@ pub(super) fn validate_assignment(
     element: &ElementRc,
     diag: &mut BuildDiagnostics,
 ) {
-    let Some(interface) = lookup_slot(component, name).and_then(|s| s.interface) else { return };
+    let Some(slot) = lookup_slot(component, name) else { return };
+    if slot.is_collection {
+        return;
+    }
+    let Some(interface) = slot.interface else { return };
     if let Some(debug) = element.borrow().debug.first() {
         interfaces::validate_interface_implementation(
             &element.borrow(),
@@ -91,6 +128,10 @@ pub(super) fn create_placeholder(
     diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
 ) -> bool {
+    if slots.iter().any(|s| &s.name == name && s.is_collection) {
+        diag.push_error(format!("Expand collection slot '{name}' with a 'for' loop"), node);
+        return true;
+    }
     let Some(interface) = slots.iter().find(|s| &s.name == name).and_then(|s| s.interface.clone())
     else {
         return false;
@@ -124,7 +165,7 @@ pub(super) fn create_placeholder(
         legacy,
         diag,
         tr,
-        Some(interface.clone()),
+        Some(ElementType::Component(interface.clone())),
     ) else {
         return true;
     };
@@ -148,7 +189,7 @@ pub(super) fn create_forwarding(
     source: &SmolStr,
     node: &SyntaxNode,
     insertion_points: &mut BTreeMap<String, ChildrenInsertionPoint>,
-    slots: &[DeclaredSlot],
+    slots: &mut [DeclaredSlot],
     diag: &mut BuildDiagnostics,
 ) -> bool {
     let source_slot = slots.iter().find(|slot| &slot.name == source);
@@ -156,6 +197,13 @@ pub(super) fn create_forwarding(
         ElementType::Component(c) => lookup_slot(c, target),
         _ => None,
     };
+    if source_slot.is_some_and(|slot| slot.is_collection)
+        || target_slot.as_ref().is_some_and(|slot| slot.is_collection)
+    {
+        diag.push_error("Forwarding collection slots is not supported yet".into(), node);
+        Element::mark_placeholder_rejected(slots, source);
+        return false;
+    }
     let source_interface = source_slot.and_then(|s| s.interface.clone());
     let target_interface = target_slot.and_then(|s| s.interface);
     if source_interface.is_none() && target_interface.is_none() {
@@ -223,6 +271,25 @@ impl Element {
                 &declaration,
             );
             let slot = self::declaration(declaration, tr, diag);
+            if slot.is_collection {
+                if !is_component_root(node) {
+                    diag.push_error(
+                        "Declare collection slots on a component root".into(),
+                        &slot.name_node,
+                    );
+                    continue;
+                }
+                if slot.is_default
+                    && (declared_slots.iter().any(|s| s.is_default)
+                        || matches!(&r.borrow().base_type, ElementType::Component(base) if super::slot_collections::default_collection(base).is_some()))
+                {
+                    diag.push_error(
+                        "A component can only declare one default slot".into(),
+                        &slot.name_node,
+                    );
+                    continue;
+                }
+            }
             if is_component_root(node)
                 && let ElementType::Component(base) = &r.borrow().base_type
                 && lookup_slot(base, &slot.name).is_some()
@@ -235,6 +302,9 @@ impl Element {
                     &slot.name_node,
                 );
                 continue;
+            }
+            if slot.is_collection {
+                super::slot_collections::declare(&slot, r, tr);
             }
             declared_slots.push(slot);
         }
@@ -330,7 +400,11 @@ impl Element {
 
         for forwarding in r.borrow().forwarded_slots.clone() {
             let source = forwarding.source.clone();
-            if let Some(existing_cip) = component_child_insertion_points.get(source.as_str()) {
+            let insertion_name = declared_slots
+                .iter()
+                .find(|slot| slot.name == source)
+                .map_or(source.as_str(), |slot| slot.insertion_name());
+            if let Some(existing_cip) = component_child_insertion_points.get(insertion_name) {
                 if matches!(existing_cip.node, ChildInsertionPointNode::SlotPlaceholder(_)) {
                     diag.push_error(
                         format!(
@@ -350,7 +424,7 @@ impl Element {
                 continue;
             }
             component_child_insertion_points.insert(
-                source.to_string(),
+                insertion_name.to_string(),
                 ChildrenInsertionPoint {
                     parent: r.clone(),
                     insertion_index: 0,
@@ -419,9 +493,6 @@ impl Element {
             );
             return;
         }
-        if !assigned_slots.insert(name.clone()) {
-            diag.push_error(format!("Duplicate assignment to slot '{name}'"), &name_node);
-        }
         if r.borrow().forwarded_slots.iter().any(|f| f.target == name) {
             diag.push_error(format!("Duplicate assignment to slot '{name}'"), &name_node);
         }
@@ -442,7 +513,16 @@ impl Element {
                 None
             }
         };
+        if !assigned_slots.insert(name.clone()) && !slot.as_ref().is_some_and(|s| s.is_collection) {
+            diag.push_error(format!("Duplicate assignment to slot '{name}'"), &name_node);
+        }
         let Some(sub_element_node) = se.child_node(SyntaxKind::SubElement) else {
+            if slot.as_ref().is_some_and(|s| s.is_collection) {
+                r.borrow_mut()
+                    .empty_slot_assignments
+                    .push(slot.as_ref().unwrap().insertion_name().into());
+                return;
+            }
             match slot.map(|slot| slot.interface) {
                 Some(Some(interface)) => diag.push_error(
                     format!(
@@ -456,7 +536,9 @@ impl Element {
             }
             return;
         };
-        let is_typed = slot.as_ref().is_some_and(|slot| slot.interface.is_some());
+        let is_typed = slot
+            .as_ref()
+            .is_some_and(|slot| slot.interface.is_some() || slot.component_type.is_some());
         let parent_type = if is_typed { tr.empty_type() } else { parent_type };
         let element = Element::from_sub_element_node(
             sub_element_node.into(),
@@ -467,9 +549,12 @@ impl Element {
             diag,
             tr,
         );
-        element.borrow_mut().slot_default =
-            (slot.is_some() && !is_typed && is_component_root).then(|| name.clone());
-        element.borrow_mut().slot_target = Some(name);
+        element.borrow_mut().slot_default = slot
+            .as_ref()
+            .filter(|slot| is_component_root && (slot.is_collection || !is_typed))
+            .map(|slot| slot.insertion_name().into());
+        element.borrow_mut().slot_target =
+            Some(slot.as_ref().map_or(name.clone(), |s| s.insertion_name().into()));
         r.borrow_mut().children.push(element);
     }
 
@@ -513,6 +598,7 @@ impl Element {
             .any(|slot| {
                 slot.name == name
                     && (slot.interface.is_some()
+                        || slot.component_type.is_some()
                         || !element.children().any(|c| c.kind() != SyntaxKind::QualifiedName))
             })
             .then_some(name)
@@ -596,10 +682,10 @@ impl Element {
         diagnostics: &mut BuildDiagnostics,
         type_register: &TypeRegister,
     ) {
-        let Some(default) = declared_slots
+        let Some((default, insertion_name)) = declared_slots
             .iter()
             .find(|slot| &slot.name == slot_name)
-            .and_then(|slot| slot.default.clone())
+            .and_then(|slot| Some((slot.default.clone()?, SmolStr::new(slot.insertion_name()))))
         else {
             return;
         };
@@ -620,7 +706,7 @@ impl Element {
             nested_insertion_points,
             &format!("the default content of slot '{slot_name}'"),
         );
-        element.borrow_mut().slot_default = Some(slot_name.clone());
+        element.borrow_mut().slot_default = Some(insertion_name);
         parent.borrow_mut().children.push(element);
     }
 
