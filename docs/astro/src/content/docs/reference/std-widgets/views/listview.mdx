@@ -4,6 +4,7 @@ description: ListView api.
 ---
 
 import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
 
 A ListView is like a <Link type="ScrollView"/> but it should have a `for` element, and the contents are
@@ -48,12 +49,44 @@ export component Example inherits Window {
 
 ## Properties
 
-Same as <Link type="ScrollView"/>.
+Same as <Link type="ScrollView"/>, and:
+
+### current-row
+<SlintProperty propName="current-row" typeName="int" propertyVisibility="out" defaultValue="-1">
+The index of the row the list is scrolled to: the topmost visible row, even if it's only partly visible.
+When the list snaps rows to its center or bottom edge with [`snap-mode`](/reference/property-types/builtin-enums/#snapmode), it's the row there instead.
+It's -1 while the list has no rows.
+The list updates it when it lays out its rows.
+</SlintProperty>
+
+### item-offset
+<SlintProperty propName="item-offset" typeName="length" propertyVisibility="out">
+The distance of the current row, see [`current-row`](#current-row), from the list's snap line.
+Without [`snap-mode`](/reference/property-types/builtin-enums/#snapmode), or with `start`, it's the row's top relative to the list's top edge.
+With `center`, it's the row's center relative to the list's center.
+With `end`, it's the row's bottom relative to the list's bottom edge.
+A negative value means the row is above the snap line.
+It's 0 while the list has no rows.
+</SlintProperty>
 
 
 ## Callbacks
 
-Same as <Link type="ScrollView"/>.
+Same as <Link type="ScrollView"/>, and:
+
+### current-row-changed(row: int)
+
+Invoked after the current row changes, see [`current-row`](#current-row).
+The first layout of the list reports its first current row.
+
+```slint {3-5}
+ListView {
+    for i in 100 : Text { text: "Row \{i}"; }
+    current-row-changed(row) => {
+        debug("Current row: ", row);
+    }
+}
+```
 
 ## Functions
 

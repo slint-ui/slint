@@ -16,6 +16,9 @@ fn test_listview_scroll() {
             new_item,
             None,
             None,
+            None,
+            None,
+            None,
             content_y.as_ref(),
             LogicalLength::new(100 as Coord),
             listview_height.as_ref(),
@@ -63,6 +66,9 @@ fn test_listview_scrolled_after_insert_at_front() {
             new_item,
             None,
             None,
+            None,
+            None,
+            None,
             content_y.as_ref(),
             LogicalLength::new(100 as Coord),
             listview_height.as_ref(),
@@ -103,6 +109,9 @@ fn test_listview_scrolled_to_end_after_remove_at_end() {
             new_item,
             None,
             None,
+            None,
+            None,
+            None,
             content_y.as_ref(),
             LogicalLength::new(100 as Coord),
             listview_height.as_ref(),
@@ -122,4 +131,179 @@ fn test_listview_scrolled_to_end_after_remove_at_end() {
         "The last rows fill the view instead of leaving a gap below row 7"
     );
     assert_eq!(content_y.as_ref().get().get(), -5. * ITEM_HEIGHT);
+}
+
+#[test]
+fn test_listview_scrolled_snap_to_center_instantiation() {
+    let model = TestModel::new(10);
+    let repeater = Box::pin(Repeater::<SimpleItem>::default());
+    let model_rc = ModelRc::from(model.clone());
+    repeater.set_model_binding(move || model_rc.clone());
+
+    let flickable = Box::pin(Flickable::default());
+    flickable.snap_mode.set(SnapMode::Center);
+    let content_y = Flickable::FIELD_OFFSETS.content_y().apply_pin(flickable.as_ref());
+    let listview_height = Box::pin(Property::new(LogicalLength::new((ITEM_HEIGHT * 4.) as Coord)));
+
+    let update = || {
+        repeater.as_ref().ensure_updated_listview(
+            new_item,
+            Some(flickable.as_ref()),
+            None,
+            None,
+            None,
+            None,
+            content_y.as_ref(),
+            LogicalLength::new(100 as Coord),
+            listview_height.as_ref(),
+        );
+    };
+
+    update();
+    //----------------------
+    //
+    //
+    // 0
+    // 1
+    // 2
+    // ---------------------
+    assert_eq!(state(&repeater).0, [Clean(0), Clean(1), Clean(2)]);
+    model.insert(0, &[100]);
+    update();
+    //----------------------
+    //
+    // 100
+    // 0
+    // 1
+    // 2
+    // ---------------------
+    assert_eq!(
+        state(&repeater).0,
+        [Clean(100), Clean(0), Clean(1), Clean(2)],
+        "The item was prepended before the first item. Because of the center snapping the item will be shown just before the first"
+    );
+    assert_eq!(content_y.as_ref().get().get(), -ITEM_HEIGHT);
+
+    let scroll_down_by = |scroll: f32| {
+        let new_content_y = LogicalLength::new(content_y.as_ref().get().0 - scroll);
+        content_y.as_ref().set(new_content_y);
+    };
+    let scroll_up_by = |scroll: f32| scroll_down_by(-scroll);
+
+    //----------------------
+    // 100
+    // 0
+    // 1
+    // 2
+    // 3
+    // ---------------------
+    scroll_down_by(ITEM_HEIGHT);
+    update();
+    assert_eq!(state(&repeater).0, [Clean(100), Clean(0), Clean(1), Clean(2), Clean(3)]);
+
+    //----------------------
+    //
+    //
+    // 100
+    // 0
+    // 1
+    // ---------------------
+    scroll_up_by(2. * ITEM_HEIGHT);
+    update();
+    assert_eq!(state(&repeater).0, [Clean(100), Clean(0), Clean(1)]);
+}
+
+#[test]
+fn test_listview_scrolled_snap_to_center_snap_back() {
+    let model = TestModel::new(10);
+    let repeater = Box::pin(Repeater::<SimpleItem>::default());
+    let model_rc = ModelRc::from(model.clone());
+    repeater.set_model_binding(move || model_rc.clone());
+
+    let flickable = Box::pin(Flickable::default());
+    flickable.snap_mode.set(SnapMode::Center);
+    let content_y = Flickable::FIELD_OFFSETS.content_y().apply_pin(flickable.as_ref());
+    let content_height = Flickable::FIELD_OFFSETS.content_height().apply_pin(flickable.as_ref());
+    let listview_height = Box::pin(Property::new(LogicalLength::new((ITEM_HEIGHT * 4.) as Coord)));
+
+    let update = || {
+        repeater.as_ref().ensure_updated_listview(
+            new_item,
+            Some(flickable.as_ref()),
+            None,
+            Some(content_height),
+            None,
+            None,
+            content_y.as_ref(),
+            LogicalLength::new(100 as Coord),
+            listview_height.as_ref(),
+        );
+    };
+
+    update();
+    //----------------------
+    //
+    //
+    // 0
+    // 1
+    // 2
+    // ---------------------
+    assert_eq!(state(&repeater).0, [Clean(0), Clean(1), Clean(2)]);
+    model.insert(0, &[100]);
+    update();
+
+    let scroll_down_by = |scroll: f32| {
+        let new_content_y = LogicalLength::new(content_y.as_ref().get().0 - scroll);
+        content_y.as_ref().set(new_content_y);
+    };
+    let scroll_up_by = |scroll: f32| scroll_down_by(-scroll);
+
+    // Scrolled by 0.2 rows, then the content springs back to the snap position
+    //----------------------
+    // 100
+    // 0
+    // 1
+    // 2
+    // ---------------------
+    scroll_down_by(0.2 * ITEM_HEIGHT);
+    update();
+    let start = crate::animations::current_tick();
+    crate::animations::update_animations(start + core::time::Duration::from_secs(1));
+    update();
+    assert!(
+        (content_y.as_ref().get().get() + ITEM_HEIGHT).abs() < 0.01,
+        "We snapped back: {:?}",
+        content_y.as_ref().get()
+    );
+    assert_eq!(state(&repeater).0, [Clean(100), Clean(0), Clean(1), Clean(2)]);
+
+    //----------------------
+    //
+    //
+    // 100
+    // 0
+    // 1
+    // ---------------------
+    scroll_up_by(2. * ITEM_HEIGHT);
+    update();
+    assert_eq!(state(&repeater).0, [Clean(100), Clean(0), Clean(1)]);
+
+    //----------------------
+    //
+    // 100
+    // 0
+    // 1
+    // 2
+    // ---------------------
+    scroll_down_by(0.6 * ITEM_HEIGHT);
+    update();
+    let start = crate::animations::current_tick();
+    crate::animations::update_animations(start + core::time::Duration::from_secs(1));
+    update();
+    assert!(
+        (content_y.as_ref().get().get() + ITEM_HEIGHT).abs() < 0.01,
+        "We snapped back: {:?}",
+        content_y.as_ref().get()
+    );
+    assert_eq!(state(&repeater).0, [Clean(100), Clean(0), Clean(1), Clean(2)]);
 }

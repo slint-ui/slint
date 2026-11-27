@@ -13,7 +13,8 @@ use super::model_peer::{ModelChangeListener, ModelChangeListenerContainer};
 use super::{Model, ModelExt, ModelRc};
 use crate::api::LogicalPosition;
 use crate::item_tree::{ItemTreeVTable, TraversalOrder};
-use crate::items::{Flickable, ItemRc, ScrollBehavior};
+
+use crate::items::{Flickable, ItemRc, ScrollBehavior, SnapMode, SnapPoints};
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
 use crate::model::repeater::scroll::accelerate_jump_decelerate::AccelerateJumpDecelerate;
@@ -24,6 +25,7 @@ use core::pin::Pin;
 #[allow(unused)]
 use euclid::num::Floor;
 use pin_project::pin_project;
+use std::println;
 
 mod scroll;
 
@@ -480,6 +482,10 @@ pub trait ListViewProperties {
     /// Register the content properties as dependencies of the current
     /// binding evaluation without reading them.
     fn register_as_dependencies(&self);
+    /// Set the ListView's current row. A no-op when the ListView doesn't declare one.
+    fn current_row_set(&self, row: i32);
+    /// Set the ListView's item offset. A no-op when the ListView doesn't declare one.
+    fn item_offset_set(&self, offset: LogicalLength);
 }
 
 struct TypedListViewProps<'a> {
@@ -490,6 +496,8 @@ struct TypedListViewProps<'a> {
     /// from the layout heights
     content_height: Option<Pin<&'a Property<LogicalLength>>>,
     content_y: Pin<&'a Property<LogicalLength>>,
+    current_row: Option<Pin<&'a Property<i32>>>,
+    item_offset: Option<Pin<&'a Property<LogicalLength>>>,
 }
 
 impl ListViewProperties for TypedListViewProps<'_> {
@@ -527,6 +535,16 @@ impl ListViewProperties for TypedListViewProps<'_> {
         }
         self.content_y.register_as_dependency();
     }
+    fn current_row_set(&self, row: i32) {
+        if let Some(current_row) = self.current_row {
+            current_row.set(row);
+        }
+    }
+    fn item_offset_set(&self, offset: LogicalLength) {
+        if let Some(item_offset) = self.item_offset {
+            item_offset.set(offset);
+        }
+    }
 }
 
 /// Update only the instances visible in the ListView viewport.
@@ -543,6 +561,7 @@ fn update_visible_instances(
     scroll_to_row: &mut Option<scroll::ScrollToRowRequest>,
     row_count: usize,
     props: &dyn ListViewProperties,
+    flickable: Option<Pin<&Flickable>>,
     listview_width: LogicalLength,
     listview_height: LogicalLength,
 ) -> bool {
@@ -556,6 +575,8 @@ fn update_visible_instances(
         props.content_height_set(zero);
         props.content_y_set(zero);
         props.content_width_set(listview_width);
+        props.current_row_set(-1);
+        props.item_offset_set(zero);
         return false;
     }
     // A height of zero or less, like before the window has a size, leaves no viewport to fill.
@@ -617,7 +638,12 @@ fn update_visible_instances(
     // The current item is the row at `snap_line` in the viewport.
     // Its point at `snap_fraction` of its height, the top, center, or bottom,
     // is at `snap_line + anchor_y + content-y`, so `content-y` 0 snaps row 0.
-    let (snap_line, snap_fraction) = (0 as Coord, 0 as Coord);
+    let snap_mode = flickable.map_or(SnapMode::None, |f| f.snap_mode());
+    let (snap_line, snap_fraction) = match snap_mode {
+        SnapMode::None | SnapMode::Start => (0 as Coord, 0 as Coord),
+        SnapMode::Center => (listview_height / 2 as Coord, 0.5 as Coord),
+        SnapMode::End => (listview_height, 1 as Coord),
+    };
 
     // The row to seek to, its edge, and its distance beyond that edge of the viewport.
     let seek = scroll_to_row.as_ref().and_then(|request| match (&request.animation, jump) {
@@ -754,6 +780,7 @@ fn update_visible_instances(
     let Some((current_row, current_top)) = current else { return changed };
     let mut state = ops.layout_state();
     state.item_index = CurrentItem { row: current_row, instance_index: current_row - first_row };
+    props.current_row_set(current_row as i32);
     if ops.len() == 0 {
         ops.set_layout_state(state);
         return changed;
@@ -763,12 +790,21 @@ fn update_visible_instances(
     state.cached_item_height = (bottom - y) / ops.len() as Coord;
     state.anchor_y = state.cached_item_height * current_row as Coord;
     let current_height = ops.height(current_row - first_row).unwrap_or(state.cached_item_height);
+    props.item_offset_set(LogicalLength::new(
+        current_top + snap_fraction * current_height - snap_line,
+    ));
     state.snap_offset = snap_line - snap_fraction * current_height;
     let new_content_y = current_top - state.anchor_y - state.snap_offset;
     state.previous_content_y = new_content_y;
     state.previous_anchor_viewport_y = current_top - state.snap_offset;
     ops.set_layout_state(state.clone());
-    props.content_height_set(LogicalLength::new(state.cached_item_height * row_count as Coord));
+    let content_height = if snap_mode == SnapMode::None {
+        state.cached_item_height * row_count as Coord
+    } else {
+        // Leaves room for the last row to reach the snap line.
+        state.cached_item_height * (row_count - 1) as Coord + listview_height
+    };
+    props.content_height_set(LogicalLength::new(content_height));
     props.content_width_set(LogicalLength::new(content_width_value));
     // Important: Use get_internal here, the content_y may have a binding on it (especially
     // a physical animation).
@@ -782,6 +818,14 @@ fn update_visible_instances(
         props.content_y_set(LogicalLength::new(new_content_y));
     }
 
+    if let Some(flickable) = flickable
+        && !flickable.flicking_ongoing()
+        && let Some(limit) = flickable.simulation_flick_limit_y()
+    {
+        // The content height changed, so the running fling has a new limit.
+        flickable.update_simulation_limit_y(limit);
+    }
+
     if let Some(request) = scroll_to_row.take() {
         let (top, height) =
             target_span.map(|(top, bottom)| (top, bottom - top)).unwrap_or_else(|| {
@@ -792,6 +836,30 @@ fn update_visible_instances(
             });
         *scroll_to_row =
             scroll::advance_scroll_to_row(request, top, height, listview_height, jump.is_some());
+    }
+
+    if let Some(flickable) = flickable {
+        flickable.set_snap_points((snap_mode != SnapMode::None).then(|| {
+            // The content-y that puts each row's snap point on the snap line.
+            let mut top = y;
+            let positions = (0..ops.len())
+                .map(|i| {
+                    let height = ops.height(i).unwrap_or(0 as Coord);
+                    let position = new_content_y + snap_line - (top + snap_fraction * height);
+                    top += height;
+                    position as f32
+                })
+                .collect();
+            let viewport_overflow = listview_height - flickable.content_height().get();
+            SnapPoints {
+                positions,
+                pitch: state.cached_item_height as f32,
+                min: viewport_overflow.min(0 as Coord) as f32,
+            }
+        }));
+        if scroll_to_row.is_none() {
+            flickable.snap();
+        }
     }
 
     changed
@@ -1250,7 +1318,13 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
     ) {
-        let props = TypedListViewProps { content_width, content_height, content_y };
+        let props = TypedListViewProps {
+            content_width,
+            content_height,
+            content_y,
+            current_row: None,
+            item_offset: None,
+        };
         self.track_changes_listview_callback(&props, listview_width);
         listview_height.register_as_dependency();
     }
@@ -1276,14 +1350,29 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
+        flickable: Option<Pin<&Flickable>>,
         content_width: Option<Pin<&Property<LogicalLength>>>,
         content_height: Option<Pin<&Property<LogicalLength>>>,
+        current_row: Option<Pin<&Property<i32>>>,
+        item_offset: Option<Pin<&Property<LogicalLength>>>,
         content_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
     ) -> bool {
-        let props = TypedListViewProps { content_width, content_height, content_y };
-        self.ensure_updated_listview_callback(init, &props, listview_width, listview_height.get())
+        let props = TypedListViewProps {
+            content_width,
+            content_height,
+            content_y,
+            current_row,
+            item_offset,
+        };
+        self.ensure_updated_listview_callback(
+            init,
+            &props,
+            flickable,
+            listview_width,
+            listview_height.get(),
+        )
     }
 
     /// Trait-based variant of [`Self::ensure_updated_listview`] for runtime
@@ -1295,6 +1384,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
         props: &dyn ListViewProperties,
+        flickable: Option<Pin<&Flickable>>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
     ) -> bool {
@@ -1315,6 +1405,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             &mut scroll_to_row,
             row_count,
             props,
+            flickable,
             listview_width,
             listview_height,
         );
@@ -1830,13 +1921,22 @@ mod ffi {
         ops: &mut RepeaterInstanceOpsVTable,
         scroll_to_row: *mut ScrollToRowRequestOpaque,
         row_count: usize,
+        flickable: Option<Pin<&Flickable>>,
         content_width: Option<Pin<&Property<LogicalLength>>>,
         content_height: Option<Pin<&Property<LogicalLength>>>,
+        current_row: Option<Pin<&Property<i32>>>,
+        item_offset: Option<Pin<&Property<LogicalLength>>>,
         content_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
     ) -> bool {
-        let props = TypedListViewProps { content_width, content_height, content_y };
+        let props = TypedListViewProps {
+            content_width,
+            content_height,
+            content_y,
+            current_row,
+            item_offset,
+        };
         // When a new item gets created in update_visible_instances and in its init
         // we call ensure-row-visible() we modify scroll_to_row
         // here we make a copy and reset `scroll_to_row`. If below `scroll_to_row`
@@ -1851,6 +1951,7 @@ mod ffi {
             &mut request,
             row_count,
             &props,
+            flickable,
             listview_width,
             listview_height,
         );

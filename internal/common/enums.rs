@@ -701,6 +701,19 @@ macro_rules! for_each_enums {
                 Other,
             }
 
+            /// Snap mode for the flickable
+            #[non_exhaustive]
+            enum SnapMode {
+                /// No snapping at all
+                None,
+                /// Snapping position at the start. Item's start is snapped to the start
+                Start,
+                /// Snapping position at the center. Item's center is snapped to the center
+                Center,
+                /// Snapping position at the end. Item's end is snapped to the end
+                End,
+            }
+
             /// This enum describes the platform role of a `MenuItem` in a `MenuBar`.
             ///
             /// On macOS, the native menu bar moves items with a role into the application menu.

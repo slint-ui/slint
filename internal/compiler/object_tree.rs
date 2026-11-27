@@ -1567,6 +1567,10 @@ pub struct ListViewInfo {
     pub listview_width: NamedReference,
     /// The ListView's `ensure-row-visible` function, if it declares one
     pub ensure_row_visible: Option<NamedReference>,
+    /// The property the layout sets to the ListView's current row, if it declares one
+    pub current_row: Option<NamedReference>,
+    /// The property the layout sets to the ListView's item offset, if it declares one
+    pub item_offset: Option<NamedReference>,
     /// The row's `height`. Unlike the root's geometry, a wrapper such as the
     /// zero-size Clip of the `visible` pass doesn't replace it.
     pub row_height: NamedReference,
@@ -2173,6 +2177,14 @@ impl Element {
                 )
             };
             let declares_ensure_row_visible = Self::declares_ensure_row_visible(&parent_elem);
+            let declares_current_row = parent_elem
+                .lookup_property("current-row", PropertyLookupMode::InternalName)
+                .property_type
+                == Type::Int32;
+            let declares_item_offset = parent_elem
+                .lookup_property("item-offset", PropertyLookupMode::InternalName)
+                .property_type
+                == Type::LogicalLength;
             drop(parent_elem); // Drop the borrow before creating NamedReference
 
             let lvi = ListViewInfo {
@@ -2186,6 +2198,10 @@ impl Element {
                 ensure_row_visible: declares_ensure_row_visible.then(|| {
                     NamedReference::new(parent, SmolStr::new_static("ensure-row-visible"))
                 }),
+                current_row: declares_current_row
+                    .then(|| NamedReference::new(parent, SmolStr::new_static("current-row"))),
+                item_offset: declares_item_offset
+                    .then(|| NamedReference::new(parent, SmolStr::new_static("item-offset"))),
                 row_height: geometry_props.height.clone(),
             };
             // these properties are set by the ListView layouting code
@@ -2194,6 +2210,12 @@ impl Element {
             }
             if let Some(content_width) = &lvi.content_width {
                 content_width.mark_as_set();
+            }
+            if let Some(current_row) = &lvi.current_row {
+                current_row.mark_as_set();
+            }
+            if let Some(item_offset) = &lvi.item_offset {
+                item_offset.mark_as_set();
             }
             geometry_props.y.mark_as_set();
             Some(lvi)
@@ -3948,6 +3970,12 @@ fn visit_all_named_references_in_element_dyn(
         vis(&mut lv.listview_width);
         if let Some(ensure_row_visible) = &mut lv.ensure_row_visible {
             vis(ensure_row_visible);
+        }
+        if let Some(current_row) = &mut lv.current_row {
+            vis(current_row);
+        }
+        if let Some(item_offset) = &mut lv.item_offset {
+            vis(item_offset);
         }
         vis(&mut lv.row_height);
     }
