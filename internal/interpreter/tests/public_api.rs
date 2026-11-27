@@ -90,6 +90,157 @@ fn external_model() {
     assert_eq!(instance.get_property("first").unwrap(), Value::Number(42.));
 }
 
+#[cfg(feature = "internal")]
+fn compile_collection_case(name: &str, component: &str) -> ComponentInstance {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/cases/component_slots")
+        .join(name);
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).debug_info = true;
+    compiler.compiler_configuration(i_slint_core::InternalToken).experimental_features =
+        i_slint_compiler::ExperimentalFeatures::all();
+    let result = i_slint_compiler::poll_ready(compiler.build_from_path(path));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    result.component(component).unwrap().create().unwrap()
+}
+
+#[cfg(feature = "internal")]
+#[test]
+fn repeated_collection_views_follow_page_instances() {
+    use i_slint_backend_testing::{AccessibleRole, ElementHandle};
+    i_slint_backend_testing::init_no_event_loop();
+    let focused = compile_collection_case("slot_collection_dynamic_views.slint", "FocusTest");
+    for index in [1, 0] {
+        ElementHandle::find_by_accessible_label(&focused, &format!("Focus {index}"))
+            .find(|element| element.accessible_role() == Some(AccessibleRole::Button))
+            .unwrap()
+            .invoke_accessible_default_action();
+        assert_eq!(focused.get_property("focused-index").unwrap(), Value::Number(index as f64));
+    }
+    let instance = compile_collection_case("slot_collection_dynamic_views.slint", "TestCase");
+    let button = |label: &str| {
+        ElementHandle::find_by_accessible_label(&instance, label)
+            .find(|element| element.accessible_role() == Some(AccessibleRole::Button))
+            .unwrap()
+    };
+    button("Change B: 0").invoke_accessible_default_action();
+    button("Change B: 1");
+    button("Change D: 0").invoke_accessible_default_action();
+    button("Change D: 1").invoke_accessible_default_action();
+    assert_eq!(instance.get_property("pings").unwrap(), Value::Number(3.));
+    button("Change A: 0");
+    button("Change C: 0");
+    button("Reset B").invoke_accessible_default_action();
+    button("Reset D").invoke_accessible_default_action();
+    button("Change B: 0");
+    button("Change D: 0");
+    button("Proxy B: 0").invoke_accessible_default_action();
+    button("Change B: 10");
+    button("Proxy D: 0");
+    button("Reset B").invoke_accessible_default_action();
+    button("Proxy B: 0");
+    instance.invoke("insert-first", &[]).unwrap();
+    button("Proxy B: 0").invoke_accessible_default_action();
+    button("Change B: 10");
+    button("Change A: 0");
+    button("Change Zero: 0");
+    instance.invoke("remove-first", &[]).unwrap();
+    button("Proxy B: 10").invoke_accessible_default_action();
+    button("Change B: 20");
+    button("Reset B").invoke_accessible_default_action();
+    button("Proxy B: 0");
+    button("Animate B").invoke_accessible_default_action();
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert!(ElementHandle::find_by_accessible_label(&instance, "Progress B: 50").next().is_some());
+    i_slint_backend_testing::mock_elapsed_time(100);
+    assert!(ElementHandle::find_by_accessible_label(&instance, "Progress B: 100").next().is_some());
+
+    {
+        for mode in 0..3 {
+            let instance =
+                compile_collection_case("slot_collection_dynamic_views.slint", "LifetimeTest");
+            let names =
+                Rc::new(VecModel::from(vec![Value::String("A".into()), Value::String("B".into())]));
+            instance.set_property("names", Value::Model(names.clone().into())).unwrap();
+            let weak = instance.as_weak();
+            instance
+                .set_callback("mutate", move |_| {
+                    let instance = weak.upgrade().unwrap();
+                    match mode {
+                        0 => {
+                            names.remove(0);
+                        }
+                        1 => {
+                            let replacement =
+                                Rc::new(VecModel::from(vec![Value::String("Replacement".into())]));
+                            instance
+                                .set_property("names", Value::Model(replacement.into()))
+                                .unwrap();
+                        }
+                        _ => instance.set_property("show-group", Value::Bool(false)).unwrap(),
+                    }
+                    ElementHandle::find_by_accessible_label(&instance, "Change B: 100").next();
+                    Value::Void
+                })
+                .unwrap();
+            ElementHandle::find_by_accessible_label(&instance, "Mutate A")
+                .next()
+                .unwrap()
+                .invoke_accessible_default_action();
+            assert_eq!(
+                instance.get_global_property("CollectionProbe", "returned").unwrap(),
+                Value::Number(1.)
+            );
+            assert_eq!(
+                instance.get_global_property("CollectionProbe", "after").unwrap(),
+                Value::Number(0.)
+            );
+            assert_eq!(
+                instance.get_global_property("CollectionProbe", "after-call").unwrap(),
+                Value::Number(0.)
+            );
+            assert_eq!(
+                instance.get_global_property("CollectionProbe", "completed").unwrap(),
+                Value::Number(1.)
+            );
+            if mode == 0 {
+                assert!(
+                    ElementHandle::find_by_accessible_label(&instance, "Change B: 100")
+                        .next()
+                        .is_some()
+                );
+            }
+        }
+    }
+    let instance =
+        compile_collection_case("slot_collection_dynamic_views.slint", "VirtualizedTest");
+    let layout = || {
+        instance.window().dispatch_event(i_slint_core::platform::WindowEvent::PointerMoved {
+            position: i_slint_core::api::LogicalPosition::new(1., 1.),
+        })
+    };
+    let button = |label: &str| {
+        ElementHandle::find_by_accessible_label(&instance, label)
+            .find(|element| element.accessible_role() == Some(AccessibleRole::Button))
+            .unwrap()
+    };
+    layout();
+    let Value::Number(count) = instance.get_property("constructions").unwrap() else { panic!() };
+    assert!(count > 0. && count < 200.);
+    button("Change 0:B: 0").invoke_accessible_default_action();
+    button("Change 0:B: 1");
+    instance.invoke("scroll-to", &[Value::Number(80.)]).unwrap();
+    layout();
+    button("Change 80:B: 0").invoke_accessible_default_action();
+    button("Change 80:B: 1");
+    let Value::Number(count) = instance.get_property("constructions").unwrap() else { panic!() };
+    assert!(count < 200.);
+    instance.invoke("scroll-to", &[Value::Number(0.)]).unwrap();
+    layout();
+    button("Change 0:B: 0");
+}
+
 /// Assigning a model property to another shares the underlying model.
 #[test]
 fn share_model_via_assignment() {

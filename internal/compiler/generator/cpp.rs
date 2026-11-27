@@ -68,7 +68,10 @@ pub fn concatenate_ident(ident: &str) -> SmolStr {
 /// This is an `std::optional` when the item lives in an ancestor component: that chain can die
 /// while a callback of a repeated element is still running — the enclosing popup closed itself, or
 /// the model dropped the row the element belongs to — and then nothing must be emitted at all.
-fn item_owner(pr: &llr::MemberReference) -> MemberAccess {
+fn item_owner(pr: &llr::MemberReference, ctx: &EvaluationContext) -> MemberAccess {
+    if matches!(pr, llr::MemberReference::Repeated { .. }) {
+        return access_repeated_instance(pr, ctx).with_member("->".into());
+    }
     let llr::MemberReference::Relative { parent_level, .. } = pr else { unreachable!() };
     parent_access_path(*parent_level).with_member("->".into())
 }
@@ -83,17 +86,20 @@ fn native_item_from_owner(
     ctx: &EvaluationContext,
     owner: &str,
 ) -> (String, String) {
-    let llr::MemberReference::Relative { parent_level, local_reference } = pr else {
-        unreachable!()
+    let (root, local_reference) = match pr {
+        llr::MemberReference::Relative { parent_level, local_reference } => {
+            (ctx.parent_sub_component_idx(*parent_level).unwrap(), local_reference)
+        }
+        llr::MemberReference::Repeated { sub_component, local_reference, .. } => {
+            (*sub_component, local_reference)
+        }
+        llr::MemberReference::Global { .. } => unreachable!(),
     };
     let llr::LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
         unreachable!()
     };
-    let (compo_path, sub_component) = follow_sub_component_path(
-        ctx.compilation_unit,
-        ctx.parent_sub_component_idx(*parent_level).unwrap(),
-        &local_reference.sub_component_path,
-    );
+    let (compo_path, sub_component) =
+        follow_sub_component_path(ctx.compilation_unit, root, &local_reference.sub_component_path);
     let compo = format!("{owner}{compo_path}");
     let item_name = field_name(&sub_component.items[*item_index].name);
     let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
@@ -626,6 +632,19 @@ fn property_set_value_code(
     value_expr: &str,
     ctx: &EvaluationContext,
 ) -> String {
+    if let llr::MemberReference::Repeated { local_reference, .. } = property {
+        let instance = access_repeated_instance(property, ctx);
+        let setter = ctx.with_repeated_scope(property, |source_ctx| {
+            property_set_value_code(
+                &local_reference.clone().into(),
+                "__collection_value",
+                &source_ctx,
+            )
+        });
+        return instance.then(|instance| format!(
+            "{{ auto __collection_value = {value_expr}; auto self = {instance}.operator->(); {setter}; }}"
+        ));
+    }
     let prop = access_member(property, ctx);
     if let Some((animation, map)) = &ctx.property_info(property).animation {
         let mut animation = (*animation).clone();
@@ -2546,6 +2565,24 @@ fn generate_sub_component_body(
 
     let mut user_init = vec!["[[maybe_unused]] auto self = this;".into()];
     let mut init_change_trackers = vec!["[[maybe_unused]] auto self = this;".into()];
+    let mut collection_init = Vec::new();
+    let mut sub_component_user_init = Vec::new();
+    if let Some(source) = &component.collection_source {
+        let source_type = ident(&root.sub_components[source.sub_component].name);
+        target_struct.members.push((
+            field_access,
+            Declaration::Var(Var {
+                ty: format_smolstr!("::slint::ComponentWeakHandle<class {source_type}>"),
+                name: "collection_source".into(),
+                ..Default::default()
+            }),
+        ));
+        collection_init.push(
+            resolve_collection_source(source, &ctx).then(|instance| {
+                format!("self->collection_source = ::slint::ComponentWeakHandle({instance})")
+            }) + ";",
+        );
+    }
 
     let mut children_visitor_cases = Vec::new();
     let mut subtrees_ranges_cases = Vec::new();
@@ -2585,7 +2622,7 @@ fn generate_sub_component_body(
             init_change_trackers.push(format!("this->{sub_field}.init_change_trackers();"));
         }
         if sub_sc.needs_user_init(root) {
-            user_init.push(format!("this->{sub_field}.user_init();"));
+            sub_component_user_init.push(format!("this->{sub_field}.user_init();"));
         }
 
         let sub_component_repeater_count = sub_sc.repeater_count(root);
@@ -2640,6 +2677,11 @@ fn generate_sub_component_body(
 
     for twb in &component.two_way_bindings {
         let p1 = access_local_member(&twb.prop1, &ctx);
+        let init = if matches!(twb.prop2, llr::MemberReference::Repeated { .. }) {
+            &mut collection_init
+        } else {
+            &mut init
+        };
         if let Some(info) = twb.resolve_model(&ctx) {
             init.push(generate_model_two_way_binding(&ctx, &info, &p1, &twb.field_access));
         } else if twb.field_access.is_empty() {
@@ -2767,7 +2809,14 @@ fn generate_sub_component_body(
         ));
     }
 
-    init.extend(properties_init_code);
+    if component.collection_source.is_some() {
+        collection_init.extend(properties_init_code);
+    } else {
+        init.extend(properties_init_code);
+    }
+    let collection_init_len = collection_init.len();
+    user_init.extend(collection_init);
+    user_init.extend(sub_component_user_init);
 
     init_change_trackers.extend(component.change_callbacks.iter().enumerate().map(|(idx, (p, e))| {
         let code = compile_expression(&e.borrow(), &ctx);
@@ -2845,7 +2894,7 @@ fn generate_sub_component_body(
     debug_assert_eq!(component.needs_user_init(root), user_init.len() > 1);
     if is_item_tree_root || component.needs_user_init(root) {
         if is_item_tree_root && has_change_trackers {
-            user_init.insert(1, "this->init_change_trackers();".into());
+            user_init.insert(1 + collection_init_len, "this->init_change_trackers();".into());
         }
         target_struct.members.push((
             field_access,
@@ -4120,52 +4169,14 @@ fn parent_access_path(parent_level: usize) -> MemberAccess {
 /// Returns the code that can access the given property (but without the set or get)
 fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> MemberAccess {
     match reference {
+        llr::MemberReference::Repeated { sub_component, local_reference, .. } => {
+            let instance = access_repeated_instance(reference, ctx);
+            access_relative_member(instance, *sub_component, local_reference, ctx)
+        }
         llr::MemberReference::Relative { parent_level, local_reference } => {
             let path = parent_access_path(*parent_level);
             if let Some(sub_component) = ctx.parent_sub_component_idx(*parent_level) {
-                let (compo_path, sub_component) = follow_sub_component_path(
-                    ctx.compilation_unit,
-                    sub_component,
-                    &local_reference.sub_component_path,
-                );
-                match &local_reference.reference {
-                    llr::LocalMemberIndex::Property(property_index) => {
-                        let property_name =
-                            field_name(&sub_component.properties[*property_index].name);
-                        path.with_member(format!("->{compo_path}{property_name}"))
-                    }
-                    llr::LocalMemberIndex::Callback(callback_index) => {
-                        let callback_name =
-                            field_name(&sub_component.callbacks[*callback_index].name);
-                        path.with_member(format!("->{compo_path}{callback_name}"))
-                    }
-                    llr::LocalMemberIndex::Function(function_index) => {
-                        let function_name = ident(&sub_component.functions[*function_index].name);
-                        path.with_member(format!("->{compo_path}fn_{function_name}"))
-                    }
-                    llr::LocalMemberIndex::Timer(timer_index) => path
-                        .with_member(format!("->{compo_path}timer{}", usize::from(*timer_index))),
-                    llr::LocalMemberIndex::Repeater(repeater_index) => path.with_member(format!(
-                        "->{compo_path}repeater_{}",
-                        usize::from(*repeater_index)
-                    )),
-                    llr::LocalMemberIndex::Native { item_index, prop_name, .. } => {
-                        let item_name = field_name(&sub_component.items[*item_index].name);
-                        if prop_name.is_empty()
-                            || matches!(
-                                sub_component.items[*item_index].ty.lookup_property(prop_name),
-                                Some(Type::Function { .. })
-                            )
-                        {
-                            // then this is actually a reference to the element itself
-                            // (or a call to a builtin member function)
-                            path.with_member(format!("->{compo_path}{item_name}"))
-                        } else {
-                            let property_name = ident(prop_name);
-                            path.with_member(format!("->{compo_path}{item_name}.{property_name}"))
-                        }
-                    }
-                }
+                access_relative_member(path, sub_component, local_reference, ctx)
             } else if let Some(current_global) = ctx.current_global() {
                 match &local_reference.reference {
                     llr::LocalMemberIndex::Property(property_index) => {
@@ -4215,6 +4226,109 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                 let global_access = &ctx.generator_state.global_access;
                 let global_id = format!("global_{}", concatenate_ident(&global.name));
                 MemberAccess::Direct(format!("{global_access}->{global_id}->{name}"))
+            }
+        }
+    }
+}
+
+fn access_repeated_instance(
+    reference: &llr::MemberReference,
+    ctx: &EvaluationContext,
+) -> MemberAccess {
+    let llr::MemberReference::Repeated { parent_level, sub_component_path, .. } = reference else {
+        unreachable!()
+    };
+    let (path, _) = follow_sub_component_path(
+        ctx.compilation_unit,
+        ctx.parent_sub_component_idx(*parent_level).unwrap(),
+        sub_component_path,
+    );
+    parent_access_path(*parent_level)
+        .and_then(|parent| format!("{parent}->{path}collection_source.lock()"))
+}
+
+fn resolve_collection_source(
+    source: &llr::CollectionSource,
+    ctx: &EvaluationContext,
+) -> MemberAccess {
+    let llr::CollectionSource { parent_level, repeater_index, .. } = source;
+    let index = access_local_member(&llr::PropertyIdx::REPEATER_INDEX.into(), ctx) + ".get()";
+    resolve_repeater_instance(
+        &llr::MemberReference::Relative {
+            parent_level: *parent_level,
+            local_reference: llr::LocalMemberIndex::Repeater(*repeater_index).into(),
+        },
+        index,
+        ctx,
+    )
+}
+
+fn resolve_repeater_instance(
+    reference: &llr::MemberReference,
+    index: String,
+    ctx: &EvaluationContext,
+) -> MemberAccess {
+    let llr::MemberReference::Relative { parent_level, local_reference } = reference else {
+        unreachable!()
+    };
+    let llr::LocalMemberIndex::Repeater(repeater_index) = local_reference.reference else {
+        unreachable!()
+    };
+    let (path, _) = follow_sub_component_path(
+        ctx.compilation_unit,
+        ctx.parent_sub_component_idx(*parent_level).unwrap(),
+        &local_reference.sub_component_path,
+    );
+    parent_access_path(*parent_level).and_then(|parent| {
+        let owner = if path.is_empty() { format!("std::addressof(*{parent})") } else { format!("std::addressof({parent}->{})", path.trim_end_matches('.')) };
+        format!("([&]() {{ auto *__collection_owner = {owner}; auto &__collection_repeater = __collection_owner->repeater_{}; __collection_repeater.track_model_changes(); __collection_repeater.track_instance_changes(); __collection_repeater.ensure_updated(__collection_owner); return __collection_repeater.instance_handle_at(static_cast<std::size_t>({index})); }})()", usize::from(repeater_index))
+    })
+}
+
+fn access_relative_member(
+    path: MemberAccess,
+    sub_component_index: llr::SubComponentIdx,
+    local_reference: &llr::LocalMemberReference,
+    ctx: &EvaluationContext,
+) -> MemberAccess {
+    let (compo_path, sub_component) = follow_sub_component_path(
+        ctx.compilation_unit,
+        sub_component_index,
+        &local_reference.sub_component_path,
+    );
+    match &local_reference.reference {
+        llr::LocalMemberIndex::Property(property_index) => {
+            let property_name = field_name(&sub_component.properties[*property_index].name);
+            path.with_member(format!("->{compo_path}{property_name}"))
+        }
+        llr::LocalMemberIndex::Callback(callback_index) => {
+            let callback_name = field_name(&sub_component.callbacks[*callback_index].name);
+            path.with_member(format!("->{compo_path}{callback_name}"))
+        }
+        llr::LocalMemberIndex::Function(function_index) => {
+            let function_name = ident(&sub_component.functions[*function_index].name);
+            path.with_member(format!("->{compo_path}fn_{function_name}"))
+        }
+        llr::LocalMemberIndex::Timer(timer_index) => {
+            path.with_member(format!("->{compo_path}timer{}", usize::from(*timer_index)))
+        }
+        llr::LocalMemberIndex::Repeater(repeater_index) => {
+            path.with_member(format!("->{compo_path}repeater_{}", usize::from(*repeater_index)))
+        }
+        llr::LocalMemberIndex::Native { item_index, prop_name, .. } => {
+            let item_name = field_name(&sub_component.items[*item_index].name);
+            if prop_name.is_empty()
+                || matches!(
+                    sub_component.items[*item_index].ty.lookup_property(prop_name),
+                    Some(Type::Function { .. })
+                )
+            {
+                // then this is actually a reference to the element itself
+                // (or a call to a builtin member function)
+                path.with_member(format!("->{compo_path}{item_name}"))
+            } else {
+                let property_name = ident(prop_name);
+                path.with_member(format!("->{compo_path}{item_name}.{property_name}"))
             }
         }
     }
@@ -5259,9 +5373,9 @@ fn compile_builtin_function_call(
                         call(Some(format!("::slint::cbindgen_private::ItemRc{{ {item_rc} }}")))
                     };
                     if function.ty().return_type == Type::Void {
-                        item_owner(pr).then(call_with_item)
+                        item_owner(pr, ctx).then(call_with_item)
                     } else {
-                        item_owner(pr).map_or_default(call_with_item)
+                        item_owner(pr, ctx).map_or_default(call_with_item)
                     }
                 }
             }
@@ -5280,7 +5394,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::SetFocusItem => (|| {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);
-                item_owner(pr).then(|owner| {
+                item_owner(pr, ctx).then(|owner| {
                     let (_, focus_item) = native_item_from_owner(pr, ctx, owner);
                     format!("{window}.set_focus_item({focus_item}, true, ::slint::cbindgen_private::FocusReason::Programmatic)")
                 })
@@ -5291,7 +5405,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::ClearFocusItem => (|| {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);
-                item_owner(pr).then(|owner| {
+                item_owner(pr, ctx).then(|owner| {
                     let (_, focus_item) = native_item_from_owner(pr, ctx, owner);
                     format!("{window}.set_focus_item({focus_item}, false, ::slint::cbindgen_private::FocusReason::Programmatic)")
                 })
@@ -5381,7 +5495,7 @@ fn compile_builtin_function_call(
             let row = compile_expression(row, ctx);
             let behavior = compile_expression(behavior, ctx);
             access_member(repeater, ctx).then_named("repeater", |repeater| {
-                item_owner(flickable).then(|owner| {
+                item_owner(flickable, ctx).then(|owner| {
                     let (_, flickable_rc) = native_item_from_owner(flickable, ctx, owner);
                     format!(
                         "{repeater}.listview_ensure_row_visible({row}, {behavior}, ::slint::cbindgen_private::ItemRc{{ {flickable_rc} }})"
@@ -5507,7 +5621,7 @@ fn compile_builtin_function_call(
                     }
                     _ => "[](bool) {}".to_string(),
                 };
-                item_owner(anchor_ref).then_named("anchor_owner", |owner| {
+                item_owner(anchor_ref, ctx).then_named("anchor_owner", |owner| {
                     let (_, parent_component) = native_item_from_owner(anchor_ref, ctx, owner);
                     component_access.then(|component_access| {
                     let compo_ptr = if compo_path.is_empty() {
@@ -5579,7 +5693,7 @@ fn compile_builtin_function_call(
             let access_activated = access_member(&popup.activated, &popup_ctx).unwrap();
             let access_close = access_member(&popup.close, &popup_ctx).unwrap();
 
-            item_owner(context_menu_ref).then_named("context_menu_owner", |owner| {
+            item_owner(context_menu_ref, ctx).then_named("context_menu_owner", |owner| {
             let (_, context_menu_rc) = native_item_from_owner(context_menu_ref, ctx, owner);
             let close_popup = context_menu.then(|context_menu| {
                 format!("{window}.close_popup({context_menu}.popup_id)")
@@ -5672,7 +5786,7 @@ fn compile_builtin_function_call(
             if let [llr::Expression::PropertyReference(pr), constraint_expr] = arguments {
                 let native = native_class(pr, ctx);
                 let constraint = compile_expression(constraint_expr, ctx);
-                item_owner(pr).map_or_default(|owner| {
+                item_owner(pr, ctx).map_or_default(|owner| {
                     let (item, item_rc) = native_item_from_owner(pr, ctx, owner);
                     format!(
                         "::slint::private_api::item_layout_info({vt}, const_cast<::slint::cbindgen_private::{ty}*>(&{item}), {o}, {constraint}, &{window}, {item_rc})",

@@ -52,6 +52,11 @@ pub fn remove_unused(root: &mut CompilationUnit) {
 
     for (idx, sc) in root.sub_components.iter_mut_enumerated() {
         let keep = |refer: &MemberReference| match refer {
+            MemberReference::Repeated { sub_component, local_reference, .. } => {
+                let idx = state
+                    .follow_sub_components(*sub_component, &local_reference.sub_component_path);
+                mappings.sc_mappings[idx].keep(&local_reference.reference)
+            }
             MemberReference::Relative { parent_level, local_reference } => {
                 assert_eq!(*parent_level, 0);
                 let idx = state.follow_sub_components(idx, &local_reference.sub_component_path);
@@ -310,6 +315,7 @@ mod visitor {
         idx: SubComponentIdx,
         SubComponent {
             name: _,
+            collection_source: _,
             properties: _,
             callbacks: _,
             functions,
@@ -602,6 +608,14 @@ mod visitor {
         visitor: &mut (impl Visitor + ?Sized),
     ) {
         match member {
+            MemberReference::Repeated { sub_component, local_reference, .. } => {
+                visit_local_member_reference(
+                    local_reference,
+                    &EvaluationScope::SubComponent(*sub_component, None),
+                    state,
+                    visitor,
+                );
+            }
             MemberReference::Relative { parent_level, local_reference } => {
                 let &EvaluationScope::SubComponent(mut sc, _) = scope else { unreachable!() };
                 for _ in 0..*parent_level {

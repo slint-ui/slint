@@ -1,0 +1,382 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, ListView } from "std-widgets.slint";
+
+interface Entry {
+    in property <string> title;
+    in-out property <int> value;
+    in-out property <float> progress;
+    public function reset();
+    public function mutate() -> int;
+    callback pinged();
+}
+
+component Item inherits Rectangle {
+    in property <string> title;
+    in-out property <int> value;
+    in-out property <float> progress;
+    animate progress { duration: root.title == "B" ? 200ms : 100ms; easing: linear; }
+    callback pinged();
+    public function reset() { root.value = 0; }
+    public function mutate() -> int {
+        root.pinged();
+        root.value += 1;
+        return root.value;
+    }
+    VerticalLayout {
+        Text { text: "Page \{root.title}: \{root.value}"; }
+        Text { text: "Progress \{root.title}: \{round(root.progress)}"; }
+    }
+}
+
+export global CollectionProbe {
+    in-out property <int> returned: -1;
+    in-out property <int> after: -1;
+    in-out property <int> after-call: -1;
+    in-out property <int> completed;
+}
+
+component Editor inherits Rectangle {
+    in property <string> title;
+    in-out property <int> value;
+    Button { text: "Proxy \{root.title}: \{root.value}"; clicked => { root.value += 10; } }
+}
+
+component EntryGroup inherits Rectangle {
+    default slot <[implements Entry]> entries;
+    VerticalLayout {
+        for entry in entries: HorizontalLayout {
+            Button {
+                text: "Change \{entry.title}: \{entry.value}";
+                clicked => { entry.value += 1; entry.pinged(); }
+            }
+            Button { text: "Reset \{entry.title}"; clicked => { entry.reset(); } }
+            Button { text: "Animate \{entry.title}"; clicked => { entry.progress = 100; } }
+            Button {
+                text: "Mutate \{entry.title}";
+                clicked => {
+                    CollectionProbe.returned = entry.mutate();
+                    CollectionProbe.after = entry.value;
+                    entry.value = 999;
+                    CollectionProbe.after-call = entry.mutate();
+                    CollectionProbe.completed += 1;
+                }
+            }
+            Editor { title: entry.title; value <=> entry.value; }
+        }
+        for entry in entries: Rectangle {
+            for suffix in ["state"]: Text {
+                text: "\{entry.title} \{suffix}: \{entry.value}";
+            }
+        }
+        for entry in entries: entry { }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 640px;
+    height: 600px;
+    in-out property <[[string]]> groups: [["A", "B"], ["C", "D"]];
+    out property <int> pings;
+    out property <bool> test: root.pings == 0;
+    public function insert-first() { root.groups[0].insert(0, "Zero"); }
+    public function remove-first() { root.groups[0].remove(0); }
+    VerticalLayout {
+        for names in root.groups: EntryGroup {
+            for name in names: Item {
+                title: name;
+                pinged => { root.pings += 1; }
+            }
+        }
+    }
+}
+
+export component LifetimeTest inherits Window {
+    width: 640px;
+    height: 600px;
+    in-out property <[string]> names: ["A", "B"];
+    in-out property <bool> show-group: true;
+    callback mutate();
+    out property <bool> test: root.names.length == 2 && root.show-group;
+    if root.show-group: EntryGroup {
+        for name in root.names: Item {
+            title: name;
+            value: name == "B" ? 100 : 0;
+            pinged => { root.mutate(); }
+        }
+    }
+}
+
+export component VirtualizedTest inherits Window {
+    width: 640px;
+    height: 240px;
+    out property <int> constructions;
+    out property <bool> test: root.constructions < 200;
+    public function scroll-to(index: int) {
+        list.ensure-row-visible(index, ScrollBehavior.instant);
+    }
+    list := ListView {
+        for group in 100: Rectangle {
+            height: 240px;
+            EntryGroup {
+                for name in ["A", "B"]: Item {
+                    title: "\{group}:\{name}";
+                    init => { root.constructions += 1; }
+                }
+            }
+        }
+    }
+}
+
+component FocusGroup {
+    default slot <[FocusScope]> entries;
+    HorizontalLayout {
+        for entry[index] in entries: Button {
+            text: "Focus \{index}";
+            clicked => { entry.focus(); }
+        }
+    }
+    for entry in entries: entry { }
+}
+
+export component FocusTest inherits Window {
+    width: 300px;
+    height: 120px;
+    out property <int> focused-index: -1;
+    out property <bool> test: root.focused-index == -1;
+    FocusGroup {
+        for index in 2: FocusScope {
+            focus-gained => { root.focused-index = index; }
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::PointerEventButton;
+use slint_testing::{AccessibleRole, ElementHandle};
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let button = |label: &str| ElementHandle::find_by_accessible_label(&instance, label)
+    .find(|element| element.accessible_role() == Some(AccessibleRole::Button)).unwrap();
+button("Change B: 0").mock_single_click(PointerEventButton::Left);
+button("Change B: 1");
+button("Change D: 0").mock_single_click(PointerEventButton::Left);
+button("Change D: 1").mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_pings(), 3);
+button("Change A: 0");
+button("Change C: 0");
+assert!(ElementHandle::find_by_accessible_label(&instance, "B state: 1").next().is_some());
+assert!(ElementHandle::find_by_accessible_label(&instance, "D state: 2").next().is_some());
+button("Reset B").mock_single_click(PointerEventButton::Left);
+button("Reset D").mock_single_click(PointerEventButton::Left);
+button("Change B: 0");
+button("Change D: 0");
+button("Proxy B: 0").mock_single_click(PointerEventButton::Left);
+button("Change B: 10");
+button("Proxy D: 0");
+button("Reset B").mock_single_click(PointerEventButton::Left);
+button("Proxy B: 0");
+instance.invoke_insert_first();
+button("Proxy B: 0").mock_single_click(PointerEventButton::Left);
+button("Change B: 10");
+button("Change A: 0");
+button("Change Zero: 0");
+instance.invoke_remove_first();
+button("Proxy B: 10").mock_single_click(PointerEventButton::Left);
+button("Change B: 20");
+button("Reset B").mock_single_click(PointerEventButton::Left);
+button("Proxy B: 0");
+assert!(ElementHandle::find_by_accessible_label(&instance, "Page B: 0").next().is_some());
+assert!(ElementHandle::find_by_accessible_label(&instance, "Page D: 0").next().is_some());
+button("Animate B").invoke_accessible_default_action();
+assert!(ElementHandle::find_by_accessible_label(&instance, "Progress B: 0").next().is_some());
+slint_testing::mock_elapsed_time(100);
+assert!(ElementHandle::find_by_accessible_label(&instance, "Progress B: 50").next().is_some());
+assert!(ElementHandle::find_by_accessible_label(&instance, "Progress D: 0").next().is_some());
+slint_testing::mock_elapsed_time(100);
+assert!(ElementHandle::find_by_accessible_label(&instance, "Progress B: 100").next().is_some());
+```
+
+```rust
+use slint::ComponentHandle;
+use slint_testing::ElementHandle;
+{
+    for mode in 0..3 {
+        let instance = LifetimeTest::new().unwrap();
+        let names = std::rc::Rc::new(slint::VecModel::from(vec!["A".into(), "B".into()]));
+        instance.set_names(names.clone().into());
+        let weak = instance.as_weak();
+        instance.on_mutate(move || {
+            let instance = weak.upgrade().unwrap();
+            match mode {
+                0 => { names.remove(0); }
+                1 => instance.set_names(std::rc::Rc::new(slint::VecModel::from(vec!["Replacement".into()])).into()),
+                _ => instance.set_show_group(false),
+            }
+            ElementHandle::find_by_accessible_label(&instance, "Change B: 100").next();
+        });
+        ElementHandle::find_by_accessible_label(&instance, "Mutate A").next().unwrap()
+            .invoke_accessible_default_action();
+        let probe = instance.global::<CollectionProbe<'_>>();
+        assert_eq!(probe.get_returned(), 1);
+        assert_eq!(probe.get_after(), 0);
+        assert_eq!(probe.get_after_call(), 0);
+        assert_eq!(probe.get_completed(), 1);
+        if mode == 0 {
+            assert!(ElementHandle::find_by_accessible_label(&instance, "Change B: 100").next().is_some());
+        }
+    }
+}
+```
+
+```rust
+use slint::platform::WindowEvent;
+use slint_testing::ElementHandle;
+let instance = VirtualizedTest::new().unwrap();
+let layout = || instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: slint::LogicalPosition::new(1., 1.),
+});
+let button = |label: &str| ElementHandle::find_by_accessible_label(&instance, label)
+    .find(|element| element.accessible_role() == Some(slint_testing::AccessibleRole::Button)).unwrap();
+layout();
+assert!(instance.get_constructions() > 0 && instance.get_constructions() < 200);
+button("Change 0:B: 0").invoke_accessible_default_action();
+button("Change 0:B: 1");
+instance.invoke_scroll_to(80);
+layout();
+button("Change 80:B: 0").invoke_accessible_default_action();
+button("Change 80:B: 1");
+assert!(instance.get_constructions() < 200);
+instance.invoke_scroll_to(0);
+layout();
+button("Change 0:B: 0");
+```
+
+```cpp
+auto handle = TestCase::create();
+#ifndef SLINT_FEATURE_LIVE_PREVIEW
+// The live-preview wrapper does not support ElementHandle queries.
+const auto &instance = *handle;
+auto button = [&](const char *label) {
+    auto matches = slint::testing::ElementHandle::find_by_accessible_label(handle, label);
+    assert_eq(matches.size(), 1u);
+    return matches[0];
+};
+button("Change B: 0").invoke_accessible_default_action();
+button("Change B: 1");
+assert_eq(instance.get_pings(), 1);
+button("Proxy B: 1").invoke_accessible_default_action();
+button("Change B: 11");
+button("Change A: 0");
+button("Change D: 0");
+instance.invoke_insert_first();
+button("Proxy B: 11").invoke_accessible_default_action();
+button("Change B: 21");
+instance.invoke_remove_first();
+button("Reset B").invoke_accessible_default_action();
+button("Proxy B: 0");
+button("Animate B").invoke_accessible_default_action();
+slint_testing::mock_elapsed_time(100);
+assert_eq(slint::testing::ElementHandle::find_by_accessible_label(handle, "Progress B: 50").size(), 1u);
+slint_testing::mock_elapsed_time(100);
+assert_eq(slint::testing::ElementHandle::find_by_accessible_label(handle, "Progress B: 100").size(), 1u);
+#endif
+```
+
+```cpp
+#ifndef SLINT_FEATURE_LIVE_PREVIEW
+// The live-preview wrapper does not support ElementHandle queries.
+{
+    for (int mode = 0; mode < 3; ++mode) {
+        auto handle = LifetimeTest::create();
+        auto names = std::make_shared<slint::VectorModel<slint::SharedString>>(
+            std::vector<slint::SharedString>{"A", "B"});
+        handle->set_names(names);
+        auto weak = slint::ComponentWeakHandle(handle);
+        handle->on_mutate([weak, names, mode] {
+            auto instance = weak.lock().value();
+            if (mode == 0) {
+                names->erase(0);
+            } else if (mode == 1) {
+                instance->set_names(std::make_shared<slint::VectorModel<slint::SharedString>>(
+                    std::vector<slint::SharedString>{"Replacement"}));
+            } else {
+                instance->set_show_group(false);
+            }
+            slint::testing::ElementHandle::find_by_accessible_label(instance, "Change B: 100");
+        });
+        auto action = slint::testing::ElementHandle::find_by_accessible_label(handle, "Mutate A");
+        assert_eq(action.size(), 1u);
+        action[0].invoke_accessible_default_action();
+        const auto &probe = handle->global<CollectionProbe>();
+        assert_eq(probe.get_returned(), 1);
+        assert_eq(probe.get_after(), 0);
+        assert_eq(probe.get_after_call(), 0);
+        assert_eq(probe.get_completed(), 1);
+        if (mode == 0) {
+            assert_eq(slint::testing::ElementHandle::find_by_accessible_label(handle, "Change B: 100").size(), 1u);
+        }
+    }
+}
+#endif
+```
+
+```cpp
+#ifndef SLINT_FEATURE_LIVE_PREVIEW
+// The live-preview wrapper does not support ElementHandle queries.
+auto handle = VirtualizedTest::create();
+auto layout = [&] { handle->window().dispatch_pointer_move_event(slint::LogicalPosition({ 1., 1. })); };
+auto button = [&](const char *label) {
+    auto matches = slint::testing::ElementHandle::find_by_accessible_label(handle, label);
+    for (const auto &element : matches) {
+        if (element.accessible_role() == slint::language::AccessibleRole::Button)
+            return element;
+    }
+    std::abort();
+};
+layout();
+assert(handle->get_constructions() > 0 && handle->get_constructions() < 200);
+button("Change 0:B: 0").invoke_accessible_default_action();
+button("Change 0:B: 1");
+handle->invoke_scroll_to(80);
+layout();
+button("Change 80:B: 0").invoke_accessible_default_action();
+button("Change 80:B: 1");
+assert(handle->get_constructions() < 200);
+handle->invoke_scroll_to(0);
+layout();
+button("Change 0:B: 0");
+#endif
+```
+
+```rust
+use slint_testing::{AccessibleRole, ElementHandle};
+let instance = FocusTest::new().unwrap();
+assert!(instance.get_test());
+for index in [1, 0] {
+    ElementHandle::find_by_accessible_label(&instance, &format!("Focus {index}"))
+        .find(|element| element.accessible_role() == Some(AccessibleRole::Button)).unwrap()
+        .invoke_accessible_default_action();
+    assert_eq!(instance.get_focused_index(), index);
+}
+```
+
+```cpp
+auto handle = FocusTest::create();
+assert(handle->get_test());
+#ifndef SLINT_FEATURE_LIVE_PREVIEW
+// The live-preview wrapper does not support ElementHandle queries.
+for (int index : {1, 0}) {
+    auto buttons = slint::testing::ElementHandle::find_by_accessible_label(handle, index ? "Focus 1" : "Focus 0");
+    auto button = std::find_if(buttons.begin(), buttons.end(), [](const auto &element) {
+        return element.accessible_role() == slint::language::AccessibleRole::Button;
+    });
+    assert(button != buttons.end());
+    button->invoke_accessible_default_action();
+    assert(handle->get_focused_index() == index);
+}
+#endif
+```
+*/
