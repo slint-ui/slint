@@ -505,11 +505,19 @@ pub struct DeclaredSlot {
     pub component_type: Option<ElementType>,
     pub name: SmolStr,
     pub name_node: syntax_nodes::DeclaredIdentifier,
-    pub default: Option<syntax_nodes::SubElement>,
+    pub defaults: Vec<syntax_nodes::SubElement>,
     has_rejected_placeholder: bool,
 }
 
 impl DeclaredSlot {
+    pub fn constraint_type(&self) -> Option<ElementType> {
+        self.interface.clone().map(ElementType::Component).or_else(|| self.component_type.clone())
+    }
+
+    pub fn is_typed(&self) -> bool {
+        self.interface.is_some() || self.component_type.is_some()
+    }
+
     pub fn insertion_name(&self) -> &str {
         if self.is_default { DEFAULT_SLOT_NAME } else { &self.name }
     }
@@ -781,7 +789,7 @@ impl Component {
             }
         }
         for slot in self.declared_slots.borrow().iter() {
-            if let Some(default) = &slot.default
+            if let Some(default) = slot.defaults.first()
                 && let Some(cip) = self.child_insertion_points.borrow().get(slot.insertion_name())
                 && matches!(cip.node, ChildInsertionPointNode::SlotForwarding(_))
                 && let Some(forwarding) =
@@ -1467,7 +1475,7 @@ pub struct Element {
 
     pub empty_slot_assignments: Vec<SmolStr>,
 
-    pub typed_slot_interface: Option<Rc<Component>>,
+    pub is_typed_slot: bool,
     pub slot_collection: bool,
     pub slot_expansion: Option<SlotExpansion>,
 

@@ -6,33 +6,60 @@ use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::Expression;
 use crate::langtype::Type;
 use crate::namedreference::NamedReference;
-use crate::object_tree::interfaces;
 use crate::object_tree::{
-    Component, Element, ElementRc, recurse_elem, recurse_elem_including_sub_components,
-    visit_all_named_references,
+    Component, Element, ElementRc, PropertyDeclaration, recurse_elem,
+    recurse_elem_including_sub_components, visit_all_expressions, visit_all_named_references,
 };
+use crate::object_tree::{interfaces, typed_slots};
 use crate::parser::normalize_identifier;
 use crate::typeregister::TypeRegister;
+use by_address::ByAddress;
 use smol_str::SmolStr;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 
 pub(super) fn prepare(component: &Rc<Component>, tr: &TypeRegister) {
     recurse_elem(&component.root_element, &(), &mut |element, _| {
-        let interface = element.borrow().typed_slot_interface.clone();
-        if let Some(interface) = interface {
-            let mut element = element.borrow_mut();
+        let mut element = element.borrow_mut();
+        if element.is_typed_slot {
             let mut declarations = BTreeMap::new();
-            for (name, mut member) in interfaces::declared_members(&interface.root_element) {
+            let members: Vec<_> = match &element.base_type {
+                ElementType::Component(c) if c.is_interface() => {
+                    interfaces::declared_members(&c.root_element)
+                        .into_iter()
+                        .map(|(name, member)| (name, member.declaration))
+                        .collect()
+                }
+                base => {
+                    let names = base.property_list().into_iter().map(|(name, _)| name).chain(
+                        crate::typeregister::reserved_properties()
+                            .map(|(name, ..)| SmolStr::new_static(name)),
+                    );
+                    names
+                        .map(|name| {
+                            let member =
+                                element.lookup_property(&name, PropertyLookupMode::ComponentLocal);
+                            let declaration = PropertyDeclaration {
+                                property_type: member.property_type,
+                                visibility: member.property_visibility,
+                                pure: member.declared_pure,
+                                ..Default::default()
+                            };
+                            (name, declaration)
+                        })
+                        .collect()
+                }
+            };
+            for (name, mut declaration) in members {
                 let internal_name = element
                     .lookup_property(&name, PropertyLookupMode::ComponentLocal)
                     .internal_or_resolved_name();
                 if internal_name != name {
-                    member.declaration.shadowed_name = Some(name.clone());
+                    declaration.shadowed_name = Some(name.clone());
                     element.shadowing_members.insert(name, internal_name.clone());
                 }
-                member.declaration.expose_in_public_api = false;
-                declarations.insert(internal_name, member.declaration);
+                declaration.expose_in_public_api = false;
+                declarations.insert(internal_name, declaration);
             }
             element.property_declarations = declarations;
             element.base_type = tr.empty_type();
@@ -62,19 +89,15 @@ pub(super) fn check_content(
         let mut base = base.clone();
         loop {
             for slot in base.declared_slots.borrow().iter() {
-                if slot.is_collection {
+                if slot.is_collection || !slot.is_typed() {
                     continue;
                 }
-                let Some(interface) = &slot.interface else { continue };
                 if assigned.contains(&slot.name)
                     || !base.child_insertion_points.borrow().contains_key(slot.name.as_str())
                 {
                     continue;
                 }
-                let message = format!(
-                    "Typed slot '{}' requires a component that provides '{}'",
-                    slot.name, interface.id
-                );
+                let message = typed_slots::missing_typed_slot_message(slot);
                 match element.debug.first().and_then(|debug| debug.node.QualifiedName()) {
                     Some(type_name) => diag.push_error(message, &type_name),
                     None => diag.push_error(message, &*element),
@@ -110,7 +133,7 @@ pub(super) fn lower(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     fn lower_children(
         parent: &ElementRc,
         mapping: &mut HashMap<NamedReference, NamedReference>,
-        removed: &mut Vec<ElementRc>,
+        replaced: &mut HashMap<ByAddress<ElementRc>, ElementRc>,
         diag: &mut BuildDiagnostics,
     ) {
         let children = std::mem::take(&mut parent.borrow_mut().children);
@@ -122,14 +145,14 @@ pub(super) fn lower(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
             {
                 lower(&base, diag);
             }
-            lower_children(&child, mapping, removed, diag);
-            if child.borrow().typed_slot_interface.is_none() {
+            lower_children(&child, mapping, replaced, diag);
+            if !child.borrow().is_typed_slot {
                 result.push(child);
                 continue;
             }
             match replace_typed_slot(&child, mapping, diag) {
                 Some(actual) => {
-                    removed.push(child);
+                    replaced.insert(ByAddress(child), actual.clone());
                     result.push(actual);
                 }
                 None => result.push(child),
@@ -169,13 +192,25 @@ pub(super) fn lower(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
         Some(actual)
     }
     let mut mapping = HashMap::new();
-    let mut removed = Vec::new();
-    lower_children(&component.root_element, &mut mapping, &mut removed, diag);
+    let mut replaced = HashMap::new();
+    lower_children(&component.root_element, &mut mapping, &mut replaced, diag);
     visit_all_named_references(component, &mut |reference| {
         if let Some(target) = mapping.get(reference) {
             *reference = target.clone();
         }
     });
+    if !replaced.is_empty() {
+        visit_all_expressions(component, |expression, _| {
+            expression.visit_recursive_mut(&mut |expression| {
+                if let Expression::ElementReference(element) = expression
+                    && let Some(actual) =
+                        element.upgrade().and_then(|e| replaced.get(&ByAddress(e)))
+                {
+                    *element = Rc::downgrade(actual);
+                }
+            });
+        });
+    }
     for popup in component.popup_windows.borrow().iter() {
         lower(&popup.component, diag);
     }

@@ -402,7 +402,8 @@ declare_syntax! {
         /// Wraps single identifier (to disambiguate when there are other identifier in the production)
         DeclaredIdentifier -> [],
         ChildrenPlaceholder -> [],
-        SlotAssignment -> [ DeclaredIdentifier, ?SubElement ],
+        SlotAssignment -> [ DeclaredIdentifier, ?SubElement, ?SlotElementList ],
+        SlotElementList -> [ *SubElement ],
         SlotForwarding -> [ DeclaredIdentifier, ?Expression ],
         Binding-> [ BindingExpression ],
         /// `xxx <=> something`
@@ -430,7 +431,7 @@ declare_syntax! {
         AtTr -> [?TrContext, ?TrPlural, *Expression],
         AtMarkdown -> [*Expression],
         /// `slot header;` or `slot header << Default {}`
-        SlotDeclaration -> [ ?QualifiedName, DeclaredIdentifier, ?SubElement ],
+        SlotDeclaration -> [ ?QualifiedName, DeclaredIdentifier, ?SubElement, ?SlotElementList ],
         /// `"foo" =>`  in a `AtTr` node
         TrContext -> [],
         /// `| "foo" % n`  in a `AtTr` node

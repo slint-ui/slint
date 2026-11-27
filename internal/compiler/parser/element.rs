@@ -285,11 +285,13 @@ fn parse_sub_element(p: &mut impl Parser) -> bool {
 /// ```test,SlotDeclaration
 /// slot header;
 /// slot <ContentInterface> content;
-/// default slot <[implements Entry]> entries;
+/// slot <*> wildcard;
+/// default slot <[Entry]> entries;
 /// slot <[Entry]> components;
 /// slot <[*]> children;
 /// slot header << Text { text: "Default"; }
 /// slot header << label := Text {}
+/// slot <[*]> items << [Rectangle {} Text {}]
 /// ```
 fn parse_slot_declaration(p: &mut impl Parser) {
     {
@@ -301,10 +303,7 @@ fn parse_slot_declaration(p: &mut impl Parser) {
         p.expect(SyntaxKind::Identifier); // "slot"
         if p.test(SyntaxKind::LAngle) {
             let collection = p.test(SyntaxKind::LBracket);
-            if collection && p.peek().as_str() == "implements" {
-                p.consume();
-                parse_qualified_name(&mut *p);
-            } else if !(collection && p.test(SyntaxKind::Star)) {
+            if !p.test(SyntaxKind::Star) {
                 parse_qualified_name(&mut *p);
             }
             if collection {
@@ -322,6 +321,9 @@ fn parse_slot_declaration(p: &mut impl Parser) {
             return;
         }
         match p.peek().as_str() {
+            _ if p.peek().kind() == SyntaxKind::LBracket => {
+                parse_slot_element_list(&mut *p);
+            }
             _ if p.peek().kind() == SyntaxKind::LBrace => {
                 if p.nth(1).kind() == SyntaxKind::RBrace {
                     p.error(format!("Use 'slot {name};' for a slot without default content"));
@@ -349,6 +351,8 @@ fn parse_slot_declaration(p: &mut impl Parser) {
 /// ```test,SlotAssignment
 /// header << HeaderComponent {}
 /// header << { }
+/// entries << []
+/// entries << [Rectangle {} Text {}]
 /// ```
 fn parse_slot_assignment(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::SlotAssignment);
@@ -357,11 +361,25 @@ fn parse_slot_assignment(p: &mut impl Parser) -> bool {
         p.expect(SyntaxKind::Identifier);
     }
     p.expect(SyntaxKind::DoubleLess);
+    if p.peek().kind() == SyntaxKind::LBracket {
+        return parse_slot_element_list(&mut *p);
+    }
     if !parse_sub_element_or_empty(&mut *p, "slot") {
         p.error("Expected element after '<<'");
         return false;
     }
     true
+}
+
+fn parse_slot_element_list(p: &mut impl Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::SlotElementList);
+    p.expect(SyntaxKind::LBracket);
+    while p.peek().kind() == SyntaxKind::Identifier {
+        if !parse_sub_element(&mut *p) {
+            return false;
+        }
+    }
+    p.expect(SyntaxKind::RBracket)
 }
 
 #[cfg_attr(test, parser_test)]
@@ -387,7 +405,7 @@ fn parse_slot_assignment_or_forwarding(p: &mut impl Parser) -> bool {
     let rhs_first = p.nth(2).kind();
     let rhs_second = p.nth(3).kind();
 
-    let is_slot_assignment = rhs_first == SyntaxKind::LBrace
+    let is_slot_assignment = matches!(rhs_first, SyntaxKind::LBrace | SyntaxKind::LBracket)
         || (rhs_first == SyntaxKind::Identifier
             && matches!(rhs_second, SyntaxKind::LBrace | SyntaxKind::ColonEqual));
 

@@ -6,9 +6,13 @@ component Group {
     default slot <[*]> entries;
     slot <[Text]> labels;
     slot <[widgets.Page]> pages;
-    slot <[implements Entry]> actions;
-    slot <[implements widgets.Entry]> others;
-    slot <[*]> content << Rectangle { }
+    slot <[Entry]> actions;
+    slot <[widgets.Entry]> others;
+    slot <*> accessory;
+    slot <Rectangle> badge;
+    slot <[*]> content << [Rectangle { } Text { }]
+    Group { content << [Rectangle { } Text { }] }
+    Group { content << [] }
     for entry[index] in entries: entry { visible: index == 0; }
     for entry in entries: Text { text: entry.width; }
     out property <bool> first-visible: entries[0].visible;
@@ -36,10 +40,37 @@ component Group {
         (user_type_identifier)
         (simple_identifier))
       (slot_declaration
+        (simple_identifier))
+      (slot_declaration
+        (user_type_identifier)
+        (simple_identifier))
+      (slot_declaration
         (simple_identifier)
-        (component
-          (user_type_identifier)
-          (block)))
+        (slot_element_list
+          (component
+            (user_type_identifier)
+            (block))
+          (component
+            (user_type_identifier)
+            (block))))
+      (component
+        (user_type_identifier)
+        (block
+          (slot_assignment
+            (simple_identifier)
+            (slot_element_list
+              (component
+                (user_type_identifier)
+                (block))
+              (component
+                (user_type_identifier)
+                (block))))))
+      (component
+        (user_type_identifier)
+        (block
+          (slot_assignment
+            (simple_identifier)
+            (slot_element_list))))
       (for_loop
         (simple_indexed_identifier
           (simple_identifier)
