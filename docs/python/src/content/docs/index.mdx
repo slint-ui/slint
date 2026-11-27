@@ -238,5 +238,8 @@ In the names of types, properties, callbacks, functions, and struct fields, use 
 If a name is a Python keyword or `self`, such as a struct field `class`,
 add a trailing underscore: `class_`.
 
+A component's property, callback, or function named `show`, `hide`, or `run` will shadow the `slint.Component` method with the same name.
+To use the method, call it from the base class: `slint.Component.show(app)`.
+
 For the full set of classes and module-level functions, see the **API**
 section in the sidebar.

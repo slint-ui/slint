@@ -87,9 +87,9 @@ class Component:
 
     def run(self) -> None:
         """Shows the window, runs the event loop, hides it when the loop is quit, and returns."""
-        self.show()
+        self.__instance__.show()
         run_event_loop()
-        self.hide()
+        self.__instance__.hide()
 
 
 def _normalize_prop(name: str) -> str:
