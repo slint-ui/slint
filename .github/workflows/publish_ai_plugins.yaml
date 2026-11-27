@@ -73,20 +73,22 @@ jobs:
                   git push
             # The Claude plugin directory only takes a plugin at the root of a branch, not the path to mcp/.
             - name: Update the claude-directory branch
-              if: inputs.repository == 'ai-plugins'
               working-directory: mirror
               shell: bash
               run: |
-                  git fetch --depth 1 origin claude-directory
-                  branch=$(git rev-parse FETCH_HEAD)
+                  if git fetch --depth 1 origin claude-directory; then
+                      base=$(git rev-parse FETCH_HEAD)
+                  else
+                      base=HEAD
+                  fi
                   # The branch keeps its own README.
                   mcp=$(git ls-tree HEAD:mcp | grep -v $'\tREADME.md$')
-                  readme=$(git ls-tree "$branch" README.md)
+                  readme=$(git ls-tree "$base" README.md)
                   tree=$(printf '%s\n' "$mcp" "$readme" | git mktree)
-                  if [ "$tree" = "$(git rev-parse "$branch^{tree}")" ]; then
+                  if [ "$tree" = "$(git rev-parse "$base^{tree}")" ]; then
                       echo "Already up to date."
                       exit 0
                   fi
-                  commit=$(git commit-tree "$tree" -p "$branch" -m "Sync from slint-ui/slint@$GITHUB_SHA")
-                  git diff --stat "$branch" "$commit"
+                  commit=$(git commit-tree "$tree" -p "$base" -m "Sync from slint-ui/slint@$GITHUB_SHA")
+                  git diff --stat "$base" "$commit"
                   git push origin "$commit:refs/heads/claude-directory"

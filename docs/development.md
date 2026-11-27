@@ -83,9 +83,9 @@ The nightly snapshot runs it on the commit it builds.
 A nightly publishes to the [nightly mirror](https://github.com/slint-ui/ai-plugins-nightly), and a release to the [release mirror](https://github.com/slint-ui/ai-plugins).
 Run the workflow by hand to publish the branch you run it on right away.
 The release mirror selects `release` in `mcp/slint-preview/channel.json`.
-Its `claude-directory` branch holds a copy of `mcp/` at the root, with its own README, for the Claude plugin directory.
 The nightly mirror selects `snapshot`.
 Its marketplace name is `slint-nightly`, and its version has a `-nightly.<UTC timestamp>` suffix.
+In both mirrors, the `claude-directory` branch holds a copy of `mcp/` at the root, with its own README, for the Claude plugin directory.
 To see what the script would publish, run it against a clean clone of a mirror and look at the diff.
 
 The MCP server checks and renders source with a separate software Wasm build before publication.
