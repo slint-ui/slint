@@ -1,0 +1,50 @@
+import { Button } from "std-widgets.slint";
+import { Metrics } from "../metrics.slint";
+
+export enum RepeatMode { off, track, playlist }
+
+export global Player {
+    callback change-repeat(mode: RepeatMode);
+    change-repeat(mode) => {
+        repeat = mode;
+    }
+
+    in-out property <RepeatMode> repeat: RepeatMode.off;
+}
+
+export component PlayerView inherits FocusScope {
+    callback back();
+
+    forward-focus: back;
+
+    KeyBinding {
+        keys: @keys(Escape);
+        activated => { root.back(); }
+    }
+
+    HorizontalLayout {
+        padding: Metrics.panel-padding;
+        spacing: Metrics.gap;
+        alignment: LayoutAlignment.center;
+        cross-axis-alignment: CrossAxisAlignment.center;
+
+        back := Button {
+            text: @tr("Back");
+            clicked => { root.back(); }
+        }
+
+        repeat := Button {
+            text: @tr("Repeat track");
+            clicked => { Player.change-repeat(RepeatMode.track); }
+        }
+    }
+
+    states [
+        repeat-track when Player.repeat == RepeatMode.track: {
+            repeat.text: @tr("Repeat Playlist");
+        }
+        repeat-playlist when Player.repeat == RepeatMode.playlist: {
+            repeat.text: @tr("Disable Repeat");
+        }
+    ]
+}

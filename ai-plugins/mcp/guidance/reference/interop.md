@@ -1,23 +1,22 @@
 # Connecting to Business Logic (Rust / C++ / JS / Python)
 
-Use `export global`s for host interop instead of threading properties and
-callbacks through every component — e.g. one global for state the host pushes
-in and one for actions the host handles (a single mixed global is equally
-idiomatic).
+Put host-facing data and its operations together in the feature that owns them.
+Re-export the global from the entry file so the host can access it.
 
 ```slint
-// globals.slint
+// views/library.slint
 export struct Row { id: int, name: string, selected: bool }
-export global AppData {           // host pushes models/state in
+export global Library {
     in property <[Row]> rows;
-}
-export global Logic {             // UI calls these; host handles them
-    callback row-clicked(int);
+    callback row-clicked(id: int);
     callback refresh();
 }
 ```
 
-Any component can read `AppData.rows` / call `Logic.row-clicked(...)` directly.
+```slint no-test
+// main.slint
+export { Library, Row } from "views/library.slint";
+```
 
 ## Rust
 
@@ -26,8 +25,8 @@ slint::include_modules!();
 use slint::{ModelRc, VecModel};
 
 let ui = MainWindow::new()?;
-ui.global::<AppData>().set_rows(ModelRc::new(VecModel::from(rows))); // Vec<Row>
-ui.global::<Logic>().on_row_clicked(move |i| { /* … */ });
+ui.global::<Library>().set_rows(ModelRc::new(VecModel::from(rows))); // Vec<Row>
+ui.global::<Library>().on_row_clicked(move |id| { /* … */ });
 ui.run()
 ```
 
@@ -51,9 +50,9 @@ ui.run()
 struct App {
     slint::ComponentHandle<ns::AppWindow> ui;       // `ns` = the NAMESPACE you passed
     App() : ui(ns::AppWindow::create()) {           // no default ctor: init in the list
-        const auto &logic = ui->global<ns::Logic>();
-        logic.set_rows(std::make_shared<slint::VectorModel<ns::Row>>(rows)); // a `[Row]` field
-        logic.on_row_clicked([this](int i) { /* … */ });
+        const auto &library = ui->global<ns::Library>();
+        library.set_rows(std::make_shared<slint::VectorModel<ns::Row>>(rows)); // a `[Row]` field
+        library.on_row_clicked([this](int id) { /* … */ });
     }
 };
 ```

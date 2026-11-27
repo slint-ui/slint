@@ -1,8 +1,5 @@
 # The `.slint` Language & Layout
 
-Syntax primer: the example in SKILL.md. Full guide: the docs' language section.
-Below are the rules agents most often get wrong.
-
 ## Language
 
 - Properties: `[in|out|in-out|private] property <type> name[: default];` — be
@@ -27,7 +24,8 @@ Below are the rules agents most often get wrong.
 ## Layout & Sizing (read before fighting the layout)
 
 - Use layouts (`VerticalLayout`, `HorizontalLayout`, `GridLayout`, or the
-  padded `*Box` widgets); reserve `x`/`y` for overlays and custom drawing.
+  padded `*Box` widgets); use nested layouts to place panels even when they overlay an image.
+  Use coordinates for spatial input, drawing, and anchored elements.
 - `FlexboxLayout` is for *wrapping* (`flex-wrap` defaults to `wrap`, unlike
   CSS); without wrapping, prefer `HorizontalLayout`/`VerticalLayout`.
 - `padding`/`spacing` only work on layout elements. To inset a `Text`, wrap

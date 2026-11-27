@@ -1,0 +1,63 @@
+# Setting up a multi-view UI
+
+This document describes Slint project structure conventions.
+
+When refactoring, target this general structure.
+If the project already splits up the UI correctly, but with different naming conventions, follow the existing naming conventions and folder organization.
+Use the Target Structure when the project does not yet establish a similar structure or parts of the structure are missing.
+
+## Target Structure
+
+For a UI with several views, focus on the new views contracts before extracting widgets.
+When the public interface may change, replace the old window API as part of the refactor.
+Preserve a compatibility adapter only for an explicit caller requirement.
+
+Use the [runnable project](../examples/music-player/slint-project.json) as the starting skeleton.
+Copy its layout into the UI directory or stage it beside the old UI.
+Replace the sample views and commands with the application's own.
+For an existing modular UI, use the same conventions in the affected feature.
+
+```text
+main.slint                   Window and typed view selection
+slint-project.json           Project Settings, entry point and Slint Edition
+style.slint                  Named brushes and colors
+metrics.slint                Shared spacing, radii, sizes and typography
+views/{index,library,player}.slint
+components/{index,confirm-removal}.slint
+assets/
+  icons.slint                Icons global referencing icons/*.svg, *.png, etc.
+  images.slint               Images global referencing images/*.webp, etc.
+  icons/
+  images/
+```
+
+Create asset groups as needed and keep other media under assets/.
+The index files re-export each folder's public names.
+
+## Organizing views
+
+1. Write a view file and its feature global together.
+   Define the domain types the host needs. Give closed choices enums and model rows typed fields for identity, label, and image.
+   Replace a command such as `action("repeat", "track")` with `Player.change-repeat(RepeatMode.track)`.
+   Re-export the global from the view index and main.slint.
+2. Move controls and behavior into that view.
+   Create dialog instances where they open. A button and a view shortcut both call `confirm.show()`; the popup owns Escape, cancel and confirm.
+   Keep draft input, selection awaiting confirmation, and row expansion local.
+3. Move reusable visual controls into individual files under components/.
+   Keep all view layout in the view. A horizontal layout with a stretching spacer places sidebars over a background.
+   Replace repeated measurements at the use sites with named metrics.
+
+## Review the source before rendering
+
+Inspect the implemented API, including every global. For example:
+
+```sh
+rg -n -g '*.slint' '^export (component|global|enum)|callback |(in-out|in) property'
+```
+
+- A single window or global containing unrelated views' members means the migration is incomplete. Redistribute them by feature.
+- Follow a command from its button to its destination. Remove any string dispatch or integer mode switch along that path.
+- Follow one form from opening to dismissal. Replace a central dialog selector with a view-owned PopupWindow. Place its shortcuts in its FocusScope.
+- Check the files themselves. Each reusable widget has a home in components/; style.slint and metrics.slint contain values. Replace repeated panel coordinates with layouts.
+
+Build and exercise the finished project in the requested Slint viewer.

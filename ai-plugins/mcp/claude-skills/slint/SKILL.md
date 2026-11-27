@@ -5,6 +5,19 @@ description: Write, edit, debug, or review Slint UIs and host-language integrati
 
 # Slint Skill for Claude Code
 
+## `.slint` in 30 Seconds
+
+Slint is declarative and reactive: a property binding re-evaluates automatically when
+anything it reads changes.
+
+Read the complete [music player example](../../guidance/examples/music-player/) before writing or editing a widget, including a single-file widget.
+From that directory, read `slint-project.json`, `*.slint`, `components/*.slint`, and `views/*.slint` together.
+The example shows how components use shared styles and layout metrics.
+
+Property directions: `in` / `out` / `in-out` / `private`. Two-way bind: `a <=> b`.
+Control flow: `if cond : E {}`, `for it[i] in model : E {}`. Shared state & host
+interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
+
 ## Find the Slint Project
 
 Look beside the target `.slint` file and up through the workspace for the applicable `slint-project.json`.
@@ -13,14 +26,13 @@ Check `main` when the project file selects the entry point.
 
 For Rust, check the owning crate's `Cargo.toml` and any inherited workspace dependencies.
 If the crate uses `slint_build`, read its build script for the entry point and compiler settings.
-Use `Cargo.lock` for the resolved Slint version.
+Use the requested UI version, defaulting to the version resolved in `Cargo.lock`.
 The project file's `edition` controls language behavior.
 
 ## Look Up Slint APIs
 
-Find the project's Slint version in its build configuration or lockfile.
 Call `slint-docs` `search` for the element, property, widget, or API you need.
-Pass `version` when the project uses an older release.
+Pass `version` for the target release.
 Pass `site: "testing"` to search the Slint UI Testing docs.
 Call `fetch` with the result's URL exactly as returned to read the page for that release.
 
@@ -40,31 +52,7 @@ Use the `slint-lsp` language server for hover, go-to-definition, and source diag
    Fix issues and run the check again.
 
 Use the returned PNG when sharing a screenshot.
-Use the running app or its tests to verify host-language callbacks, models, and application state.
-
-## `.slint` in 30 Seconds
-
-Declarative and reactive: a property binding re-evaluates automatically when
-anything it reads changes.
-
-```slint
-import { Button, VerticalBox } from "std-widgets.slint";
-
-component Counter inherits Rectangle {     // root element decides fill behavior
-    in property <string> label;            // parent/host writes
-    out property <int> count;              // component writes
-    callback changed(int);                 // notify the outside world
-
-    VerticalBox {
-        Text { text: "\{root.label}: \{root.count}"; }   // interpolation
-        Button { text: "+"; clicked => { root.count += 1; root.changed(root.count); } }
-    }
-}
-```
-
-Property directions: `in` / `out` / `in-out` / `private`. Two-way bind: `a <=> b`.
-Control flow: `if cond : E {}`, `for it[i] in model : E {}`. Shared state & host
-interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
+For host integration changes, verify callbacks and models in the running app.
 
 ## Reference Files
 
@@ -74,6 +62,7 @@ Read the matching reference before working in that area.
 |---|---|
 | [setup.md](../../guidance/setup.md) | Starting a project / wiring the build (Rust/C++/Node/Python). |
 | [language-and-layout.md](../../guidance/reference/language-and-layout.md) | Writing components; an element won't size/fill as expected. |
+| [project-structure](../../guidance/reference/project-structure.md) | Best Practices & Target Project Structure for a multi-page UI |
 | [gotchas.md](../../guidance/reference/gotchas.md) | A file won't compile, or colors/units/math/enums behave oddly. |
 | [events-and-overlays.md](../../guidance/reference/events-and-overlays.md) | Clicks/keys/modifiers, or popovers/menus/context menus. |
 | [icons-and-theming.md](../../guidance/reference/icons-and-theming.md) | Icons, or light/dark theming. |

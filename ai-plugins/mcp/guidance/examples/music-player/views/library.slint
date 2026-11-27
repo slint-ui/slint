@@ -1,0 +1,39 @@
+import { Button } from "std-widgets.slint";
+import { ConfirmRemoval } from "../components/index.slint";
+import { Metrics } from "../metrics.slint";
+
+export global Library {
+    callback remove-selection();
+}
+
+export component LibraryView inherits FocusScope {
+    callback play();
+
+    forward-focus: play;
+
+    KeyBinding {
+        keys: @keys(Delete);
+        activated => { confirm.show(); }
+    }
+
+    HorizontalLayout {
+        padding: Metrics.panel-padding;
+        spacing: Metrics.gap;
+        alignment: LayoutAlignment.center;
+        cross-axis-alignment: CrossAxisAlignment.center;
+
+        play := Button {
+            text: @tr("Play");
+            clicked => { root.play(); }
+        }
+
+        Button {
+            text: @tr("Remove…");
+            clicked => { confirm.show(); }
+        }
+    }
+
+    confirm := ConfirmRemoval {
+        confirmed => { Library.remove-selection(); }
+    }
+}
