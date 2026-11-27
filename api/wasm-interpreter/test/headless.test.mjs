@@ -11,6 +11,34 @@ const interpreter = createRequire(import.meta.url)(
 );
 const repository = new URL("../../../", import.meta.url);
 
+test("Headless Wasm renders the requested platform color scheme", async () => {
+    const compilation = await interpreter.compile_from_string_with_style(
+        'import { Palette } from "std-widgets.slint";\n' +
+            "export component Preview inherits Window {\n" +
+            "    width: 4px; height: 4px; background: Palette.background;\n" +
+            "}",
+        new URL("preview.slint", repository).href,
+        "fluent",
+    );
+    const component = compilation.component;
+    assert.ok(component, compilation.error_string);
+    for (const [scheme, expected] of [
+        ["light", [250, 250, 250, 255]],
+        ["dark", [28, 28, 28, 255]],
+        [undefined, [250, 250, 250, 255]],
+    ]) {
+        const frame = component.render(scheme);
+        assert.deepEqual(
+            [...frame.pixels.subarray(0, 4)],
+            expected,
+            String(scheme),
+        );
+        frame.free();
+    }
+    component.free();
+    compilation.free();
+});
+
 test("Headless Wasm renders text, an SVG, and a raster image in plain Node", async () => {
     const source = `
         import { CheckBox } from "std-widgets.slint";
