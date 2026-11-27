@@ -565,10 +565,12 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         let _self_raw = _self;
         let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
         let inner = unsafe { core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap() };
-        let mut pool = unsafe { core::mem::take(&mut *(*core::ptr::addr_of!((*_self).dep_nodes)).get()) };
-        let notify = super::current_binding_storage::set(super::PooledBindingHolder { binding: _self_raw, pool: &mut pool }, || {
-            (inner.eval_fn)(inner.user_data)
-        });
+        let mut pool =
+            unsafe { core::mem::take(&mut *(*core::ptr::addr_of!((*_self).dep_nodes)).get()) };
+        let notify = super::current_binding_storage::set(
+            super::PooledBindingHolder { binding: _self_raw, pool: &mut pool },
+            || (inner.eval_fn)(inner.user_data),
+        );
         if notify {
             (inner.notify_fn)(inner.user_data);
         }
@@ -617,9 +619,13 @@ pub unsafe extern "C" fn slint_change_tracker_init(
     unsafe { ct.set_internal(raw as *mut BindingHolder) };
 
     let inner = unsafe { core::ptr::addr_of_mut!((*raw).binding).as_mut().unwrap() };
-    super::current_binding_storage::set(super::PooledBindingHolder { binding: raw as *const BindingHolder, pool: core::ptr::null_mut() }, || {
-        (inner.eval_fn)(inner.user_data)
-    });
+    super::current_binding_storage::set(
+        super::PooledBindingHolder {
+            binding: raw as *const BindingHolder,
+            pool: core::ptr::null_mut(),
+        },
+        || (inner.eval_fn)(inner.user_data),
+    );
 }
 
 /// return the current animation tick for the `animation-tick` function

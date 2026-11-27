@@ -828,9 +828,10 @@ impl PropertyHandle {
                 // the old nodes are reused for the new ones, and the unused ones dropped
                 let mut pool = unsafe { core::mem::take(&mut *(*binding_ptr).dep_nodes.get()) };
                 let r = unsafe {
-                    current_binding_storage::set(PooledBindingHolder { binding: binding_ptr, pool: &mut pool }, || {
-                        ((*binding_ptr).vtable.evaluate)(binding_ptr, value as *mut c_void)
-                    })
+                    current_binding_storage::set(
+                        PooledBindingHolder { binding: binding_ptr, pool: &mut pool },
+                        || ((*binding_ptr).vtable.evaluate)(binding_ptr, value as *mut c_void),
+                    )
                 };
                 unsafe { (*binding_ptr).dirty.set(false) };
                 if r == BindingResult::RemoveBinding {
@@ -1475,7 +1476,10 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
         let mut pool = unsafe { core::mem::take(&mut *self.holder.dep_nodes.get()) };
 
         let holder_ptr = &raw const self.holder as *const BindingHolder;
-        let r = current_binding_storage::set(PooledBindingHolder { binding: holder_ptr, pool: &mut pool }, f);
+        let r = current_binding_storage::set(
+            PooledBindingHolder { binding: holder_ptr, pool: &mut pool },
+            f,
+        );
         self.holder.dirty.set(false);
         r
     }
