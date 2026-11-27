@@ -4,7 +4,7 @@
 //! The parser functions for elements and things inside them
 
 use super::document::parse_qualified_name;
-use super::expressions::parse_expression;
+use super::expressions::{parse_expression, parse_object_notation};
 use super::prelude::*;
 use super::statements::parse_statement;
 use super::r#type::parse_type;
@@ -83,6 +83,17 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::Colon | SyntaxKind::Equal => parse_property_binding(&mut *p),
                 SyntaxKind::ColonEqual if !is_sub_element_after_operator(&mut *p, true) => {
                     parse_property_binding(&mut *p)
+                }
+                SyntaxKind::Dot => {
+                    let mut p = p.start_node(SyntaxKind::DottedBinding);
+                    parse_qualified_name(&mut *p);
+                    if p.peek().kind() == SyntaxKind::LBrace {
+                        parse_object_notation(&mut *p);
+                        p.expect(SyntaxKind::Semicolon);
+                    } else {
+                        p.expect(SyntaxKind::Colon);
+                        parse_binding_expression(&mut *p);
+                    }
                 }
                 SyntaxKind::DoubleLess => {
                     had_parse_error |= !parse_slot_assignment_or_forwarding(&mut *p)

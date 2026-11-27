@@ -350,6 +350,19 @@ pub(crate) fn completion_at(
         }
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
         match q.parent()?.kind() {
+            SyntaxKind::DottedBinding => {
+                let path = field_path_before_cursor(&q, &token, offset);
+                let (property, fields) = path.split_first()?;
+                return with_lookup_ctx(document_cache, node, None, |ctx| {
+                    let ty = ctx
+                        .component_scope
+                        .last()?
+                        .borrow()
+                        .lookup_property(property, PropertyLookupMode::ComponentLocal)
+                        .property_type;
+                    struct_field_items(ty, fields)
+                })?;
+            }
             SyntaxKind::Element => {
                 let element = q.parent()?;
                 if is_interface_root_element(&element) {
@@ -1688,9 +1701,13 @@ mod tests {
 
     #[test]
     fn struct_update_field_completion() {
-        for (binding, expected) in
-            [("appearance: { font.we🔺: 700, ..root.preset };", vec!["size", "weight"])]
-        {
+        for (binding, expected) in [
+            ("appearance.🔺", vec!["font", "mode"]),
+            ("appearance.font.🔺", vec!["size", "weight"]),
+            ("appearance.font { we🔺: 700 };", vec!["size", "weight"]),
+            ("appearance.font { 🔺 };", vec!["size", "weight"]),
+            ("appearance: { font.we🔺: 700, ..root.preset };", vec!["size", "weight"]),
+        ] {
             let source = format!(
                 r#"
                 struct Font {{ size: length, weight: int }}
@@ -1712,7 +1729,11 @@ mod tests {
 
     #[test]
     fn struct_override_value_completion() {
-        for binding in ["appearance: { font.mode: 🔺, ..root.preset };"] {
+        for binding in [
+            "appearance.mode: 🔺;",
+            "appearance.font { mode: 🔺 };",
+            "appearance: { font.mode: 🔺, ..root.preset };",
+        ] {
             let source = format!(
                 r#"
                 enum Mode {{ regular, strong }}

@@ -1302,6 +1302,9 @@ pub struct Element {
     pub base_type: ElementType,
     /// Currently contains also the callbacks. FIXME: should that be changed?
     pub bindings: Bindings,
+    /// Struct properties with field overrides, mapped to local properties that receive their
+    /// inherited bindings during inlining.
+    pub inherited_struct_bases: BTreeMap<SmolStr, SmolStr>,
     pub change_callbacks: BTreeMap<SmolStr, RefCell<Vec<Expression>>>,
     pub property_analysis: RefCell<BTreeMap<SmolStr, PropertyAnalysis>>,
 

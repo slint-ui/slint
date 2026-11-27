@@ -24,6 +24,7 @@ use std::collections::HashSet;
 pub enum CodeBlockOrExpression {
     CodeBlock(syntax_nodes::CodeBlock),
     Expression(syntax_nodes::Expression),
+    FieldOverrides(syntax_nodes::DottedBinding),
 }
 
 impl CodeBlockOrExpression {
@@ -37,7 +38,7 @@ impl CodeBlockOrExpression {
 
     pub fn expression(&self) -> Option<syntax_nodes::Expression> {
         match self {
-            CodeBlockOrExpression::CodeBlock(_) => None,
+            CodeBlockOrExpression::CodeBlock(_) | CodeBlockOrExpression::FieldOverrides(_) => None,
             CodeBlockOrExpression::Expression(expr) => Some(expr.clone()),
         }
     }
@@ -49,6 +50,7 @@ impl std::ops::Deref for CodeBlockOrExpression {
         match self {
             CodeBlockOrExpression::CodeBlock(cb) => cb,
             CodeBlockOrExpression::Expression(expr) => expr,
+            CodeBlockOrExpression::FieldOverrides(binding) => binding,
         }
     }
 }
@@ -259,6 +261,15 @@ fn find_code_block_or_expression(
 
     if let Some(token) = element.token_at_offset(offset.into()).right_biased() {
         for ancestor in token.parent_ancestors() {
+            if ancestor.kind() == SyntaxKind::DottedBinding {
+                return Some(DefinitionInformation {
+                    property_definition_range: ancestor.text_range(),
+                    selection_range: ancestor.text_range(),
+                    code_block_or_expression: CodeBlockOrExpression::FieldOverrides(
+                        ancestor.into(),
+                    ),
+                });
+            }
             if ancestor.kind() == SyntaxKind::BindingExpression {
                 // The BindingExpression contains leading and trailing whitespace + `;`
                 if let Some(child) = ancestor.first_child() {
@@ -377,7 +388,14 @@ fn insert_property_definitions(
     }
 
     for prop_info in properties.iter_mut() {
-        if let Some(offset) = find_property_binding_offset(element, prop_info.name.as_str()) {
+        let offset = element
+            .with_element_node(|node| {
+                editor_preview::editing::dotted_property_bindings(node, prop_info.name.as_str())
+                    .first()
+                    .map(|binding| binding.text_range().start().into())
+            })
+            .or_else(|| find_property_binding_offset(element, prop_info.name.as_str()));
+        if let Some(offset) = offset {
             prop_info.defined_at =
                 element.with_element_node(|node| find_code_block_or_expression(node, offset));
         }
@@ -799,6 +817,18 @@ pub fn set_binding_impl(
 ) -> Option<lsp_types::TextDocumentEdit> {
     let properties = get_properties(element, LayoutKind::None);
     let property = get_property_information(&properties, property_name).ok()?;
+    if let Some(edit) = element.with_element_node(|node| {
+        editor_preview::editing::replace_dotted_property_bindings(
+            node,
+            property_name,
+            &new_expression,
+            uri.clone(),
+            version,
+            format,
+        )
+    }) {
+        return Some(edit);
+    }
 
     if property.defined_at.is_some() {
         // Change an already defined property:
@@ -901,6 +931,20 @@ pub fn remove_binding(
     property_name: &str,
     format: editor_preview::ByteFormat,
 ) -> Result<lsp_types::WorkspaceEdit> {
+    if let Some(edit) = element.with_element_node(|node| {
+        editor_preview::editing::replace_dotted_property_bindings(
+            node,
+            property_name,
+            "",
+            uri.clone(),
+            version,
+            format,
+        )
+    }) {
+        return Ok(editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![
+            edit,
+        ]));
+    }
     let source_file = element.with_element_node(|node| node.source_file.clone());
 
     let token = find_property_binding_offset(element, property_name)
@@ -2097,6 +2141,67 @@ component MyComp {
         assert_eq!(&tc.new_text, "5px");
         assert_eq!(tc.range.start, lsp_types::Position { line: 17, character: 27 });
         assert_eq!(tc.range.end, lsp_types::Position { line: 17, character: 32 });
+    }
+
+    #[test]
+    fn struct_field_overrides_replace_and_reset_together() {
+        let source = r#"
+struct Font { size: length, weight: int }
+struct Appearance { font: Font, color: color }
+component Label inherits Text {
+    in property <Appearance> appearance;
+    font-size: root.appearance.font.size;
+    color: root.appearance.color;
+}
+export component Main inherits Window {
+    Label {
+        appearance.font { size: 22px, weight: 700 };
+        text: "Keep";
+        appearance.color: red;
+    }
+}
+"#;
+        let (dc, uri, _) =
+            i_slint_editor_preview::test::loaded_document_cache_with_experimental(source.into());
+        let element = dc
+            .element_at_offset(
+                &uri,
+                TextSize::new(source.find("appearance.font {").unwrap() as u32),
+            )
+            .unwrap();
+        let properties = get_properties(&element, LayoutKind::None);
+        assert!(find_property(&properties, "appearance").unwrap().defined_at.is_some());
+        for expression in ["{ font: { size: 18px, weight: 400 }, color: blue }", ""] {
+            let edit = set_binding_impl(
+                uri.clone(),
+                None,
+                &element,
+                "appearance",
+                expression.into(),
+                dc.format,
+            )
+            .unwrap();
+            let workspace =
+                editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![edit]);
+            let applied =
+                editor_preview::editing::text_edit::apply_workspace_edit(&dc, &workspace).unwrap();
+            let contents = &applied[0].contents;
+            assert!(contents.contains("text: \"Keep\";"));
+            assert!(!contents.contains("appearance.font {"));
+            assert!(!contents.contains("appearance.color:"));
+            assert_eq!(contents.contains("appearance:"), !expression.is_empty());
+            let (_, _, diagnostics) =
+                i_slint_editor_preview::test::loaded_document_cache_with_experimental(
+                    contents.clone(),
+                );
+            assert!(
+                diagnostics
+                    .values()
+                    .flatten()
+                    .all(|diag| { diag.severity != Some(lsp_types::DiagnosticSeverity::ERROR) }),
+                "{diagnostics:?}"
+            );
+        }
     }
 
     #[test]

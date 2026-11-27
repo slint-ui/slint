@@ -28,3 +28,48 @@ export component Test {
     property <Outer> missing-base: { inner.number: 2, };
 //                                   >              <error{Dotted fields require a '..base' expression}
 }
+
+component Styled inherits Rectangle {
+    in property <Outer> style;
+}
+
+export component MixedOverrides {
+    Styled {
+        style: {};
+        style.inner.number: 2;
+//      >                    <error{Cannot combine a binding for 'style' with dotted overrides on the same element}
+    }
+    Styled {
+        style.inner.number: 2;
+//      >                    <error{Cannot combine a binding for 'style' with dotted overrides on the same element}
+        style: {};
+    }
+    Styled {
+        style.inner.number: 2;
+        style.inner: {};
+//      >              <error{Field 'inner' overlaps another override}
+    }
+}
+
+export component GroupedOverrides {
+    Styled {
+        style: {};
+        style.inner { number: 2 };
+//      >                        <error{Cannot combine a binding for 'style' with dotted overrides on the same element}
+    }
+    Styled {
+        style.inner { number: 2 };
+//      >                        <error{Cannot combine a binding for 'style' with dotted overrides on the same element}
+        style: {};
+    }
+    Styled {
+        style.inner: {};
+        style.inner { number: 2 };
+//                    >        <error{Field 'inner.number' overlaps another override}
+    }
+    Styled {
+        style.inner { number: 2 };
+        style.inner { number: 3 };
+//                    >        <error{Field 'inner.number' is overridden more than once}
+    }
+}

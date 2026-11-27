@@ -330,7 +330,7 @@ fn parse_array(p: &mut impl Parser) {
 /// { a: 1, ..base, }
 /// { a: { b: 2, ..base.a }, ..base }
 /// ```
-fn parse_object_notation(p: &mut impl Parser) {
+pub(super) fn parse_object_notation(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::ObjectLiteral);
     p.expect(SyntaxKind::LBrace);
 
