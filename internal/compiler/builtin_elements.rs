@@ -1410,6 +1410,15 @@ fn build(l: &mut Loader) {
         out property <length> pressed-y;
         /// Set to `true` by the `TouchArea` when the mouse is pressed over it.
         out property <bool> pressed;
+        /// Set this property to `false` to ignore the click that activates the window.
+        /// Use it for an action that a user shouldn't trigger by accident, such as deleting an item.
+        ///
+        /// On macOS, a click on an inactive window activates the window.
+        /// By default, the `TouchArea` processes that click like any other.
+        /// When this property is `false`, `clicked` isn't invoked for it and `pressed` stays `false`.
+        /// The `pointer-event` callback is invoked either way, and its `is-activation-click` field tells the two cases apart.
+        /// On other platforms every click behaves normally, regardless of this property.
+        in property <bool> accepts-activation-clicks: true;
         /// Invoked when clicked: A finger or the left mouse button is pressed, then released on this element. \{#sls.ref.toucharea.clicked}
         ///
         /// <OnlyInSC>
