@@ -11,6 +11,10 @@
 #![cfg_attr(slint_nightly_test, feature(non_exhaustive_omitted_patterns_lint))]
 #![cfg_attr(slint_nightly_test, warn(non_exhaustive_omitted_patterns))]
 #![no_std]
+// Asserting that `wgpu::Texture` is `Send` and `Sync` goes through wgpu's internals,
+// deeper than the default limit. Other crates don't need this: `WGPUTexture` implements
+// `Send` and `Sync` manually, so proving `Image: Send` stops there.
+#![recursion_limit = "256"]
 #![debugger_visualizer(gdb_script_file = "gdb_pretty_printers.py")]
 
 extern crate alloc;
