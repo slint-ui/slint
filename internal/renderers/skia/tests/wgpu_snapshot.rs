@@ -159,11 +159,11 @@ fn solid_texture(wgpu: &Wgpu, pixel: [u8; 4]) -> wgpu::Texture {
 }
 
 /// A texture that WGPU never wrote, for Skia to render into.
-fn color_target(wgpu: &Wgpu) -> wgpu::Texture {
+fn color_target(wgpu: &Wgpu, mip_level_count: u32) -> wgpu::Texture {
     wgpu.device.create_texture(&wgpu::TextureDescriptor {
         label: Some("color target"),
         size: wgpu::Extent3d { width: SIZE, height: SIZE, depth_or_array_layers: 1 },
-        mip_level_count: 1,
+        mip_level_count,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
         format: wgpu::TextureFormat::Rgba8Unorm,
@@ -237,7 +237,12 @@ fn snapshot() {
     let render_case = RenderToTextureCase::new().unwrap();
     render_case.show().unwrap();
     let window = last_window.borrow().clone().unwrap();
-    let texture = color_target(&wgpu);
+    let texture = color_target(&wgpu, 1);
+    window.renderer.render_to_texture(&texture).unwrap();
+    assert_eq!(center_texel(&wgpu, &texture), [0, 0, 255, 255]);
+
+    // Skia draws into the first mip level of a mipmapped texture.
+    let texture = color_target(&wgpu, 2);
     window.renderer.render_to_texture(&texture).unwrap();
     assert_eq!(center_texel(&wgpu, &texture), [0, 0, 255, 255]);
 }

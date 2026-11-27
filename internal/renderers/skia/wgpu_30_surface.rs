@@ -187,13 +187,20 @@ impl WGPUSurface {
     /// would treat it as uninitialized and clear it, erasing what Skia drew.
     /// The in-order queue keeps Skia's later-committed work on top of this clear.
     pub(crate) fn clear_color_target(&self, texture: &wgpu::Texture) {
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        // Skia draws into the first mip level and array layer, and a render pass
+        // attachment can only cover one of each.
+        let view = texture.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(wgpu::TextureViewDimension::D2),
+            mip_level_count: Some(1),
+            array_layer_count: Some(1),
+            ..Default::default()
+        });
         let mut encoder =
             self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Slint frame init"),
+                label: Some("Slint color target clear"),
             });
         encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Slint frame init"),
+            label: Some("Slint color target clear"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &view,
                 depth_slice: None,
