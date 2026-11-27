@@ -39,6 +39,8 @@ pub struct AndroidWindowAdapter {
     pub(crate) event_queue: EventQueue,
     pub(crate) pending_redraw: Cell<bool>,
     pub(super) java_helper: JavaHelper,
+    #[cfg(feature = "accessibility")]
+    pub(crate) accessibility: RefCell<Option<crate::accessibility::Accessibility>>,
     pub(crate) fullscreen: Cell<bool>,
     light_system_bars: Cell<Option<bool>>,
     /// The offset at which the Slint view is drawn in the native window (account for status bar)
@@ -203,6 +205,29 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
         });
     }
 
+    #[cfg(feature = "accessibility")]
+    fn unregister_item_tree(
+        &self,
+        component: i_slint_core::item_tree::ItemTreeRef,
+        _: &mut dyn Iterator<Item = core::pin::Pin<i_slint_core::items::ItemRef<'_>>>,
+    ) {
+        self.accessibility_forget_item_tree(component);
+    }
+
+    #[cfg(feature = "accessibility")]
+    fn register_item_tree(&self, _: i_slint_core::item_tree::ItemTreeRefPin) {
+        self.accessibility_reload_tree();
+    }
+
+    #[cfg(feature = "accessibility")]
+    fn handle_focus_change(
+        &self,
+        _old: Option<i_slint_core::items::ItemRc>,
+        _new: Option<i_slint_core::items::ItemRc>,
+    ) {
+        self.accessibility_focus_item_changed();
+    }
+
     fn safe_area_inset(&self) -> PhysicalEdges {
         if self.fullscreen.get() {
             Default::default()
@@ -239,7 +264,7 @@ impl AndroidWindowAdapter {
         app.enable_motion_axis(Axis::Vscroll);
         app.enable_motion_axis(Axis::Hscroll);
         let java_helper = JavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
-        Rc::<Self>::new_cyclic(|w| Self {
+        let adapter = Rc::<Self>::new_cyclic(|w| Self {
             app,
             window: Window::new(w.clone()),
             renderer: SkiaRenderer::default(&SkiaSharedContext::default()),
@@ -247,6 +272,8 @@ impl AndroidWindowAdapter {
             event_queue: Default::default(),
             pending_redraw: Default::default(),
             java_helper,
+            #[cfg(feature = "accessibility")]
+            accessibility: Default::default(),
             fullscreen: Cell::new(false),
             light_system_bars: Cell::new(None),
             offset: Default::default(),
@@ -259,7 +286,36 @@ impl AndroidWindowAdapter {
             ime_client: Default::default(),
             #[cfg(feature = "native-activity")]
             pending_ime_update: Default::default(),
-        })
+        });
+        #[cfg(feature = "accessibility")]
+        {
+            // Accessibility is optional: the app keeps running without it.
+            match crate::accessibility::Accessibility::new(
+                Rc::downgrade(&adapter),
+                &adapter.java_helper,
+            ) {
+                Ok(accessibility) => *adapter.accessibility.borrow_mut() = Some(accessibility),
+                Err(e) => i_slint_core::debug_log!("Could not set up accessibility: {e}"),
+            }
+        }
+        adapter
+    }
+
+    #[cfg(feature = "accessibility")]
+    fn forward_hover_to_accessibility(&self, event: &MotionEvent) {
+        if !crate::accessibility::TOUCH_EXPLORATION.load(std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
+        // The `MotionEvent.ACTION_HOVER_*` values
+        let action = match event.action() {
+            MotionAction::HoverMove => 7,
+            MotionAction::HoverEnter => 9,
+            MotionAction::HoverExit => 10,
+            _ => return,
+        };
+        if let Some(pointer) = event.pointers().next() {
+            self.java_helper.dispatch_hover_event(action, pointer.x(), pointer.y());
+        }
     }
 
     pub fn process_event(&self, event: &PollEvent<'_>) -> Result<ControlFlow<()>, PlatformError> {
@@ -320,9 +376,13 @@ impl AndroidWindowAdapter {
                 self.java_helper
                     .set_motion_preference(WindowInner::from_pub(&self.window).context());
                 self.window.dispatch_event_with_result(WindowEvent::WindowActiveChanged(true))?;
+                #[cfg(feature = "accessibility")]
+                self.accessibility_window_focus_changed();
             }
             PollEvent::Main(MainEvent::LostFocus) => {
                 self.window.dispatch_event_with_result(WindowEvent::WindowActiveChanged(false))?;
+                #[cfg(feature = "accessibility")]
+                self.accessibility_window_focus_changed();
             }
             PollEvent::Main(MainEvent::ConfigChanged { .. }) => {
                 let scale_factor =
@@ -388,6 +448,9 @@ impl AndroidWindowAdapter {
                         |p: &android_activity::input::HistoricalPointer<'_>| {
                             touch_pos(p.x(), p.y())
                         };
+
+                    #[cfg(feature = "accessibility")]
+                    self.forward_hover_to_accessibility(motion_event);
 
                     match motion_event.action() {
                         MotionAction::ButtonPress => {
@@ -680,6 +743,8 @@ impl AndroidWindowAdapter {
                 .unwrap_or_default(),
         );
         self.offset.set(Default::default());
+        #[cfg(feature = "accessibility")]
+        self.accessibility_reload_tree();
         Ok(())
     }
 
