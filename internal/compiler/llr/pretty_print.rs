@@ -559,6 +559,9 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::ReadLocalVariable { name, .. } => write!(f, "{name}"),
             Expression::StructFieldAccess { base, name } => write!(f, "{}.{}", e(base), name),
             Expression::ArrayIndex { array, index } => write!(f, "{}[{}]", e(array), e(index)),
+            Expression::RepeaterPropertyReference { repeater, index, property, .. } => {
+                write!(f, "{repeater:?}[{}].{property:?}", e(index))
+            }
             Expression::Cast { from, to } => write!(f, "{} /*as {:?}*/", e(from), to),
             Expression::CodeBlock(v) => {
                 write!(f, "{{ {} }}", v.iter().map(e).join("; "))

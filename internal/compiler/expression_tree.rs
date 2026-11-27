@@ -302,6 +302,12 @@ pub enum Expression {
         index: Box<Expression>,
     },
 
+    IndexedPropertyReference {
+        repeater: Option<ElementWeak>,
+        property: NamedReference,
+        index: Box<Expression>,
+    },
+
     /// Cast an expression to the given type
     Cast {
         from: Box<Expression>,
@@ -579,6 +585,7 @@ impl Expression {
             Expression::NumberLiteral(_, unit) => unit.ty(),
             Expression::BoolLiteral(_) => Type::Bool,
             Expression::PropertyReference(nr) => nr.ty(),
+            Expression::IndexedPropertyReference { property, .. } => property.ty(),
             Expression::ElementReference(_) => Type::ElementReference,
             Expression::RepeaterIndexReference { .. } => Type::Int32,
             Expression::RepeaterModelReference { element } => element
@@ -683,6 +690,7 @@ impl Expression {
             }
             Expression::RepeaterIndexReference { .. } => {}
             Expression::RepeaterModelReference { .. } => {}
+            Expression::IndexedPropertyReference { index, .. } => visitor(index),
             Expression::Cast { from, .. } => visitor(from),
             Expression::CodeBlock(sub) => {
                 sub.iter().for_each(visitor);
@@ -830,6 +838,7 @@ impl Expression {
             }
             Expression::RepeaterIndexReference { .. } => {}
             Expression::RepeaterModelReference { .. } => {}
+            Expression::IndexedPropertyReference { index, .. } => visitor(index),
             Expression::Cast { from, .. } => visitor(from),
             Expression::CodeBlock(sub) => {
                 sub.iter_mut().for_each(visitor);
@@ -982,6 +991,7 @@ impl Expression {
             Expression::ElementReference(_) => false,
             Expression::RepeaterIndexReference { .. } => false,
             Expression::RepeaterModelReference { .. } => false,
+            Expression::IndexedPropertyReference { .. } => false,
             // Allow functions to be marked as const
             Expression::FunctionParameterReference { .. } => true,
             Expression::StructFieldAccess { base, .. } => base.is_constant(ga),
@@ -1584,6 +1594,17 @@ impl Expression {
             Expression::StructFieldAccess { base, .. } => base.try_set_rw(ctx, what, node),
             Expression::RepeaterModelReference { .. } => true,
             Expression::ArrayIndex { array, .. } => array.try_set_rw(ctx, what, node),
+            Expression::FunctionCall { function: Callable::Function(function), .. }
+                if function.element().borrow().slot_collection =>
+            {
+                ctx.diag.push_error(
+                    "Indexed collection properties are read-only; \
+                     bind the property on the supplied component instead"
+                        .into(),
+                    node,
+                );
+                false
+            }
             _ => {
                 ctx.diag.push_error(format!("{what} needs to be done on a property"), node);
                 false
@@ -1961,6 +1982,14 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::NumberLiteral(vl, unit) => write!(f, "{vl}{unit}"),
         Expression::BoolLiteral(b) => write!(f, "{b:?}"),
         Expression::PropertyReference(a) => write!(f, "{a:?}"),
+        Expression::IndexedPropertyReference { repeater, property, index } => {
+            if let Some(repeater) = repeater {
+                crate::namedreference::pretty_print_element_ref(f, repeater)?;
+            }
+            write!(f, "[")?;
+            pretty_print(f, index)?;
+            write!(f, "].{}", property.name())
+        }
         Expression::ElementReference(a) => write!(f, "{a:?}"),
         Expression::RepeaterIndexReference { element } => {
             crate::namedreference::pretty_print_element_ref(f, element)

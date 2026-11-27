@@ -107,6 +107,26 @@ fn compile_collection_case(name: &str, component: &str) -> ComponentInstance {
 
 #[cfg(feature = "internal")]
 #[test]
+fn indexed_collection_reads_follow_model_edits() {
+    i_slint_backend_testing::init_no_event_loop();
+    let indexed = compile_collection_case("slot_collection_indexed.slint", "TestCase");
+    assert_eq!(indexed.get_property("test").unwrap(), Value::Bool(true));
+    indexed.set_property("second-enabled", Value::Bool(true)).unwrap();
+    assert_eq!(indexed.get_property("static-enabled").unwrap(), Value::Bool(true));
+    assert_eq!(indexed.get_property("repeated-enabled").unwrap(), Value::Bool(true));
+    let names = Rc::new(VecModel::from(vec![Value::String("X".into()), Value::String("Y".into())]));
+    indexed.set_property("names", Value::Model(names.clone().into())).unwrap();
+    indexed.set_property("index", Value::Number(0.)).unwrap();
+    assert_eq!(indexed.get_property("repeated-title").unwrap(), Value::String("X".into()));
+    names.remove(0);
+    assert_eq!(indexed.get_property("repeated-title").unwrap(), Value::String("Y".into()));
+    indexed.set_property("index", Value::Number(-1.)).unwrap();
+    assert_eq!(indexed.get_property("static-title").unwrap(), Value::String("".into()));
+    assert_eq!(indexed.get_property("repeated-title").unwrap(), Value::String("".into()));
+}
+
+#[cfg(feature = "internal")]
+#[test]
 fn repeated_collection_views_follow_page_instances() {
     use i_slint_backend_testing::{AccessibleRole, ElementHandle};
     i_slint_backend_testing::init_no_event_loop();

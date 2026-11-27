@@ -3955,6 +3955,7 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
             | Expression::FunctionParameterReference { .. }
             // compiles to `x.row_data_tracked(i).unwrap_or_default()`
             | Expression::ArrayIndex { .. }
+            | Expression::RepeaterPropertyReference { .. }
             | Expression::Cast { .. }
             | Expression::BuiltinFunctionCall { .. }
             | Expression::CallBackCall { .. }
@@ -4079,6 +4080,18 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             _ => panic!("Expression::StructFieldAccess's base expression is not an Object type"),
         },
         Expression::ArrayIndex { .. } => compile_array_index(expr, ctx),
+        Expression::RepeaterPropertyReference { repeater, index, sub_component, property, ty } => {
+            let instance = resolve_repeater_instance(
+                repeater,
+                *sub_component,
+                compile_expression(index, ctx),
+                ctx,
+            );
+            primitive_property_value(
+                ty,
+                access_relative_member(Some(instance), *sub_component, property, ctx),
+            )
+        }
         Expression::CodeBlock(..) => compile_code_block(expr, ctx),
         Expression::PropertyAssignment { property, value } => (|| {
             let value = compile_expression_to_value(value, ctx);

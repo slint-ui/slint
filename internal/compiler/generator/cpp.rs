@@ -4617,6 +4617,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             )
         })(),
         Expression::PropertyReference(nr) => access_member(nr, ctx).get_property(),
+        Expression::RepeaterPropertyReference {
+            repeater, index, sub_component, property, ..
+        } => {
+            let instance = resolve_repeater_instance(repeater, compile_expression(index, ctx), ctx);
+            access_relative_member(instance, *sub_component, property, ctx).get_property()
+        }
         Expression::BuiltinFunctionCall { function, arguments, .. } => {
             compile_builtin_function_call(function.clone(), arguments, ctx)
         }

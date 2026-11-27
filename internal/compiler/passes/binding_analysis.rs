@@ -953,6 +953,7 @@ enum CrossAxisSize {
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 enum ReadType {
+    Indexed,
     // Read from the native code
     NativeRead,
     // Read from another property binding in Slint
@@ -980,12 +981,16 @@ fn process_property(
         .or_default()
     {
         a => {
-            if read_type == ReadType::PropertyRead {
+            if matches!(read_type, ReadType::PropertyRead | ReadType::Indexed) {
                 a.is_read = true;
             }
             DependsOnExternal(prop.elements.is_empty() && a.is_set_externally)
         }
     };
+
+    if read_type == ReadType::Indexed {
+        return DependsOnExternal(true);
+    }
 
     let mut prop = prop.clone();
 
@@ -1045,6 +1050,9 @@ fn visit_expression_reads(
     const P: ReadType = ReadType::PropertyRead;
     match expr {
         Expression::PropertyReference(r) => vis(&r.clone().into(), P),
+        Expression::IndexedPropertyReference { property, .. } => {
+            vis(&property.clone().into(), ReadType::Indexed)
+        }
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => {
             vis(&layout_cache_prop.clone().into(), P)
         }

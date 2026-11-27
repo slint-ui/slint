@@ -981,6 +981,16 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                 _ => Value::Void,
             }
         }
+        Expression::RepeaterPropertyReference { repeater, property, index, ty, .. } => {
+            let Value::Number(index) = eval_expression(ctx, index) else { unreachable!() };
+            match resolve_repeater_instance(ctx, repeater, index) {
+                Some(instance) => load_property(
+                    &EvalContext::new(instance.root_sub_component.clone()),
+                    &property.clone().into(),
+                ),
+                None => default_value_for_type(ty),
+            }
+        }
         Expression::Cast { from, to } => {
             // The `Path` native item's rtti setter needs a real
             // `Value::PathData`, not the raw model / struct / string that

@@ -160,6 +160,36 @@ pub fn lower_expression(
             array: Box::new(lower_expression(array, ctx)),
             index: Box::new(lower_expression(index, ctx)),
         },
+        tree_Expression::IndexedPropertyReference { repeater: None, property, .. } => {
+            llr_Expression::PropertyReference(ctx.map_property_reference(property))
+        }
+        tree_Expression::IndexedPropertyReference { repeater: Some(repeater), property, index } => {
+            let element = repeater.upgrade().unwrap();
+            let owner = element.borrow().enclosing_component.upgrade().unwrap();
+            let (parent_level, owner_context) = ctx.find_component(&owner);
+            let LoweredElement::Repeated { repeated_index } =
+                owner_context.mapping.element_mapping[&element.clone().into()]
+            else {
+                unreachable!()
+            };
+            let MemberReference::Relative { parent_level: 0, local_reference } =
+                ctx.state.map_property_reference(property)
+            else {
+                unreachable!()
+            };
+            llr_Expression::RepeaterPropertyReference {
+                repeater: Box::new(MemberReference::Relative {
+                    parent_level,
+                    local_reference: super::LocalMemberIndex::Repeater(repeated_index).into(),
+                }),
+                index: Box::new(lower_expression(index, ctx)),
+                sub_component: ctx.state.sub_component_idx(
+                    &property.element().borrow().enclosing_component.upgrade().unwrap(),
+                ),
+                property: local_reference,
+                ty: property.ty(),
+            }
+        }
         tree_Expression::Cast { from, to } => {
             llr_Expression::Cast { from: Box::new(lower_expression(from, ctx)), to: to.clone() }
         }

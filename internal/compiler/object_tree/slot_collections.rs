@@ -3,6 +3,65 @@
 
 use super::*;
 
+pub(crate) const INDEXED_MEMBER_PREFIX: &str = "$indexed-";
+
+pub(crate) fn indexed_member(metadata: &ElementRc, name: SmolStr, ty: Type) -> NamedReference {
+    let name: SmolStr = format!("{INDEXED_MEMBER_PREFIX}{name}").into();
+    let existing = metadata
+        .borrow()
+        .property_declarations
+        .get(&name)
+        .map(|property| property.is_alias.clone());
+    if let Some(alias) = existing {
+        return alias.unwrap_or_else(|| NamedReference::new(metadata, name.clone()));
+    }
+    let function_ty = Type::Function(std::sync::Arc::new(crate::langtype::Function {
+        return_type: ty.clone(),
+        args: vec![Type::Int32],
+        arg_names: vec!["index".into()],
+    }));
+    metadata.borrow_mut().property_declarations.insert(
+        name.clone(),
+        PropertyDeclaration { property_type: function_ty, pure: Some(true), ..Default::default() },
+    );
+    metadata.borrow_mut().set_binding(name.clone(), Expression::default_value_for_type(&ty).into());
+    NamedReference::new(metadata, name)
+}
+
+pub(crate) fn prepare_indexed_member(
+    metadata: &ElementRc,
+    reference: &NamedReference,
+    symbols: &crate::symbol_counters::SymbolCounters,
+) -> NamedReference {
+    if !Rc::ptr_eq(&reference.element(), metadata) {
+        return reference.clone();
+    }
+    if let Some(alias) = &metadata.borrow().property_declarations[reference.name()].is_alias {
+        return alias.clone();
+    }
+    let owner = metadata.borrow().enclosing_component.upgrade().unwrap();
+    let alias = create_indexed_reader(&owner.root_element, reference.ty(), symbols);
+    metadata.borrow_mut().property_declarations.get_mut(reference.name()).unwrap().is_alias =
+        Some(alias.clone());
+    alias
+}
+
+pub(crate) fn create_indexed_reader(
+    root: &ElementRc,
+    ty: Type,
+    symbols: &crate::symbol_counters::SymbolCounters,
+) -> NamedReference {
+    let Type::Function(function) = &ty else { unreachable!() };
+    let alias =
+        crate::layout::create_new_prop(root, symbols.generate_name("slot-read-"), ty.clone());
+    root.borrow_mut().property_declarations.get_mut(alias.name()).unwrap().pure = Some(true);
+    root.borrow_mut().set_binding(
+        alias.name().clone(),
+        Expression::default_value_for_type(&function.return_type).into(),
+    );
+    alias
+}
+
 pub(crate) fn default_collection(component: &Component) -> Option<DeclaredSlot> {
     component.declared_slots.borrow().iter().find(|s| s.is_default).cloned().or_else(|| {
         if let ElementType::Component(base) = &component.root_element.borrow().base_type {

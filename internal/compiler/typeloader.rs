@@ -3160,6 +3160,7 @@ fn snapshotting_slot_collections() {
         interface Entry { in property <int> value; }
         export component Group {
             out property <int> count: items.length;
+            out property <int> first-value: items[0].value;
             default slot <[implements Entry]> items;
             for item[index] in items: item { value: index; }
         }
