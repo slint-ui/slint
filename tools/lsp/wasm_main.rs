@@ -350,6 +350,14 @@ impl SlintServer {
             | M::Exited => {
                 tracing::debug!("Ignoring remote-preview control message in WASM LSP");
             }
+            M::Debugger { message, .. } => {
+                debug_assert!(false, "A preview sent a debugger message: {message:?}");
+                tracing::warn!("Ignoring debugger message {message:?}");
+            }
+            M::DebuggerNotification(notification) => {
+                debug_assert!(false, "A preview sent a debugger notification: {notification:?}");
+                tracing::warn!("Ignoring debugger notification {notification:?}");
+            }
         }
         Ok(())
     }
