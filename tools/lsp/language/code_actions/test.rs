@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use i_slint_compiler::parser::TextRange;
 use lsp_types::{CodeActionOrCommand, Url};
 
 use crate::editor_preview;
@@ -11,6 +12,7 @@ use crate::language::test::{
 pub struct CodeActionRequest {
     source: String,
     cursor: usize,
+    selection_end: Option<usize>,
     snippets: bool,
     experimental: bool,
     extra_files: Vec<(&'static str, String)>,
@@ -27,10 +29,17 @@ impl CodeActionRequest {
         Self {
             source: source.into(),
             cursor,
+            selection_end: None,
             snippets: false,
             experimental: false,
             extra_files: Vec::new(),
         }
+    }
+
+    /// Select from the cursor through `end` (byte offset), as a code-action range.
+    pub fn selection_end(mut self, end: usize) -> Self {
+        self.selection_end = Some(end);
+        self
     }
 
     pub fn snippets(mut self) -> Self {
@@ -85,8 +94,11 @@ impl CodeActionRequest {
             (self.cursor as u32).into(),
         )
         .unwrap();
-        let actions =
-            super::get_code_actions(&document_cache, token, &capabilities).unwrap_or_default();
+        let selection = self
+            .selection_end
+            .map(|end| TextRange::new((self.cursor as u32).into(), (end as u32).into()));
+        let actions = super::get_code_actions(&document_cache, token, &capabilities, selection)
+            .unwrap_or_default();
         CodeActions { document_cache, url, cursor: self.cursor, actions }
     }
 }

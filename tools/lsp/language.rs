@@ -495,7 +495,14 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         )
         .and_then(|(token, _)| {
             let capabilities = ctx.init_param.capabilities.clone();
-            code_actions::get_code_actions(&ctx.session.document_cache, token, &capabilities)
+            let format = ctx.session.document_cache.format;
+            let selection = util::lsp_range_to_text_range(&token.source_file, params.range, format);
+            code_actions::get_code_actions(
+                &ctx.session.document_cache,
+                token,
+                &capabilities,
+                Some(selection),
+            )
         });
         Ok(result)
     });

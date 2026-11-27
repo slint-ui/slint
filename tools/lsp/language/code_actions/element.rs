@@ -6,14 +6,18 @@
 use super::Context;
 use crate::util;
 
-use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, SyntaxNode, syntax_nodes};
+use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, SyntaxNode, TextRange, syntax_nodes};
 use lsp_types::{CodeActionKind, CodeActionOrCommand, Range, TextEdit};
 
 pub(super) fn add(ctx: &Context, result: &mut Vec<CodeActionOrCommand>) {
-    if !ctx.snippets
-        || ctx.token.kind() != SyntaxKind::Identifier
-        || ctx.node.kind() != SyntaxKind::QualifiedName
-    {
+    if !ctx.snippets {
+        return;
+    }
+    if let Some(elements) = selected_sibling_sub_elements(ctx) {
+        add_wrap_elements(ctx, &elements, result);
+        return;
+    }
+    if ctx.token.kind() != SyntaxKind::Identifier || ctx.node.kind() != SyntaxKind::QualifiedName {
         return;
     }
     let Some(element) = ctx.node.parent().filter(|n| n.kind() == SyntaxKind::Element) else {
@@ -35,6 +39,103 @@ pub(super) fn add(ctx: &Context, result: &mut Vec<CodeActionOrCommand>) {
     add_repeat_and_conditional(ctx, &element, range, result);
 }
 
+/// Sibling sub-elements fully inside the selection, with only whitespace between them.
+fn selected_sibling_sub_elements(ctx: &Context) -> Option<Vec<SyntaxNode>> {
+    let selection = ctx.selection?;
+    let source = ctx.token.source_file.source()?;
+    let mut root = ctx.node.clone();
+    while let Some(parent) = root.parent() {
+        root = parent;
+    }
+    let mut candidates: Vec<SyntaxNode> = root
+        .descendants()
+        .filter(|node| {
+            node.kind() == SyntaxKind::SubElement && selection.contains_range(node.text_range())
+        })
+        .collect();
+    let ranges: Vec<TextRange> = candidates.iter().map(|node| node.text_range()).collect();
+    candidates.retain(|node| {
+        !ranges
+            .iter()
+            .any(|other| *other != node.text_range() && other.contains_range(node.text_range()))
+    });
+    let mut groups: Vec<Vec<SyntaxNode>> = Vec::new();
+    for node in candidates {
+        if let Some(group) =
+            groups.iter_mut().find(|group| group[0].node.parent() == node.node.parent())
+        {
+            group.push(node);
+        } else {
+            groups.push(vec![node]);
+        }
+    }
+    let mut best =
+        groups.into_iter().filter(|group| group.len() >= 2).max_by_key(|group| group.len())?;
+    best.sort_by_key(|node| node.text_range().start());
+    let in_global = best.iter().any(|node| {
+        std::iter::successors(Some(node.clone()), |n| n.parent())
+            .find_map(syntax_nodes::Component::new)
+            .is_some_and(|component| super::is_global(&component))
+    });
+    if in_global {
+        return None;
+    }
+    for pair in best.windows(2) {
+        let gap = TextRange::new(pair[0].text_range().end(), pair[1].text_range().start());
+        let start = usize::try_from(u32::from(gap.start())).ok()?;
+        let end = usize::try_from(u32::from(gap.end())).ok()?;
+        let between = source.get(start..end)?;
+        if between.chars().any(|ch| !ch.is_whitespace()) {
+            return None;
+        }
+    }
+    Some(best)
+}
+
+fn add_wrap_elements(
+    ctx: &Context,
+    elements: &[SyntaxNode],
+    result: &mut Vec<CodeActionOrCommand>,
+) {
+    let Some(source) = ctx.token.source_file.source() else {
+        return;
+    };
+    let Some(last) = elements.last() else {
+        return;
+    };
+    let span = TextRange::new(elements[0].text_range().start(), last.text_range().end());
+    let Ok(start) = usize::try_from(u32::from(span.start())) else {
+        return;
+    };
+    let Ok(end) = usize::try_from(u32::from(span.end())) else {
+        return;
+    };
+    let Some(body) = source.get(start..end) else {
+        return;
+    };
+    let range =
+        util::text_range_to_lsp_range(&ctx.token.source_file, span, ctx.document_cache.format);
+    let element_indent = ctx
+        .document_cache
+        .element_at_position(&ctx.uri, &range.start)
+        .as_ref()
+        .and_then(util::find_element_indent);
+    let edits = vec![TextEdit::new(range, wrap_snippet(element_indent, body))];
+    ctx.push_edit(result, "Wrap in element", Some(CodeActionKind::REFACTOR), edits);
+}
+
+fn wrap_snippet(element_indent: Option<String>, body: &str) -> String {
+    let indented_lines = body
+        .lines()
+        .map(|line| if line.is_empty() { line.to_string() } else { format!("    {line}") })
+        .collect::<Vec<_>>();
+    format!(
+        "${{0:element}} {{\n{}{}\n}}",
+        element_indent.unwrap_or_default(),
+        indented_lines.join("\n")
+    )
+}
+
 fn add_wrap(
     ctx: &Context,
     element: &SyntaxNode,
@@ -46,20 +147,8 @@ fn add_wrap(
         .element_at_position(&ctx.uri, &range.start)
         .as_ref()
         .and_then(util::find_element_indent);
-    let indented_lines = element
-        .text()
-        .to_string()
-        .lines()
-        .map(|line| if line.is_empty() { line.to_string() } else { format!("    {line}") })
-        .collect::<Vec<String>>();
-    let edits = vec![TextEdit::new(
-        range,
-        format!(
-            "${{0:element}} {{\n{}{}\n}}",
-            element_indent.unwrap_or("".into()),
-            indented_lines.join("\n")
-        ),
-    )];
+    let edits =
+        vec![TextEdit::new(range, wrap_snippet(element_indent, &element.text().to_string()))];
     ctx.push_edit(result, "Wrap in element", Some(CodeActionKind::REFACTOR), edits);
 }
 
@@ -320,6 +409,23 @@ mod tests {
         ] {
             CodeActionRequest::at(source).snippets().load().assert_empty();
         }
+    }
+
+    #[test]
+    fn test_code_action_wrap_selected_siblings() {
+        let source = "export component Test {\n    Image {}\n    Image {}\n}\n";
+        let start = source.find("Image").unwrap();
+        let end = source.rfind("Image").unwrap() + "Image {}".len();
+        let actions =
+            CodeActionRequest::at_offset(source, start).selection_end(end).snippets().load();
+        assert_eq!(actions.titles(), ["Wrap in element"]);
+        actions
+            .assert(
+                "Wrap in element",
+                Some(lsp_types::CodeActionKind::REFACTOR),
+                "export component Test {\n    ${0:element} {\n        Image {}\n        Image {}\n}\n}\n",
+            )
+            .compiles_with(&[("element", "Rectangle")]);
     }
 
     #[test]
