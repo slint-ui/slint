@@ -9,7 +9,7 @@ use super::GlobalAnalysis;
 use crate::builtin_functions::BuiltinFunction;
 use crate::element_type::ElementType;
 use crate::expression_tree::*;
-use crate::expression_types::{MinMaxOp, Unit};
+use crate::expression_types::{ImageReference, MinMaxOp, Unit};
 use crate::langtype::{BuiltinStruct, StructName, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
@@ -549,6 +549,25 @@ fn try_inline_builtin_function(
                 _ => Expression::BoolLiteral(value.is_some()),
             })
         }
+        BuiltinFunction::ImageSize => {
+            let Some(Expression::ImageReference {
+                resource_ref:
+                    ImageReference::Source { header: Some(header), .. }
+                    | ImageReference::EmbeddedData { header: Some(header), .. },
+                ..
+            }) = args.first()
+            else {
+                return None;
+            };
+            let Type::Struct(ty) = b.ty().return_type.clone() else { unreachable!() };
+            let values = [("width", header.width), ("height", header.height)]
+                .into_iter()
+                .map(|(name, value)| {
+                    (name.into(), Expression::NumberLiteral(value.into(), Unit::None))
+                })
+                .collect();
+            Some(Expression::Struct { ty, values })
+        }
         _ => None,
     }
 }
@@ -833,6 +852,51 @@ export component Foo inherits Window {
         matches!(test_binding, Expression::NumberLiteral(val, _) if val == 5.0),
         "Expression should be 5.0: {test_binding:?}"
     );
+}
+
+#[test]
+fn test_const_image_size() {
+    let fold = |embed_resources| {
+        let source = format!(
+            r#"
+export component Foo {{
+    img := Image {{
+        source: @image-url("{}/../../demos/printerdemo/ui/images/cat.jpg");
+    }}
+    out property <int> source-width: img.source.width;
+    out property <int> source-height: img.source.height;
+}}"#,
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+        let doc_node =
+            crate::parser::parse(source, Some(SourcePath::new("HELLO")), None, &mut test_diags);
+        let mut compiler_config =
+            crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        compiler_config.style = Some("fluent".into());
+        compiler_config.embed_resources = embed_resources;
+        let (doc, diag, _) =
+            crate::poll_ready(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
+        assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
+        let root_element = doc.inner_components.last().unwrap().root_element.clone();
+        let binding = |name| {
+            let mut e = root_element.borrow().binding(name).unwrap().expression.clone();
+            while let Expression::Cast { from, .. } = e {
+                e = *from;
+            }
+            e
+        };
+        (binding("source-width"), binding("source-height"))
+    };
+
+    let (width, height) = fold(crate::EmbedResourcesKind::EmbedAllResources);
+    assert!(matches!(width, Expression::NumberLiteral(v, _) if v == 320.), "{width:?}");
+    assert!(matches!(height, Expression::NumberLiteral(v, _) if v == 480.), "{height:?}");
+
+    // The interpreter reads the file at runtime, which may have changed.
+    let (width, height) = fold(crate::EmbedResourcesKind::Nothing);
+    assert!(!matches!(width, Expression::NumberLiteral(..)), "{width:?}");
+    assert!(!matches!(height, Expression::NumberLiteral(..)), "{height:?}");
 }
 
 #[test]

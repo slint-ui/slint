@@ -89,6 +89,43 @@ pub async fn embed_images(
     }
 }
 
+/// Reads the header of each image file that the generated code makes the image from,
+/// so that const propagation can use its size.
+///
+/// It doesn't on the web, where the browser loads the images,
+/// nor in the interpreter, which loads the files at runtime.
+/// The software renderer's textures have no header,
+/// and a resource mapper may replace a file with another resource.
+pub fn read_image_headers(
+    doc: &Document,
+    config: &crate::CompilerConfiguration,
+    diag: &BuildDiagnostics,
+) {
+    let only_builtin = match config.embed_resources {
+        EmbedResourcesKind::EmbedAllResources => false,
+        EmbedResourcesKind::OnlyBuiltinResources => true,
+        _ => return,
+    };
+    if !config.const_image_sizes || config.resource_url_mapper.is_some() || diag.is_slint_sc() {
+        return;
+    }
+    let mut resource_ids = ResourceIds::default();
+    doc.visit_all_used_components(|component| {
+        visit_all_expressions(component, |e, _| {
+            e.visit_recursive_mut(&mut |e| {
+                if let Expression::ImageReference {
+                    resource_ref: ImageReference::Source { path, header },
+                    ..
+                } = e
+                    && (!only_builtin || path.is_builtin() || path.as_native_path().is_some())
+                {
+                    *header = resource_ids.image_header(path);
+                }
+            })
+        });
+    });
+}
+
 /// The resources already embedded, so that each is embedded once.
 #[derive(Default)]
 struct ResourceIds {
@@ -198,6 +235,9 @@ fn embed_images_from_expression(
                 }
             }
             ImageReference::Source { path, header } => {
+                if let Some(header) = header {
+                    resource_ids.headers.entry(path.clone()).or_insert(Some(*header));
+                }
                 let is_builtin = path.is_builtin();
                 // Slint SC rejected URL references when resolving @image-url(),
                 // so only paths are left to embed there.
