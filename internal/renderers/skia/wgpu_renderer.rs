@@ -123,6 +123,7 @@ impl SkiaWGPU29Renderer {
         let gr_context = &mut surface.gr_context.borrow_mut();
 
         surface.check_color_target_usage(texture)?;
+        surface.clear_color_target(texture);
         surface.transition_to_color_target(texture);
         let mut skia_surface =
             surface.backend.make_surface(gr_context, texture).ok_or_else(|| {
@@ -186,7 +187,9 @@ impl SkiaWGPU30Renderer {
     /// `Rgba8Unorm` and `Rgba8UnormSrgb` are supported on all backends,
     /// and `Bgra8Unorm` on Metal and Vulkan too.
     pub fn render_to_texture(&self, texture: &wgpu_30::Texture) -> Result<(), PlatformError> {
-        self.render_to_target_transformed(&self.render_target(texture)?, 0, 0., (0., 0.))
+        let target = self.render_target(texture)?;
+        self.surface().clear_color_target(texture);
+        self.render_to_target_transformed(&target, 0, 0., (0., 0.))
     }
 }
 

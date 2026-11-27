@@ -180,6 +180,34 @@ impl WGPUSurface {
         *self.color_target_to_transition.borrow_mut() = Some(texture.clone());
     }
 
+    /// Clears `texture` through wgpu, ahead of what Skia draws into it.
+    ///
+    /// Skia renders through the raw backend queue, invisible to wgpu's usage tracking.
+    /// For a texture wgpu never wrote itself, the next read or present through wgpu
+    /// would treat it as uninitialized and clear it, erasing what Skia drew.
+    /// The in-order queue keeps Skia's later-committed work on top of this clear.
+    pub(crate) fn clear_color_target(&self, texture: &wgpu::Texture) {
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder =
+            self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Slint frame init"),
+            });
+        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Slint frame init"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            ..Default::default()
+        });
+        self.wgpu.queue.submit(Some(encoder.finish()));
+    }
+
     /// Fails if `texture` lacks a usage that Skia needs to draw into it.
     pub(crate) fn check_color_target_usage(
         &self,
