@@ -4,19 +4,28 @@
 component Alias {
     in-out property <int> backing-value;
     in-out property <int> value <=> self.backing-value;
-    animate value { duration: 400ms; }
+}
+
+component AnimatedAlias inherits Alias {
+    animate value { duration: 200ms; }
 }
 
 export component TestCase inherits Window {
-    base-animation := Alias { value: 0; }
+    inherited := AnimatedAlias { value: 0; }
+    overridden := AnimatedAlias {
+        value: 0;
+        animate value { duration: 400ms; }
+    }
     instance-animation := Alias {
         value: 0;
         animate value { duration: 400ms; }
     }
-    out property <int> from-base: base-animation.backing-value;
-    out property <int> from-instance: instance-animation.backing-value;
+    out property <int> inherited-value: inherited.backing-value;
+    out property <int> overridden-value: overridden.backing-value;
+    out property <int> observed: instance-animation.backing-value;
     public function write-values() {
-        base-animation.value = 100;
+        inherited.value = 100;
+        overridden.value = 100;
         instance-animation.value = 100;
     }
 }
@@ -25,9 +34,14 @@ export component TestCase inherits Window {
 ```rust
 let instance = TestCase::new().unwrap();
 instance.invoke_write_values();
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_inherited_value(), 50);
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_inherited_value(), 100);
+assert_eq!(instance.get_overridden_value(), 50);
+assert_eq!(instance.get_observed(), 50);
 slint_testing::mock_elapsed_time(200);
-assert_eq!((instance.get_from_base(), instance.get_from_instance()), (50, 50));
-slint_testing::mock_elapsed_time(200);
-assert_eq!((instance.get_from_base(), instance.get_from_instance()), (100, 100));
+assert_eq!(instance.get_overridden_value(), 100);
+assert_eq!(instance.get_observed(), 100);
 ```
 */

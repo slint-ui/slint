@@ -9,9 +9,11 @@
 //! See [`remove_aliases`] for the steps.
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::element_type::ElementType;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference, TwoWayBinding};
 use crate::langtype::Type;
 use crate::object_tree::*;
+use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -107,6 +109,8 @@ impl PropertySets {
 /// The links that [`collect_links`] finds in the two-way bindings of a document.
 #[derive(Default)]
 struct Links {
+    /// The properties of base component roots that an instance animates.
+    animated_by_instance: HashSet<NamedReference>,
     property_sets: PropertySets,
     /// For each callback, the callbacks that are bound two ways to it.
     callback_aliases: HashMap<NamedReference, Vec<NamedReference>>,
@@ -120,12 +124,13 @@ struct Links {
 /// 5. [`remove_alias`] moves the binding and `changed` handlers of each property to remove
 ///    onto its master, and removes its declaration.
 ///
-/// A link that [`PropertySets::can_merge`] rejects, and a property that [`choose_masters`] doesn't map,
-/// stay two-way bindings.
+/// These stay two-way bindings: a link that [`PropertySets::can_merge`] rejects,
+/// a property that [`choose_masters`] doesn't map, and a link on an instance property
+/// that [`declaration_aliases_global`] finds.
 pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
-    let Links { property_sets, callback_aliases } = collect_links(doc, diag);
+    let Links { property_sets, callback_aliases, animated_by_instance } = collect_links(doc, diag);
     check_callback_aliases(&property_sets, &callback_aliases, diag);
-    let aliases_to_remove = choose_masters(property_sets, diag);
+    let aliases_to_remove = choose_masters(property_sets, &animated_by_instance, diag);
 
     doc.visit_all_used_components(|component| {
         visit_all_named_references(component, &mut |nr: &mut NamedReference| {
@@ -153,6 +158,9 @@ fn collect_links(doc: &Document, diag: &mut BuildDiagnostics) -> Links {
 
     let mut process_element = |e: &ElementRc| {
         'bindings: for (name, binding) in e.borrow().real_bindings() {
+            if binding.borrow().animation.is_some() {
+                mark_base_declarations(&mut links.animated_by_instance, e, name);
+            }
             for twb in &binding.borrow().two_way_bindings {
                 if let TwoWayBinding::Property { property, field_access } = twb {
                     if !field_access.is_empty() {
@@ -173,6 +181,8 @@ fn collect_links(doc: &Document, diag: &mut BuildDiagnostics) -> Links {
                         if !bucket.contains(&source) {
                             bucket.push(source.clone());
                         }
+                    } else if declaration_aliases_global(&e.borrow(), name) {
+                        continue;
                     }
                     links.property_sets.add_link(source, property.clone());
                 }
@@ -185,6 +195,50 @@ fn collect_links(doc: &Document, diag: &mut BuildDiagnostics) -> Links {
     });
 
     links
+}
+
+/// Adds the property `name` of each base component root of the instance `e`, up to the one declaring it.
+fn mark_base_declarations(set: &mut HashSet<NamedReference>, e: &ElementRc, name: &SmolStr) {
+    let mut base = e.borrow().base_type.clone();
+    while let ElementType::Component(c) | ElementType::Interface(Some(c)) = base {
+        set.insert(NamedReference::new(&c.root_element, name.clone()));
+        let root = c.root_element.borrow();
+        if root.property_declarations.contains_key(name)
+            || root.shadowing_members.contains_key(name)
+        {
+            break;
+        }
+        base = root.base_type.clone();
+    }
+}
+
+/// Whether the property `name` of an instance is declared in a base component that links it to a global.
+fn declaration_aliases_global(e: &Element, name: &SmolStr) -> bool {
+    let Some(base) = e.declaring_base_component(name) else { return false };
+    let mut pending = vec![(base.root_element.clone(), name.clone())];
+    let mut visited = HashSet::new();
+    while let Some((element, name)) = pending.pop() {
+        if !visited.insert((Rc::as_ptr(&element), name.clone())) {
+            continue;
+        }
+        let element = element.borrow();
+        if let Some(binding) = element.binding(&name) {
+            for twb in &binding.two_way_bindings {
+                if let TwoWayBinding::Property { property, field_access } = twb
+                    && field_access.is_empty()
+                {
+                    if is_in_global(property) {
+                        return true;
+                    }
+                    pending.push((property.element(), property.name().clone()));
+                }
+            }
+        }
+        if let Some(base) = element.declaring_base_component(&name) {
+            pending.push((base.root_element.clone(), name));
+        }
+    }
+    false
 }
 
 /// Warns about callbacks bound two ways to the same callback when none of their set has a handler:
@@ -233,16 +287,20 @@ fn check_callback_aliases(
     }
 }
 
-/// Picks the master of each set with [`best_property`], and maps the other properties of the set to it.
+/// Picks the master of each set with [`canonical_order`], and maps the other properties of the set to it.
 /// Only the references to the master are kept, and only the master keeps its binding.
-fn choose_masters(property_sets: PropertySets, diag: &mut BuildDiagnostics) -> Mapping {
+fn choose_masters(
+    property_sets: PropertySets,
+    animated_by_instance: &HashSet<NamedReference>,
+    diag: &mut BuildDiagnostics,
+) -> Mapping {
     let mut aliases_to_remove = Mapping::new();
 
     for set_rc in property_sets.all_sets {
         let set = set_rc.borrow();
         check_global_callback_implementations(&set, diag);
 
-        let Some(best) = set.iter().cloned().reduce(best_property) else { continue };
+        let Some(best) = set.iter().min_by_key(|x| canonical_order(x)).cloned() else { continue };
         let best_is_global = is_in_global(&best);
         for x in set.iter() {
             if *x != best {
@@ -252,7 +310,8 @@ fn choose_masters(property_sets: PropertySets, diag: &mut BuildDiagnostics) -> M
                 let elem = x.element();
                 let elem = elem.borrow();
                 let carries_local_state = elem.change_callbacks.contains_key(x.name())
-                    || elem.binding(x.name()).is_some_and(|binding| binding.animation.is_some());
+                    || elem.binding(x.name()).is_some_and(|binding| binding.animation.is_some())
+                    || animated_by_instance.contains(x);
                 if best_is_global && !is_in_global(x) && carries_local_state {
                     continue;
                 }
@@ -499,17 +558,13 @@ fn is_in_global(x: &NamedReference) -> bool {
     x.element().borrow().enclosing_component.upgrade().unwrap().is_global()
 }
 
-/// Out of two named reference, return the one which is the best to keep.
-fn best_property(p1: NamedReference, p2: NamedReference) -> NamedReference {
-    // Try to find which is the more canonical property
-    let canonical_order = |x: &NamedReference| {
-        let element = x.element();
-        let element = element.borrow();
-        let is_declaration = element.property_declarations.contains_key(x.name());
-        (!is_in_global(x), is_declaration, element.id.clone(), x.name().clone())
-    };
-
-    if canonical_order(&p1) < canonical_order(&p2) { p1 } else { p2 }
+/// The sort key of a property among the properties of its set: the lowest is the best to keep.
+fn canonical_order(x: &NamedReference) -> (bool, bool, bool, SmolStr, SmolStr) {
+    let element = x.element();
+    let element = element.borrow();
+    let is_declaration = element.property_declarations.contains_key(x.name());
+    let is_global_alias = declaration_aliases_global(&element, x.name());
+    (!is_in_global(x), !is_global_alias, is_declaration, element.id.clone(), x.name().clone())
 }
 
 /// Remove the `to` from the two_way_bindings

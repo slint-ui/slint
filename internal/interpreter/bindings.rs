@@ -479,9 +479,8 @@ fn install_two_way_binding(
     twb: &i_slint_compiler::llr::TwoWayBinding,
     sub: &Pin<Rc<SubComponentInstance>>,
 ) {
-    let a: MemberReference = twb.prop1.clone().into();
     let field_path: &[SmolStr] = &twb.field_access;
-    let Some(pa) = prepare_two_way(&a, sub) else { return };
+    let Some(pa) = prepare_two_way(&twb.prop1, sub) else { return };
 
     if let Some(index_prop) = twb.is_model {
         // `prop2` names the `model_data` property of the enclosing `for`'s

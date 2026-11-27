@@ -718,9 +718,14 @@ fn lower_sub_component(
         for tw in &binding.two_way_bindings {
             sub_component.two_way_bindings.push(match tw {
                 crate::expression_tree::TwoWayBinding::Property { property, field_access } => {
+                    let prop1 = prop.clone();
+                    let prop2 = ctx.map_property_reference(property);
+                    if prop1 == prop2 && field_access.is_empty() {
+                        continue;
+                    }
                     TwoWayBinding {
-                        prop1: prop.local(),
-                        prop2: ctx.map_property_reference(property),
+                        prop1,
+                        prop2,
                         field_access: field_access.clone(),
                         is_model: None,
                     }
@@ -729,7 +734,7 @@ fn lower_sub_component(
                     repeated_element,
                     field_access,
                 } => TwoWayBinding {
-                    prop1: prop.local(),
+                    prop1: prop.clone(),
                     prop2: super::lower_expression::repeater_special_property(
                         repeated_element,
                         component,
@@ -782,15 +787,10 @@ fn lower_sub_component(
             .get(p)
             .is_none_or(|a| a.is_set || a.is_set_externally)
             && let Some(anim) = binding.animation.as_ref()
+            && let Animation::Static(anim) =
+                super::lower_expression::lower_animation(anim, &mut ctx)
         {
-            match super::lower_expression::lower_animation(anim, &mut ctx) {
-                Animation::Static(anim) => {
-                    sub_component.animations.insert(prop.local(), anim);
-                }
-                Animation::Transition(_) => {
-                    // Cannot set a property with a transition anyway
-                }
-            }
+            sub_component.animations.insert(prop.local(), anim);
         }
     });
 
