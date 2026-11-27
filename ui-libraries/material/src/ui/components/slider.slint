@@ -6,7 +6,7 @@ import { MaterialPalette } from "../styling/material_palette.slint";
 import { StateLayer } from "./state_layer.slint";
 
 export component Slider {
-    in property <bool> enabled;
+    in property <bool> enabled: true;
     in_out property <float> value;
     in property <float> minimum;
     in property <int> stop_count: 0;
@@ -34,7 +34,11 @@ export component Slider {
     forward-focus: focus_scope;
 
     focus_scope := FocusScope {
+        enabled: root.enabled;
+
         touch_area := TouchArea {
+            enabled: root.enabled;
+
             track := Rectangle {
                 x: 0;
                 height: MaterialStyleMetrics.size_16;
@@ -57,7 +61,7 @@ export component Slider {
                         height: MaterialStyleMetrics.size_4;
                         width: self.height;
                         border_radius: self.height / 2;
-                        background: MaterialPalette.outline;
+                        background: root.enabled ? MaterialPalette.outline : MaterialPalette.on_surface.with_alpha(MaterialPalette.disable_opacity);
                     }
                 }
             }
@@ -78,6 +82,7 @@ export component Slider {
                     display_background: thumb_area.pressed || thumb_area.has_hover || focus_scope.has_focus;
 
                     thumb_area := TouchArea {
+                        enabled: root.enabled;
                         height: track.height + (MaterialStyleMetrics.size_14 * 2);
                         width: self.height;
                         thumb := Rectangle {
@@ -110,6 +115,10 @@ export component Slider {
         }
 
         key_pressed(event) => {
+            if !root.enabled {
+                return reject;
+            }
+
             if event.text == Key.LeftArrow {
                 root.decrement_value();
                 return accept;
@@ -121,6 +130,13 @@ export component Slider {
             reject
         }
     }
+
+    states [
+        disabled when !root.enabled : {
+            track.background: MaterialPalette.on_surface.with_alpha(MaterialPalette.state_layer_opacity_disabled);
+            thumb.background: MaterialPalette.on_surface.with_alpha(MaterialPalette.disable_opacity);
+        }
+    ]
 
     changed value => {
         root.value_changed(root.value);
@@ -135,6 +151,9 @@ export component Slider {
     }
 
     function set_value(value: float) {
+        if !root.enabled {
+            return;
+        }
         if root.steps > 1 {
             root.value = clamp(round(value / root.steps) * root.steps, root.minimum, root.maximum)
         } else {
