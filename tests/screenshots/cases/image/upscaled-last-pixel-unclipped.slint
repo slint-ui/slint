@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=132x132
+
+// Same 5→330 upscale as upscaled-last-pixel.slint, unclipped (x/y = 0).
+
+export component TestCase inherits Window {
+    width: 132phx;
+    height: 132phx;
+    background: black;
+
+    Image {
+        source: @image-url("upscaled-last-pixel-5x5.png");
+        x: 0phx;
+        y: 0phx;
+        width: 330phx;
+        height: 330phx;
+        image-fit: ImageFit.fill;
+        image-rendering: ImageRendering.pixelated;
+    }
+}
