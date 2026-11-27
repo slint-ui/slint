@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Only the include paths of the project file find this import.
+import { Badge } from "badge.slint";
+
+export component ProjectApp inherits Window {
+    out property <string> badge-text: badge.text;
+    // From edition 1.19, repeated children constrain their parent (#407).
+    out property <length> repeated-min-width: row.min-width;
+    badge := Badge { }
+    row := Rectangle {
+        for i in 1: Rectangle {
+            min-width: 10px;
+        }
+    }
+}

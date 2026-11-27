@@ -12,6 +12,7 @@
 members = [
   'doctests',
   'driver/cpp',
+  'driver/dotnet',
   'driver/driverlib',
   'driver/interpreter',
   'driver/nodejs',

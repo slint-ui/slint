@@ -43,6 +43,7 @@ Aurindam
 autorelease
 autoremove
 AUTOSAR
+Avalonia
 ayoxxx
 Backtab
 BAPI
@@ -67,6 +68,7 @@ bootsel
 boxlayout
 BRDA
 briefcasex
+Browsable
 brushprop
 brushval
 bugtracker
@@ -233,6 +235,8 @@ figsize
 fileaccess
 filledbutton
 filterchip
+finalizer
+finalizers
 Fira
 FLASHMODE
 FLASHSIZE
@@ -272,6 +276,7 @@ getrandom
 globalfun
 globallogic
 Globus
+GLSL
 gltf
 glutin
 glyphclusters
@@ -321,6 +326,7 @@ inputchip
 intprop
 intval
 iocp
+iossimulator
 iphoneos
 iphonesimulator
 IRAM
@@ -404,6 +410,7 @@ llms
 llvmpipe
 Lmaterial
 LOADADDR
+logcat
 LOWORD
 lpfn
 lpsz
@@ -424,6 +431,7 @@ mcus
 MCUX
 mcxn
 mdbook
+Memberwise
 memsize
 menuconfig
 menuitemrole
@@ -452,11 +460,13 @@ myimage
 mylibrary
 mymodule
 mypy
+nameof
 navigationbar
 navigationdrawer
 navigationrail
 navitem
 ncpu
+netstandard
 newlink
 nexp
 nixos
@@ -467,6 +477,7 @@ nodelay
 noexcept
 noglib
 NOLOAD
+nologo
 noncanonical
 noninteractive
 noopener
@@ -628,9 +639,11 @@ skrifa
 slintcov
 slnt
 slintlib
+slnx
 Smartwin
 smol
 Snackbars
+snupkg
 Softbuffer
 Sorkin
 sourcestruct
@@ -759,6 +772,8 @@ verticallayout
 VGWGPU
 viewports
 virt
+virtio
+vkms
 vlayout
 vref
 vscodeversion
@@ -796,6 +811,7 @@ xbuild
 xcarchive
 xcassets
 xcent
+xcframework
 xchg
 xcrun
 xfer
