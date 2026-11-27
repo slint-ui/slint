@@ -119,3 +119,28 @@ test("Headless Wasm renders text, an SVG, and a raster image in plain Node", asy
         invalid.free();
     }
 });
+
+test("Headless Wasm reports a resource that fails while an earlier one loads", async () => {
+    const png = await readFile(
+        new URL("examples/iot-dashboard/images/up.png", repository),
+    );
+    const compilation = await interpreter.compile_from_string_with_style(
+        'export component Preview inherits Window {\n    Image { source: @image-url("a.png"); }\n    Image { source: @image-url("b.png"); }\n}',
+        new URL("preview.slint", repository).href,
+        "",
+        async () => null,
+        (url) =>
+            url.endsWith("a.png")
+                ? new Promise((resolve) => setTimeout(resolve, 50, png))
+                : Promise.reject(new Error("File not found")),
+        undefined,
+        undefined,
+    );
+    assert.equal(compilation.component, undefined);
+    assert.equal(compilation.diagnostics.length, 1);
+    assert.match(
+        compilation.diagnostics[0].message,
+        /Cannot load image .*b\.png: File not found/,
+    );
+    compilation.free();
+});

@@ -232,18 +232,20 @@ async fn compile(
         let load_resource = js_sys::Function::from(JsValue::from(load_resource));
         compiler.set_resource_loader(
             move |path| {
+                let error = |e: JsValue| {
+                    std::io::Error::other(
+                        e.dyn_ref::<js_sys::Error>()
+                            .map_or_else(|| format!("{e:?}"), |e| e.message().into()),
+                    )
+                };
                 // Called right away, so that the page's loads overlap.
-                let result = load_resource.call1(&JsValue::UNDEFINED, &path.to_string().into());
+                // The `JsFuture` handles a rejection before an earlier load is awaited,
+                // since Node exits on a rejection that has no handler.
+                let load = load_resource.call1(&JsValue::UNDEFINED, &path.to_string().into()).map(
+                    |promise| wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(promise)),
+                );
                 Box::pin(async move {
-                    let error = |e: JsValue| {
-                        std::io::Error::other(
-                            e.dyn_ref::<js_sys::Error>()
-                                .map_or_else(|| format!("{e:?}"), |e| e.message().into()),
-                        )
-                    };
-                    let promise: js_sys::Promise = result.map_err(error)?.into();
-                    let data =
-                        wasm_bindgen_futures::JsFuture::from(promise).await.map_err(error)?;
+                    let data = load.map_err(error)?.await.map_err(error)?;
                     Ok(js_sys::Uint8Array::new(&data).to_vec())
                 })
             },
