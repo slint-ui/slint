@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 150px;
+    out property <bool> tooltip-shown;
+    out property <bool> anchor-removed;
+    out property <bool> replacement-clicked;
+
+    public function open-popup() { popup.show(); }
+
+    popup := PopupWindow {
+        x: 0px;
+        y: 0px;
+        width: 150px;
+        height: 100px;
+        close-policy: no-auto-close;
+
+        if !root.anchor-removed: TouchArea {
+            clicked => { root.anchor-removed = true; }
+            Tooltip {
+                Rectangle {
+                    width: 40px;
+                    height: 20px;
+                    init => { root.tooltip-shown = true; }
+                }
+            }
+        }
+        if root.anchor-removed: TouchArea {
+            clicked => { root.replacement-clicked = true; }
+        }
+    }
+}
+
+/*
+```rust
+use slint::{LogicalPosition, platform::WindowEvent};
+
+let instance = TestCase::new().unwrap();
+instance.invoke_open_popup();
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(25., 25.),
+});
+slint_testing::mock_elapsed_time(600);
+assert!(instance.get_tooltip_shown());
+
+slint_testing::send_mouse_click(&instance, 25., 25.);
+assert!(instance.get_anchor_removed());
+slint_testing::send_mouse_click(&instance, 25., 25.);
+assert!(instance.get_replacement_clicked());
+```
+*/

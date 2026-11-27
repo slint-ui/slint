@@ -868,8 +868,23 @@ impl WindowInner {
             if let Some(component) = self.try_component() {
                 changed |= crate::item_tree::ensure_item_tree_instantiated(&component);
             }
-            for popup in self.active_popups.borrow().iter() {
-                changed |= crate::item_tree::ensure_item_tree_instantiated(&popup.component);
+            let generation = self.pinned_fields.as_ref().project_ref().popups_generation;
+            let initial_generation = generation.get_untracked();
+            let popup_count = self.active_popups.borrow().len();
+            for index in 0..popup_count {
+                {
+                    // Updating or dropping the tree can close popups, which also borrows the list
+                    // of active_popups.
+                    // Release the list borrow by cloning the popups VRc before calling
+                    // ensure_item_tree_instantiated.
+                    let component = self.active_popups.borrow()[index].component.clone();
+                    changed |= crate::item_tree::ensure_item_tree_instantiated(&component);
+                }
+                if generation.get_untracked() != initial_generation {
+                    // Indices can shift. Retry on the next pass so repeated mutations stay bounded.
+                    changed = true;
+                    break;
+                }
             }
             for overlay in self.overlays.borrow().iter() {
                 changed |= crate::item_tree::ensure_item_tree_instantiated(overlay);
