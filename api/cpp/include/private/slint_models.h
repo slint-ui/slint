@@ -1466,6 +1466,16 @@ public:
         return x.ptr ? &(**x.ptr) : nullptr;
     }
 
+    std::optional<ComponentHandle<C>> instance_handle_at(std::size_t i) const
+    {
+        if (!inner)
+            return {};
+        const auto offset = inner->first_row();
+        if (i < offset || i - offset >= inner->data.size())
+            return {};
+        return inner->data[i - offset].ptr;
+    }
+
     bool recurse_ensure_instantiated() const
     {
         if (!inner)

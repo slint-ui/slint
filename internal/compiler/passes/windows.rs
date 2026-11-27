@@ -55,6 +55,7 @@ pub fn ensure_window(
         implement_statements: Default::default(),
         named_references: Default::default(),
         repeated: Default::default(),
+        collection_source: None,
         states: Default::default(),
         transitions: Default::default(),
         match_elements: Default::default(),

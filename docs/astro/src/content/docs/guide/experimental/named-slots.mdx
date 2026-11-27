@@ -401,7 +401,11 @@ component Pages {
 ```
 
 Views read the actual component's properties, so changes to a title update its view.
-Supply each entry directly when generating views.
+Views support static collection children or a single supplied `for` loop.
+For repeated children, each view references the supplied component instance at its row, including after model edits.
+Views hold weak references to their supplied instances; removing an entry doesn't retarget an existing view to another entry.
+Once the instance is destroyed, writes and calls have no effect.
+Property reads and calls with return values return the type's default value.
 
 ## Current limitations
 

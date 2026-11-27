@@ -259,6 +259,14 @@ pub enum MemberReference {
     /// The property or callback is withing a global
     Global { global_index: GlobalIdx, member: LocalMemberIndex },
 
+    /// A member of the source instance referenced by a repeated collection view.
+    Repeated {
+        parent_level: usize,
+        sub_component_path: Vec<SubComponentInstanceIdx>,
+        sub_component: SubComponentIdx,
+        local_reference: LocalMemberReference,
+    },
+
     /// The reference is relative to the current SubComponent
     Relative {
         /// Go up so many level to reach the parent
@@ -283,6 +291,13 @@ impl MemberReference {
             self,
             MemberReference::Global { member: LocalMemberIndex::Function(..), .. }
                 | MemberReference::Relative {
+                    local_reference: LocalMemberReference {
+                        reference: LocalMemberIndex::Function(..),
+                        ..
+                    },
+                    ..
+                }
+                | MemberReference::Repeated {
                     local_reference: LocalMemberReference {
                         reference: LocalMemberIndex::Function(..),
                         ..
@@ -579,8 +594,17 @@ impl TreeNode {
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct CollectionSource {
+    pub parent_level: usize,
+    pub repeater_index: RepeatedElementIdx,
+    pub sub_component: SubComponentIdx,
+}
+
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SubComponent {
     pub name: SmolStr,
+    pub collection_source: Option<CollectionSource>,
     pub properties: TiVec<PropertyIdx, Property>,
     pub callbacks: TiVec<CallbackIdx, Callback>,
     pub functions: TiVec<FunctionIdx, Function>,
@@ -756,7 +780,15 @@ impl SubComponent {
     }
 
     pub fn needs_user_init(&self, cu: &CompilationUnit) -> bool {
-        self.any_in_tree(cu, &|sc| !sc.init_code.is_empty() || !sc.timers.is_empty())
+        self.any_in_tree(cu, &|sc| {
+            !sc.init_code.is_empty()
+                || !sc.timers.is_empty()
+                || sc.collection_source.is_some()
+                || sc
+                    .two_way_bindings
+                    .iter()
+                    .any(|binding| matches!(binding.prop2, MemberReference::Repeated { .. }))
+        })
     }
 
     pub fn needs_change_trackers_init(&self, cu: &CompilationUnit) -> bool {
