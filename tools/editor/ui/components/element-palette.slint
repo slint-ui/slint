@@ -122,6 +122,7 @@ component ElementPaletteGroup inherits VerticalLayout {
             height: Metrics.control-large;
             horizontal-stretch: 0;
             enabled: root.enabled;
+            drag-enabled: root.group.section != ElementLibrarySection.project;
             kind: entry.kind;
             label: entry.label;
             source-uri: entry.source-uri;
