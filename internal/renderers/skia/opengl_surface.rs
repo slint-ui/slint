@@ -145,11 +145,23 @@ impl super::Surface for OpenGLSurface {
             pre_present_callback();
         }
 
-        self.glutin_surface.swap_buffers(current_context).map(|_| DrawOutcome::Success).map_err(
-            |glutin_error| {
-                format!("Skia OpenGL Renderer: Error swapping buffers: {glutin_error}").into()
-            },
-        )
+        let swapped = self.glutin_surface.swap_buffers(current_context);
+
+        // Android can take the window of a stopped activity away without telling the app.
+        // That is a skipped frame, and the next window draws again.
+        #[cfg(target_os = "android")]
+        if let Err(glutin_error) = &swapped
+            && matches!(
+                glutin_error.error_kind(),
+                glutin::error::ErrorKind::BadSurface | glutin::error::ErrorKind::BadNativeWindow
+            )
+        {
+            return Ok(DrawOutcome::Skipped);
+        }
+
+        swapped.map(|_| DrawOutcome::Success).map_err(|glutin_error| {
+            format!("Skia OpenGL Renderer: Error swapping buffers: {glutin_error}").into()
+        })
     }
 
     fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
