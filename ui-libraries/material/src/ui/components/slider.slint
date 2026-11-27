@@ -61,7 +61,7 @@ export component Slider {
                         height: MaterialStyleMetrics.size_4;
                         width: self.height;
                         border_radius: self.height / 2;
-                        background: MaterialPalette.outline;
+                        background: root.enabled ? MaterialPalette.outline : MaterialPalette.on_surface.with_alpha(MaterialPalette.disable_opacity);
                     }
                 }
             }
