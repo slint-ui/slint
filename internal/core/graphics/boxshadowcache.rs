@@ -122,6 +122,7 @@ impl<ImageType: Clone> BoxShadowCache<ImageType> {
             let oldest =
                 entries.iter().enumerate().min_by_key(|(_, (_, e))| e.last_used).unwrap().0;
             if oldest < first_texture {
+                // Swapping the last texture into the failure prefix would break exact-failure lookup.
                 entries.remove(oldest);
             } else {
                 entries.swap_remove(oldest);
@@ -154,7 +155,7 @@ fn has_opaque_shadow_mask(brush: &crate::Brush) -> bool {
     match brush {
         crate::Brush::SolidColor(color) => color.alpha() == 255,
         crate::Brush::LinearGradient(gradient) => {
-            // Resolving out-of-range stops can change their alpha before rendering.
+            // A stop at negative infinity can resolve to transparent even when both colors are opaque.
             let mut stops = gradient.stops().peekable();
             gradient.angle().is_finite()
                 && stops.peek().is_some()
