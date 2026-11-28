@@ -164,6 +164,20 @@ fn color_target(wgpu: &Wgpu, mip_level_count: u32) -> wgpu::Texture {
     })
 }
 
+fn write_center_texel(wgpu: &Wgpu, texture: &wgpu::Texture, texel: [u8; 4]) {
+    wgpu.queue.write_texture(
+        wgpu::TexelCopyTextureInfo {
+            texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d { x: SIZE / 2, y: SIZE / 2, z: 0 },
+            aspect: wgpu::TextureAspect::All,
+        },
+        &texel,
+        wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: None, rows_per_image: None },
+        wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+    );
+}
+
 /// Reads the center texel back through WGPU, as an application using the texture would.
 fn center_texel(wgpu: &Wgpu, texture: &wgpu::Texture) -> [u8; 4] {
     let buffer = wgpu.device.create_buffer(&wgpu::BufferDescriptor {
@@ -251,17 +265,15 @@ fn rendering() {
             | wgpu::TextureUsages::COPY_DST,
         view_formats: &[],
     });
-    wgpu.queue.write_texture(
-        wgpu::TexelCopyTextureInfo {
-            texture: &texture,
-            mip_level: 0,
-            origin: wgpu::Origin3d { x: SIZE / 2, y: SIZE / 2, z: 0 },
-            aspect: wgpu::TextureAspect::All,
-        },
-        &[0, 255, 0, 255],
-        wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: None, rows_per_image: None },
-        wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
-    );
+    write_center_texel(&wgpu, &texture, [0, 255, 0, 255]);
     assert!(renderer.render_to_texture(&texture).is_err());
+    assert_eq!(center_texel(&wgpu, &texture), [0, 255, 0, 255]);
+
+    // So is a call from a renderer that no window uses yet.
+    let Wgpu { instance, adapter, device, queue } = wgpu.clone();
+    let unused = SkiaWGPURenderer::new(instance, adapter, device, queue).unwrap();
+    let texture = color_target(&wgpu, 1);
+    write_center_texel(&wgpu, &texture, [0, 255, 0, 255]);
+    assert!(unused.render_to_texture(&texture).is_err());
     assert_eq!(center_texel(&wgpu, &texture), [0, 255, 0, 255]);
 }

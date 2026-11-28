@@ -127,11 +127,10 @@ impl SkiaWGPU29Renderer {
             surface.backend.make_surface(gr_context, texture).ok_or_else(|| {
                 PlatformError::from("Failed to wrap WGPU texture as Skia render target")
             })?;
-        surface.clear_color_target(texture);
-        surface.transition_to_color_target(texture);
-
         let window_adapter = self.renderer.window_adapter()?;
         let window = window_adapter.window();
+        surface.clear_color_target(texture);
+        surface.transition_to_color_target(texture);
 
         self.renderer.render_to_canvas(
             skia_surface.canvas(),
@@ -188,6 +187,7 @@ impl SkiaWGPU30Renderer {
     /// and `Bgra8Unorm` on Metal and Vulkan too.
     pub fn render_to_texture(&self, texture: &wgpu_30::Texture) -> Result<(), PlatformError> {
         let target = self.render_target(texture)?;
+        self.renderer.window_adapter()?;
         self.surface().clear_color_target(texture);
         self.render_to_target_transformed(&target, 0, 0., (0., 0.))
     }
