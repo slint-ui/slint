@@ -1,24 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! `take_snapshot()` of a window that Skia renders with WGPU,
-//! and `render_to_texture()` into a WGPU texture.
-//!
-//! The tests pass without rendering on a machine without a WGPU adapter that Skia can use.
+// The body of the `wgpu_29_snapshot` and `wgpu_30_snapshot` tests.
+// Each includes it after defining `wgpu`, `slint_wgpu`, `SkiaWGPURenderer` and `mapped_bytes`
+// for its wgpu version.
 
-#![cfg(feature = "unstable-wgpu-30")]
-
-use std::cell::RefCell;
 use std::io::Write;
 use std::rc::Rc;
 
 use i_slint_core::api::PhysicalSize;
 use i_slint_core::platform::{Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
-use i_slint_core::window::WindowAdapter;
-use i_slint_renderer_skia::SkiaWGPU30Renderer;
+use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use slint::{ComponentHandle, Image};
-use wgpu_30 as wgpu;
 
 slint::slint! {
     #[edition = "1.20"]
@@ -68,27 +62,22 @@ struct Wgpu {
     queue: wgpu::Queue,
 }
 
-struct OffscreenPlatform {
-    wgpu: Wgpu,
-    last_window: Rc<RefCell<Option<Rc<OffscreenWindow>>>>,
-}
+struct OffscreenPlatform(Wgpu);
 
 impl Platform for OffscreenPlatform {
     fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        let Wgpu { instance, adapter, device, queue } = self.wgpu.clone();
-        let renderer = SkiaWGPU30Renderer::new(instance, adapter, device, queue)?;
-        let window = Rc::new_cyclic(|self_weak| OffscreenWindow {
+        let Wgpu { instance, adapter, device, queue } = self.0.clone();
+        let renderer = SkiaWGPURenderer::new(instance, adapter, device, queue)?;
+        Ok(Rc::new_cyclic(|self_weak| OffscreenWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
             renderer,
-        });
-        *self.last_window.borrow_mut() = Some(window.clone());
-        Ok(window)
+        }))
     }
 }
 
 struct OffscreenWindow {
     window: i_slint_core::api::Window,
-    renderer: SkiaWGPU30Renderer,
+    renderer: SkiaWGPURenderer,
 }
 
 impl WindowAdapter for OffscreenWindow {
@@ -103,16 +92,21 @@ impl WindowAdapter for OffscreenWindow {
     fn renderer(&self) -> &dyn Renderer {
         &self.renderer
     }
+
+    fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
+        Some(self)
+    }
 }
 
+impl WindowAdapterInternal for OffscreenWindow {}
+
 /// Sets up the offscreen platform, or returns `None` when no WGPU adapter for Skia is available.
-/// Also returns where the platform keeps the window it created last.
-fn init_offscreen_platform() -> Option<(Wgpu, Rc<RefCell<Option<Rc<OffscreenWindow>>>>)> {
+fn init_offscreen_platform() -> Option<Wgpu> {
     let mut descriptor = wgpu::InstanceDescriptor::new_without_display_handle_from_env();
-    descriptor.backends = i_slint_core::graphics::wgpu_30::mask_backends(
+    descriptor.backends = slint_wgpu::mask_backends(
         descriptor.backends
             & (wgpu::Backends::VULKAN | wgpu::Backends::METAL | wgpu::Backends::DX12),
-        i_slint_core::graphics::wgpu_30::default_backends_to_avoid(),
+        slint_wgpu::default_backends_to_avoid(),
     );
     let instance = wgpu::Instance::new(descriptor);
     let Some(Ok(adapter)) =
@@ -126,13 +120,9 @@ fn init_offscreen_platform() -> Option<(Wgpu, Rc<RefCell<Option<Rc<OffscreenWind
         return None;
     };
     let wgpu = Wgpu { instance, adapter, device, queue };
-    let last_window = Rc::new(RefCell::new(None));
-    i_slint_core::platform::set_platform(Box::new(OffscreenPlatform {
-        wgpu: wgpu.clone(),
-        last_window: last_window.clone(),
-    }))
-    .expect("platform already initialized");
-    Some((wgpu, last_window))
+    i_slint_core::platform::set_platform(Box::new(OffscreenPlatform(wgpu.clone())))
+        .expect("platform already initialized");
+    Some(wgpu)
 }
 
 fn solid_texture(wgpu: &Wgpu, pixel: [u8; 4]) -> wgpu::Texture {
@@ -204,7 +194,7 @@ fn center_texel(wgpu: &Wgpu, texture: &wgpu::Texture) -> [u8; 4] {
     wgpu.queue.submit(Some(encoder.finish()));
     buffer.slice(..).map_async(wgpu::MapMode::Read, |_| {});
     wgpu.device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
-    let data = buffer.slice(..).get_mapped_range().unwrap();
+    let data = mapped_bytes(&buffer);
     [data[0], data[1], data[2], data[3]]
 }
 
@@ -214,10 +204,10 @@ fn center_pixel(window: &slint::Window) -> [u8; 4] {
     [pixel.r, pixel.g, pixel.b, pixel.a]
 }
 
-// Both cases share one test, since a process has one platform.
+// All cases share one test, since a process has one platform.
 #[test]
-fn snapshot() {
-    let Some((wgpu, last_window)) = init_offscreen_platform() else {
+fn rendering() {
+    let Some(wgpu) = init_offscreen_platform() else {
         // libtest captures `eprintln!` of a passing test, but not writes to the stream itself.
         writeln!(std::io::stderr(), "skipping: no WGPU adapter that Skia can use").unwrap();
         return;
@@ -236,13 +226,42 @@ fn snapshot() {
     // The texture's first use must already show what Skia rendered.
     let render_case = RenderToTextureCase::new().unwrap();
     render_case.show().unwrap();
-    let window = last_window.borrow().clone().unwrap();
+    let adapter = WindowInner::from_pub(render_case.window()).window_adapter();
+    let internal: &dyn std::any::Any = adapter.internal(i_slint_core::InternalToken).unwrap();
+    let renderer = &internal.downcast_ref::<OffscreenWindow>().unwrap().renderer;
     let texture = color_target(&wgpu, 1);
-    window.renderer.render_to_texture(&texture).unwrap();
+    renderer.render_to_texture(&texture).unwrap();
     assert_eq!(center_texel(&wgpu, &texture), [0, 0, 255, 255]);
 
     // Skia draws into the first mip level of a mipmapped texture.
     let texture = color_target(&wgpu, 2);
-    window.renderer.render_to_texture(&texture).unwrap();
+    renderer.render_to_texture(&texture).unwrap();
     assert_eq!(center_texel(&wgpu, &texture), [0, 0, 255, 255]);
+
+    // A texture Skia can't draw into is rejected before anything touches it.
+    let texture = wgpu.device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("3D texture"),
+        size: wgpu::Extent3d { width: SIZE, height: SIZE, depth_or_array_layers: 2 },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D3,
+        format: wgpu::TextureFormat::Rgba8Unorm,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+            | wgpu::TextureUsages::COPY_SRC
+            | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    });
+    wgpu.queue.write_texture(
+        wgpu::TexelCopyTextureInfo {
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d { x: SIZE / 2, y: SIZE / 2, z: 0 },
+            aspect: wgpu::TextureAspect::All,
+        },
+        &[0, 255, 0, 255],
+        wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: None, rows_per_image: None },
+        wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+    );
+    assert!(renderer.render_to_texture(&texture).is_err());
+    assert_eq!(center_texel(&wgpu, &texture), [0, 255, 0, 255]);
 }

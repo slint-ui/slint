@@ -215,11 +215,15 @@ impl WGPUSurface {
         self.wgpu.queue.submit(Some(encoder.finish()));
     }
 
-    /// Fails if `texture` lacks a usage that Skia needs to draw into it.
-    pub(crate) fn check_color_target_usage(
-        &self,
-        texture: &wgpu::Texture,
-    ) -> Result<(), PlatformError> {
+    /// Fails if `texture` isn't 2D or lacks a usage that Skia needs to draw into it.
+    pub(crate) fn check_color_target(&self, texture: &wgpu::Texture) -> Result<(), PlatformError> {
+        if texture.dimension() != wgpu::TextureDimension::D2 {
+            return Err(format!(
+                "The texture to render into must be 2D, not {:?}",
+                texture.dimension()
+            )
+            .into());
+        }
         let needed = match self.backend {
             #[cfg(target_vendor = "apple")]
             Backend::Metal => wgpu::TextureUsages::RENDER_ATTACHMENT,

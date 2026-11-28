@@ -111,7 +111,7 @@ impl SkiaWGPU29Renderer {
 
     /// Render the scene to the given texture.
     ///
-    /// The texture must have `RENDER_ATTACHMENT` usage,
+    /// The texture must be 2D and have `RENDER_ATTACHMENT` usage,
     /// and on Vulkan also `COPY_SRC` and `COPY_DST`, which Skia's Vulkan backend requires.
     /// It must also have a supported format, which depends on the GPU backend:
     /// `Rgba8Unorm` and `Rgba8UnormSrgb` are supported on all backends,
@@ -122,13 +122,13 @@ impl SkiaWGPU29Renderer {
 
         let gr_context = &mut surface.gr_context.borrow_mut();
 
-        surface.check_color_target_usage(texture)?;
-        surface.clear_color_target(texture);
-        surface.transition_to_color_target(texture);
+        surface.check_color_target(texture)?;
         let mut skia_surface =
             surface.backend.make_surface(gr_context, texture).ok_or_else(|| {
                 PlatformError::from("Failed to wrap WGPU texture as Skia render target")
             })?;
+        surface.clear_color_target(texture);
+        surface.transition_to_color_target(texture);
 
         let window_adapter = self.renderer.window_adapter()?;
         let window = window_adapter.window();
@@ -181,7 +181,7 @@ impl SkiaWGPU30Renderer {
 
     /// Render the scene to the given texture.
     ///
-    /// The texture must have `RENDER_ATTACHMENT` usage,
+    /// The texture must be 2D and have `RENDER_ATTACHMENT` usage,
     /// and on Vulkan also `COPY_SRC` and `COPY_DST`, which Skia's Vulkan backend requires.
     /// It must also have a supported format, which depends on the GPU backend:
     /// `Rgba8Unorm` and `Rgba8UnormSrgb` are supported on all backends,
@@ -248,7 +248,7 @@ impl SkiaWGPU30RendererExt for SkiaWGPU30Renderer {
         texture: &wgpu_30::Texture,
     ) -> Result<SkiaWGPU30RenderTarget, PlatformError> {
         let surface = self.surface();
-        surface.check_color_target_usage(texture)?;
+        surface.check_color_target(texture)?;
         let gr_context = &mut surface.gr_context.borrow_mut();
         let skia_surface = surface.backend.make_surface(gr_context, texture).ok_or_else(|| {
             PlatformError::from("Failed to wrap WGPU texture as Skia render target")
