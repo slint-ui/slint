@@ -180,11 +180,50 @@ impl WGPUSurface {
         *self.color_target_to_transition.borrow_mut() = Some(texture.clone());
     }
 
-    /// Fails if `texture` lacks a usage that Skia needs to draw into it.
-    pub(crate) fn check_color_target_usage(
-        &self,
-        texture: &wgpu::Texture,
-    ) -> Result<(), PlatformError> {
+    /// Clears `texture` through wgpu, ahead of what Skia draws into it.
+    ///
+    /// Skia renders through the raw backend queue, invisible to wgpu's usage tracking.
+    /// For a texture wgpu never wrote itself, the next read or present through wgpu
+    /// would treat it as uninitialized and clear it, erasing what Skia drew.
+    /// The in-order queue keeps Skia's later-committed work on top of this clear.
+    pub(crate) fn clear_color_target(&self, texture: &wgpu::Texture) {
+        // Skia draws into the first mip level and array layer, and a render pass
+        // attachment can only cover one of each.
+        let view = texture.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(wgpu::TextureViewDimension::D2),
+            mip_level_count: Some(1),
+            array_layer_count: Some(1),
+            ..Default::default()
+        });
+        let mut encoder =
+            self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Slint color target clear"),
+            });
+        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Slint color target clear"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            ..Default::default()
+        });
+        self.wgpu.queue.submit(Some(encoder.finish()));
+    }
+
+    /// Fails if `texture` isn't 2D or lacks a usage that Skia needs to draw into it.
+    pub(crate) fn check_color_target(&self, texture: &wgpu::Texture) -> Result<(), PlatformError> {
+        if texture.dimension() != wgpu::TextureDimension::D2 {
+            return Err(format!(
+                "The texture to render into must be 2D, not {:?}",
+                texture.dimension()
+            )
+            .into());
+        }
         let needed = match self.backend {
             #[cfg(target_vendor = "apple")]
             Backend::Metal => wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -460,32 +499,7 @@ impl crate::Surface for WGPUSurface {
             }
         };
 
-        // Skia renders through the raw backend queue, invisible to wgpu's usage
-        // tracking, so `Queue::present` would treat the frame as never written
-        // and clear it. Clear it through wgpu instead before Skia draws; the
-        // in-order queue keeps Skia's later-committed work on top.
-        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder =
-            self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Slint frame init"),
-            });
-        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Slint frame init"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &view,
-                depth_slice: None,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-            multiview_mask: None,
-        });
-        self.wgpu.queue.submit(Some(encoder.finish()));
+        self.clear_color_target(&frame.texture);
 
         let skia_surface = self.backend.make_swapchain_surface(gr_context, &frame.texture);
 
